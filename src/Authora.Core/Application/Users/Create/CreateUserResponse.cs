@@ -7,5 +7,5 @@ namespace Authora.Core.Application.Users.Create;
 /// <summary>
 ///     Represents the response for creating a User.
 /// </summary>
-/// <param name="Id">Id of the created User.</param>
+/// <param name="Id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the created User.</param>
 public sealed record CreateUserResponse(Guid Id);
