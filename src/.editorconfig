@@ -148,3 +148,7 @@ dotnet_diagnostic.ASP0019.severity = warning
 # Test files can override conventions if necessary
 [*.Tests.cs]
 dotnet_style_require_accessibility_modifiers = for_non_interface_members:suggestion
+
+# EF Core migrations are generated code
+[**/Migrations/*.cs]
+generated_code = true
