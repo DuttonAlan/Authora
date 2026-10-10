@@ -26,7 +26,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.Email)
             .IsRequired()
-            .HasMaxLength(254);
+            .HasMaxLength(User.EmailMaxLength);
+
+        builder.Property(x => x.NormalizedEmail)
+            .IsRequired()
+            .HasMaxLength(User.EmailMaxLength);
 
         builder.Property(x => x.FirstName)
             .IsRequired()
@@ -36,7 +40,34 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(x => x.PasswordHash)
+            .HasMaxLength(256);
+
+        builder.Property(x => x.State)
+            .IsRequired();
+
+        builder.Property(x => x.SecurityStamp)
+            .IsRequired();
+
+        builder.Property(x => x.CreatedAt)
+            .IsRequired();
+
         builder.HasIndex(x => x.NormalizedEmail)
             .IsUnique();
+
+        builder.HasMany(x => x.Roles)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "UserRole",
+                right => right.HasOne<Role>().WithMany().HasForeignKey("RoleId").OnDelete(DeleteBehavior.Cascade),
+                left => left.HasOne<User>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade),
+                join =>
+                {
+                    join.ToTable("user_roles", "identity");
+                    join.HasKey("UserId", "RoleId");
+                });
+
+        builder.Navigation(x => x.Roles)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

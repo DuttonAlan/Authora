@@ -19,6 +19,8 @@ public sealed class Client
 
     private readonly List<RedirectUri> _redirectUris = [];
 
+    private readonly List<Scope> _allowedScopes = [];
+
     /// <summary>
     ///     Id of the Client. Also used as the public OAuth <c>client_id</c>.
     /// </summary>
@@ -63,6 +65,11 @@ public sealed class Client
     ///     Registered Redirect URIs. The <c>redirect_uri</c> of an authorization request must exactly match one of them.
     /// </summary>
     public IReadOnlyCollection<RedirectUri> RedirectUris => _redirectUris;
+
+    /// <summary>
+    ///     Scopes the Client is allowed to request. Requested Scopes that are not in this list are rejected.
+    /// </summary>
+    public IReadOnlyCollection<Scope> AllowedScopes => _allowedScopes;
 
     /// <summary>
     ///     Status of the Client. A disabled Client cannot obtain new tokens.
@@ -157,6 +164,42 @@ public sealed class Client
     public void RevokeSecret(Guid secretId, DateTime now)
     {
         _secrets.FirstOrDefault(x => x.Id == secretId)?.Revoke(now);
+    }
+
+    /// <summary>
+    ///     Allows the Client to request a Scope. Does nothing if the Scope is already allowed.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="AllowedScopes"/> must be loaded, otherwise the duplicate check cannot work.
+    /// </remarks>
+    /// <param name="scope">The Scope to allow.</param>
+    public void AllowScope(Scope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        if (!_allowedScopes.Any(x => x.Id == scope.Id))
+        {
+            _allowedScopes.Add(scope);
+        }
+    }
+
+    /// <summary>
+    ///     Disallows the Client to request a Scope. Does nothing if the Scope is not allowed.
+    /// </summary>
+    /// <param name="scopeId">The Id of the Scope to disallow.</param>
+    public void DisallowScope(Guid scopeId)
+    {
+        _allowedScopes.RemoveAll(x => x.Id == scopeId);
+    }
+
+    /// <summary>
+    ///     Checks whether the Client is allowed to request a Scope.
+    /// </summary>
+    /// <param name="scopeName">The Name of the Scope from the <c>scope</c> parameter.</param>
+    /// <returns><see langword="true"/> if the Scope is allowed, otherwise <see langword="false"/>.</returns>
+    public bool IsScopeAllowed(string scopeName)
+    {
+        return _allowedScopes.Any(x => string.Equals(x.Name, scopeName, StringComparison.Ordinal));
     }
 }
 

@@ -35,7 +35,7 @@ public sealed class UpdateUserService(IUserRepository userRepository)
 
         if (request.Email is not null)
         {
-            user.Email = request.Email.Trim();
+            user.SetEmail(request.Email);
             updated = true;
         }
 
