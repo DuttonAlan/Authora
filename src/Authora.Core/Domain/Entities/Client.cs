@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.Enums;
 using Authora.Core.Domain.ValueObjects;
 
 namespace Authora.Core.Domain.Entities;
@@ -201,61 +202,4 @@ public sealed class Client
     {
         return _allowedScopes.Any(x => string.Equals(x.Name, scopeName, StringComparison.Ordinal));
     }
-}
-
-/// <summary>
-///     Defines the Client Types according to OAuth 2.1.
-/// </summary>
-public enum ClientType
-{
-    /// <summary>
-    ///     The Client cannot keep a Secret confidential, e.g. a single-page, mobile or desktop app.
-    ///     It does not authenticate at the /token endpoint and relies on PKCE.
-    /// </summary>
-    Public = 0,
-
-    /// <summary>
-    ///     The Client can keep a Secret confidential, e.g. a server-side web app.
-    ///     It must authenticate at the /token endpoint and also uses PKCE.
-    /// </summary>
-    Confidential = 1
-}
-
-/// <summary>
-///     Defines the Grant Types a Client can use at the /token endpoint.
-///     Values can be combined, e.g. <c>AuthorizationCode | RefreshToken</c>.
-/// </summary>
-[Flags]
-public enum GrantTypes
-{
-    /// <summary>
-    ///     No Grant Type is allowed.
-    /// </summary>
-    None = 0,
-
-    /// <summary>
-    ///     Allows <c>grant_type=authorization_code</c> to exchange an Authorization Code for tokens.
-    /// </summary>
-    AuthorizationCode = 1,
-
-    /// <summary>
-    ///     Allows <c>grant_type=refresh_token</c> to exchange a Refresh Token for a new Access Token.
-    /// </summary>
-    RefreshToken = 2
-}
-
-/// <summary>
-///     Defines the Status of a Client.
-/// </summary>
-public enum ClientStatus
-{
-    /// <summary>
-    ///     The Client is enabled and can obtain tokens.
-    /// </summary>
-    Enabled = 0,
-
-    /// <summary>
-    ///     The Client is disabled and cannot obtain new tokens.
-    /// </summary>
-    Disabled = 1,
 }
