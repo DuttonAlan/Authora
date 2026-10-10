@@ -1,0 +1,49 @@
+# Authora – Tech Debt
+
+Known shortcuts and temporary decisions that must be resolved later. Each entry explains what the shortcut is, why it was taken, and what is needed to remove it.
+
+## TD-001 – Users can be created without a password
+
+- **Added:** 2026-10-10
+- **Area:** Identity Management (`User`, `CreateUserService`)
+
+### Current state
+
+- `User.PasswordHash` is nullable, and the `users.PasswordHash` column allows `NULL`.
+- `User.Create(email, firstName, lastName)` creates a User without a password.
+- `POST /api/users` (`CreateUserRequest`) has no password field.
+- A password can only be set in the domain via `User.SetPasswordHash(hash)`, but no endpoint or service calls it yet.
+
+As a result, every User created through the API has no password and cannot sign in.
+
+### Why
+
+Password handling is not implemented yet:
+
+- There is no password hasher (e.g. an `IPasswordHasher` abstraction in Core with an implementation in Infrastructure).
+- There is no flow to set or reset a password (US-010).
+- Sign-in itself does not exist yet (US-007).
+
+The alternatives were worse:
+
+- **Storing an empty or dummy hash** would put a meaningless value in a security-relevant column.
+- **Requiring a password now** would mean building password hashing before the rest of the identity model is finished.
+
+A nullable `PasswordHash` keeps the model honest: a User without a password simply cannot sign in.
+
+### Impact
+
+- Users created through the API cannot sign in until a password-setting flow exists.
+- Every sign-in implementation must treat `PasswordHash == null` as "cannot sign in" and return the same generic error as for invalid credentials (US-007).
+
+### How to resolve
+
+Choose one of these approaches when implementing US-007 and US-010:
+
+1. **Invite flow (keeps `PasswordHash` nullable):** An administrator creates the User without a password. Authora sends a time-limited, single-use link, and the User sets the password through the reset flow (US-010). In this case, nullable `PasswordHash` stays by design, and this entry can be closed once the flow exists.
+2. **Password on creation:** Add a password to `CreateUserRequest`, hash it in `CreateUserService`, and pass the hash to `User.Create`. Then make `PasswordHash` required again, in the domain and in `UserConfiguration`, and create a new migration.
+
+In both cases:
+
+- Add the password hasher.
+- The bootstrap administrator (US-003) needs a way to get a password.
