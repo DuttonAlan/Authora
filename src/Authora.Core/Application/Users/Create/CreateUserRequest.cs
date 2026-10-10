@@ -2,12 +2,17 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.ComponentModel.DataAnnotations;
+
 namespace Authora.Core.Application.Users.Create;
 
 /// <summary>
 ///     Represents the request to create a User.
 /// </summary>
-/// <param name="Email">Email of the User.</param>
-/// <param name="FirstName">First Name of the User.</param>
-/// <param name="LastName">Last Name of the User.</param>
-public sealed record CreateUserRequest(string Email, string FirstName, string LastName);
+/// <param name="Email" example="jane.doe@example.com">Email of the User. Must be unique.</param>
+/// <param name="FirstName" example="Jane">First Name of the User.</param>
+/// <param name="LastName" example="Doe">Last Name of the User.</param>
+public sealed record CreateUserRequest(
+    [Required, EmailAddress, StringLength(254)] string Email,
+    [Required, StringLength(50, MinimumLength = 1)] string FirstName,
+    [Required, StringLength(50, MinimumLength = 1)] string LastName);

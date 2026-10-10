@@ -2,12 +2,17 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.ComponentModel.DataAnnotations;
+
 namespace Authora.Core.Application.Users.Update;
 
 /// <summary>
 ///     Represents the request to update a User.
 /// </summary>
-/// <param name="Email">Email of the User.</param>
-/// <param name="FirstName">First Name of the User.</param>
-/// <param name="LastName">Last Name of the User.</param>
-public sealed record UpdateUserRequest(string? Email, string? FirstName, string? LastName);
+/// <param name="Email" example="jane.doe@example.com">New Email of the User, or null to leave it unchanged. Must be unique.</param>
+/// <param name="FirstName" example="Jane">New First Name of the User, or null to leave it unchanged.</param>
+/// <param name="LastName" example="Doe">New Last Name of the User, or null to leave it unchanged.</param>
+public sealed record UpdateUserRequest(
+    [EmailAddress, StringLength(254)] string? Email,
+    [StringLength(50, MinimumLength = 1)] string? FirstName,
+    [StringLength(50, MinimumLength = 1)] string? LastName);
