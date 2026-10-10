@@ -5,38 +5,51 @@
 using Authora.Core.Abstractions;
 using Authora.Core.Domain.Entities;
 
+using Microsoft.EntityFrameworkCore;
+
 namespace Authora.Infrastructure.Persistence.Repositories;
 
 /// <inheritdoc/>
-public sealed class UserRepository : IUserRepository
+/// <param name="context">The DbContext to access the Users.</param>
+public sealed class UserRepository(AuthoraContext context) : IUserRepository
 {
     /// <inheritdoc/>
-    public Task<Guid> CreateUser(User user, CancellationToken cancellationToken = default)
+    public async Task<Guid> CreateUser(User user, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        context.Users.Add(user);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return user.Id;
     }
 
     /// <inheritdoc/>
-    public Task DeleteUser(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteUser(Guid id, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        await context.Users
+            .Where(user => user.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return await context.Users
+            .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<User>> GetUsers(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<User>> GetUsers(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return await context.Users
+            .AsNoTracking()
+            .OrderBy(user => user.Email)
+            .ToListAsync(cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task UpdateUser(User user, CancellationToken cancellationToken = default)
+    public async Task UpdateUser(User user, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        context.Users.Update(user);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }
