@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Text.Json.Serialization;
+
+using Authora.Api.ExceptionHandling;
 using Authora.Api.OpenApi;
 using Authora.Core;
 using Authora.Infrastructure;
@@ -22,7 +25,9 @@ builder.Services.AddSwaggerGen(options =>
     options.SchemaFilter<RecordValidationSchemaFilter>();
 });
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers();
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
