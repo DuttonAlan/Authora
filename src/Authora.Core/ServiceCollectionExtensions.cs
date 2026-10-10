@@ -2,10 +2,18 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Users.Activate;
+using Authora.Core.Application.Users.AssignRole;
 using Authora.Core.Application.Users.Create;
+using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetPermissions;
+using Authora.Core.Application.Users.GetRoles;
+using Authora.Core.Application.Users.RemoveRole;
+using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -24,10 +32,18 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
+        serviceCollection.AddTransient<ActivateUserService>();
+        serviceCollection.AddTransient<AssignRoleService>();
         serviceCollection.AddTransient<CreateUserService>();
+        serviceCollection.AddTransient<DeactivateUserService>();
         serviceCollection.AddTransient<DeleteUserService>();
+        serviceCollection.AddTransient<GetEffectivePermissionsService>();
         serviceCollection.AddTransient<GetUserService>();
+        serviceCollection.AddTransient<GetUserRolesService>();
         serviceCollection.AddTransient<GetAllUsersService>();
+        serviceCollection.AddTransient<RemoveRoleService>();
+        serviceCollection.AddTransient<RevokeUserSessionsService>();
+        serviceCollection.AddTransient<UnlockUserService>();
         serviceCollection.AddTransient<UpdateUserService>();
 
         return serviceCollection;

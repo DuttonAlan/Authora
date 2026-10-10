@@ -4,11 +4,13 @@
 
 using Authora.Core.Abstractions;
 using Authora.Infrastructure.Persistence;
+using Authora.Infrastructure.Persistence.Interceptors;
 using Authora.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Authora.Infrastructure;
 
@@ -25,11 +27,16 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddInfrastructure(this IServiceCollection serviceCollection, IConfiguration configuration)
     {
-        serviceCollection.AddDbContext<AuthoraContext>(options =>
+        serviceCollection.TryAddSingleton(TimeProvider.System);
+        serviceCollection.AddSingleton<ModifiedAtInterceptor>();
+
+        serviceCollection.AddDbContext<AuthoraContext>((serviceProvider, options) =>
         {
             options.UseNpgsql(configuration.GetConnectionString("Database"));
+            options.AddInterceptors(serviceProvider.GetRequiredService<ModifiedAtInterceptor>());
         });
 
+        serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
         serviceCollection.AddTransient<IUserRepository, UserRepository>();
 
         return serviceCollection;

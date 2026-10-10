@@ -9,6 +9,11 @@ namespace Authora.Core.Domain.Entities;
 /// </summary>
 public sealed class Role
 {
+    /// <summary>
+    ///     Name of the built-in System Role that has all Permissions.
+    /// </summary>
+    public const string AdministratorName = "admin";
+
     private readonly List<Permission> _permissions = [];
 
     /// <summary>
