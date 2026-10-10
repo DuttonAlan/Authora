@@ -28,4 +28,30 @@ public sealed class User
     ///     Last Name of the User.
     /// </summary>
     public required string LastName { get; set; }
+
+    /// <summary>
+    ///     The State of the User.
+    /// </summary>
+    public required UserState State { get; set; }
+}
+
+/// <summary>
+///     Defines the State of a User.
+/// </summary>
+public enum UserState
+{
+    /// <summary>
+    ///     The User is Active.
+    /// </summary>
+    Activ = 0,
+
+    /// <summary>
+    ///     The User is Inactive (when the user didn't log in for a defined while).
+    /// </summary>
+    Inactiv = 1,
+
+    /// <summary>
+    ///     The User got deleted.
+    /// </summary>
+    Deleted = 2
 }
