@@ -26,7 +26,7 @@ public sealed class GetUserService(IUserRepository userRepository)
 
         if (user is null)
         {
-            throw new Exception();
+            return null;
         }
 
         return new GetUserResponse(user.Id, user.Email, user.FirstName, user.LastName);
