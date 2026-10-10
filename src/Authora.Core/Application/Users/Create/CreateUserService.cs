@@ -23,13 +23,7 @@ public sealed class CreateUserService(IUserRepository userRepository)
         CreateUserRequest request,
         CancellationToken cancellationToken = default)
     {
-        var user = new User
-        {
-            Email = request.Email.Trim(),
-            FirstName = request.FirstName.Trim(),
-            LastName = request.LastName.Trim(),
-            State = UserState.Activ
-        };
+        var user = User.Create(request.Email, request.FirstName, request.LastName);
 
         await userRepository.CreateUser(user, cancellationToken);
 
