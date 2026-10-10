@@ -10,13 +10,13 @@ namespace Authora.Features.Users.Create;
 /// <summary>
 ///     The Service to create a new User.
 /// </summary>
-/// <param name="context"></param>
+/// <param name="context">The DbContext to access the Users.</param>
 public sealed class CreateUserService(AuthoraContext context)
 {
     /// <summary>
     ///     Creates a new User.
     /// </summary>
-    /// <param name="request">Request to create a new User.</param>
+    /// <param name="request">The request to create the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The Id of the created User.</returns>
     public async Task<Guid> ExecuteAsync(

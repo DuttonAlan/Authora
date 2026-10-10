@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Authora.Data.Configurations;
 
 /// <summary>
-///     Represents the Configuration for the User.
+///     Configures the database mapping of the User.
 /// </summary>
 public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 {
