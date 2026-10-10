@@ -5,7 +5,7 @@
 namespace Authora.Features.Users.Create;
 
 /// <summary>
-///     Represents the response when creating a user.
+///     Represents the response for creating a User.
 /// </summary>
-/// <param name="Id">The Id of the created user.</param>
+/// <param name="Id">Id of the created User.</param>
 public sealed record CreateUserResponse(Guid Id);

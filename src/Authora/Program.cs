@@ -4,7 +4,10 @@
 
 using Authora.Data;
 using Authora.Features.Users.Create;
+using Authora.Features.Users.Delete;
 using Authora.Features.Users.Get;
+using Authora.Features.Users.GetAll;
+using Authora.Features.Users.Update;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +23,9 @@ builder.Services.AddDbContext<AuthoraContext>(options =>
 
 builder.Services.AddTransient<CreateUserService>();
 builder.Services.AddTransient<GetUserService>();
+builder.Services.AddTransient<GetAllUsersService>();
+builder.Services.AddTransient<UpdateUserService>();
+builder.Services.AddTransient<DeleteUserService>();
 
 var app = builder.Build();
 

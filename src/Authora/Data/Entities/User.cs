@@ -12,7 +12,7 @@ public sealed class User
     /// <summary>
     ///     Id of the User.
     /// </summary>
-    public Guid Id { get; private set; }
+    public Guid Id { get; private set; } = Guid.CreateVersion7();
 
     /// <summary>
     ///     Email of the User.

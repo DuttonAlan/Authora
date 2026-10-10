@@ -14,7 +14,7 @@ namespace Authora.Data;
 public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : DbContext(options)
 {
     /// <summary>
-    ///     The User Table.
+    ///     The Users Table.
     /// </summary>
     public DbSet<User> Users => Set<User>();
 

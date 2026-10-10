@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Authora.Features.Users.Create;
 
 /// <summary>
-///     Includes the Endpoint to create a User.
+///     Provides the Endpoint to create a User.
 /// </summary>
-/// <param name="createUserService"></param>
+/// <param name="createUserService">The Service to create the User.</param>
 [ApiController]
 [Route("api/users")]
 public sealed class CreateUserController(CreateUserService createUserService) : ControllerBase
@@ -17,9 +17,9 @@ public sealed class CreateUserController(CreateUserService createUserService) : 
     /// <summary>
     ///     Creates a User.
     /// </summary>
-    /// <param name="request">The request to create a User.</param>
-    /// <param name="cancellationToken">A CancellationToken to cancel the request.</param>
-    /// <returns>The Id of the created User.</returns>
+    /// <param name="request">The request to create the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>201 Created with the Id of the created User.</returns>
     [HttpPost]
     public async Task<IActionResult> Create(
         CreateUserRequest request,

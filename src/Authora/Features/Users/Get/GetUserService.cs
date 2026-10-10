@@ -9,9 +9,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Authora.Features.Users.Get;
 
 /// <summary>
-///     Gets a User.
+///     The Service to get a User.
 /// </summary>
-/// <param name="context"></param>
+/// <param name="context">The DbContext to access the Users.</param>
 public sealed class GetUserService(AuthoraContext context)
 {
     /// <summary>
@@ -19,7 +19,7 @@ public sealed class GetUserService(AuthoraContext context)
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns></returns>
+    /// <returns>The User, or null if the User does not exist.</returns>
     public async Task<GetUserResponse?> ExecuteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
