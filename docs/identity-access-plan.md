@@ -25,7 +25,7 @@ The OAuth runtime (Sessions, Authorization Codes, Refresh Tokens, sign-in) is ou
 | PUT | `/{id}/roles/{roleId}` | `AssignRoleService` | Idempotent. Return 404 for an unknown User or Role. Load `Roles` first. |
 | DELETE | `/{id}/roles/{roleId}` | `RemoveRoleService` | Idempotent. Prevent removing the last administrator. |
 | GET | `/{id}/permissions` | `GetEffectivePermissionsService` | Union of the Permissions of all Roles, with the Role each one comes from (traceability, US-030). |
-| POST | `/{id}/password` or `/{id}/invite` | `SetPasswordService` / `InviteUserService` | Depends on how [TD-001](tech-debt.md) is resolved. An invite needs a reset token table and an email sender. |
+| POST | `/{id}/password` or `/{id}/invite` | `SetPasswordService` / `InviteUserService` | Depends on how [TD-001](tech-debt/td-001.md) is resolved. An invite needs a reset token table and an email sender. |
 
 ### Roles – `/api/roles` (US-027)
 
