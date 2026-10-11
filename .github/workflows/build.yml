@@ -21,21 +21,19 @@ env:
 jobs:
   build-and-test:
     name: Build & test
-    # Ubuntu runners ship with Docker, which Testcontainers needs for the integration tests.
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore Authora.slnx
 
-      # Warnings are errors and code style is enforced on build, so this also lints.
       - name: Build
         run: dotnet build Authora.slnx --configuration Release --no-restore
 
@@ -45,8 +43,6 @@ jobs:
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef --version 10.0.12
 
-      # Fails when the EF model has changed without a matching migration.
-      # The connection string is only needed to build the host; no database is contacted.
       - name: Check for missing migrations
         env:
           ConnectionStrings__Database: Host=localhost;Database=ci;Username=ci;Password=ci
