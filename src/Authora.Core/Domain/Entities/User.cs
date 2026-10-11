@@ -22,6 +22,11 @@ public sealed class User
     /// </summary>
     public const int EmailMaxLength = 254;
 
+    /// <summary>
+    ///     Maximum length of the First Name and of the Last Name.
+    /// </summary>
+    public const int NameMaxLength = 50;
+
     private readonly List<Role> _roles = [];
 
     /// <summary>
@@ -49,14 +54,14 @@ public sealed class User
     public string NormalizedEmail { get; private set; } = null!;
 
     /// <summary>
-    ///     First Name of the User.
+    ///     First Name of the User. Set via <see cref="SetFirstName(string)"/>.
     /// </summary>
-    public string FirstName { get; set; } = null!;
+    public string FirstName { get; private set; } = null!;
 
     /// <summary>
-    ///     Last Name of the User.
+    ///     Last Name of the User. Set via <see cref="SetLastName(string)"/>.
     /// </summary>
-    public string LastName { get; set; } = null!;
+    public string LastName { get; private set; } = null!;
 
     /// <summary>
     ///     Hash of the password of the User, or <see langword="null"/> if the User has not set a password yet.
@@ -118,21 +123,36 @@ public sealed class User
     /// <param name="firstName">The First Name of the User.</param>
     /// <param name="lastName">The Last Name of the User.</param>
     /// <returns>The created User.</returns>
-    /// <exception cref="ArgumentException">Thrown when a value is empty or the Email is not valid.</exception>
+    /// <exception cref="ArgumentException">Thrown when a value is empty or too long, or the Email is not valid.</exception>
     public static User Create(string email, string firstName, string lastName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(firstName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(lastName);
+        var user = new User();
 
-        var user = new User
-        {
-            FirstName = firstName.Trim(),
-            LastName = lastName.Trim()
-        };
-
+        user.SetFirstName(firstName);
+        user.SetLastName(lastName);
         user.SetEmail(email);
 
         return user;
+    }
+
+    /// <summary>
+    ///     Sets the First Name of the User. Leading and trailing whitespace is removed.
+    /// </summary>
+    /// <param name="firstName">The new First Name of the User.</param>
+    /// <exception cref="ArgumentException">Thrown when the First Name is empty, only whitespace or too long.</exception>
+    public void SetFirstName(string firstName)
+    {
+        FirstName = ValidateName(firstName, nameof(firstName));
+    }
+
+    /// <summary>
+    ///     Sets the Last Name of the User. Leading and trailing whitespace is removed.
+    /// </summary>
+    /// <param name="lastName">The new Last Name of the User.</param>
+    /// <exception cref="ArgumentException">Thrown when the Last Name is empty, only whitespace or too long.</exception>
+    public void SetLastName(string lastName)
+    {
+        LastName = ValidateName(lastName, nameof(lastName));
     }
 
     /// <summary>
@@ -216,4 +236,18 @@ public sealed class User
     /// <param name="email">The Email to normalize.</param>
     /// <returns>The normalized Email.</returns>
     public static string Normalize(string email) => email.Trim().ToLowerInvariant();
+
+    private static string ValidateName(string name, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name, paramName);
+
+        var trimmed = name.Trim();
+
+        if (trimmed.Length > NameMaxLength)
+        {
+            throw new ArgumentException($"Name must not be longer than {NameMaxLength} characters.", paramName);
+        }
+
+        return trimmed;
+    }
 }

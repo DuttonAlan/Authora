@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Domain.Enums;
 
 using Microsoft.Extensions.Logging;
 
@@ -31,7 +32,7 @@ public sealed class CreateClientSecretService(
     /// <returns>The new Secret including its plain-text value, which is only returned once.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
     /// <exception cref="ArgumentException">Thrown when the expiry is not in the future.</exception>
-    /// <exception cref="InvalidOperationException">Thrown when the Client is not a Confidential Client.</exception>
+    /// <exception cref="ConflictException">Thrown when the Client is not a Confidential Client.</exception>
     public async Task<IssuedClientSecretResponse> ExecuteAsync(
         Guid id,
         CreateClientSecretRequest request,
@@ -39,6 +40,11 @@ public sealed class CreateClientSecretService(
     {
         var client = await clientRepository.GetClientById(id, cancellationToken)
             ?? throw new NotFoundException($"Client '{id}' was not found.");
+
+        if (client.Type != ClientType.Confidential)
+        {
+            throw new ConflictException("Only Confidential Clients can have Secrets.");
+        }
 
         var expiresAt = request.ExpiresAt?.UtcDateTime;
 

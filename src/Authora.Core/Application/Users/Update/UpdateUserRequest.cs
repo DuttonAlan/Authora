@@ -4,6 +4,8 @@
 
 using System.ComponentModel.DataAnnotations;
 
+using Authora.Core.Domain.Entities;
+
 namespace Authora.Core.Application.Users.Update;
 
 /// <summary>
@@ -14,5 +16,5 @@ namespace Authora.Core.Application.Users.Update;
 /// <param name="LastName" example="Doe">New Last Name of the User, or null to leave it unchanged.</param>
 public sealed record UpdateUserRequest(
     [EmailAddress, StringLength(254)] string? Email,
-    [StringLength(50, MinimumLength = 1)] string? FirstName,
-    [StringLength(50, MinimumLength = 1)] string? LastName);
+    [StringLength(User.NameMaxLength, MinimumLength = 1)] string? FirstName,
+    [StringLength(User.NameMaxLength, MinimumLength = 1)] string? LastName);

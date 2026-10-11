@@ -26,7 +26,7 @@ public sealed class RevokePermissionService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Permission is revoked.</returns>
     /// <exception cref="NotFoundException">Thrown when the Role does not exist.</exception>
-    /// <exception cref="InvalidOperationException">Thrown when the Role is the administrator Role.</exception>
+    /// <exception cref="ConflictException">Thrown when the Role is the administrator Role.</exception>
     public async Task ExecuteAsync(
         Guid roleId,
         Guid permissionId,
@@ -40,6 +40,11 @@ public sealed class RevokePermissionService(
         if (permission is null)
         {
             return;
+        }
+
+        if (role.IsAdministrator)
+        {
+            throw new ConflictException("Permissions cannot be revoked from the administrator Role.");
         }
 
         role.RevokePermission(permission.Id);
