@@ -90,6 +90,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
+                    b.Property<DateTime?>("ReusedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Scope")
                         .IsRequired()
                         .HasMaxLength(4000)
