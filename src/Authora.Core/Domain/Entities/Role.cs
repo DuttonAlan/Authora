@@ -2,13 +2,15 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.Exceptions;
+
 namespace Authora.Core.Domain.Entities;
 
 /// <summary>
 ///     Represents a Role, a reusable set of <see cref="Permission"/>s that can be assigned to Users.
 /// </summary>
 /// <remarks>
-///     A Role can only be created via <see cref="Create(string, string, string?, bool)"/>,
+///     A Role can only be created via <see cref="Create(string, string, string?)"/>,
 ///     so a Role with an invalid Name can never exist.
 /// </remarks>
 public sealed class Role
@@ -96,18 +98,18 @@ public sealed class Role
     /// <summary>
     ///     Creates a new Role without Permissions.
     /// </summary>
+    /// <remarks>
+    ///     Always creates a regular Role. System Roles, e.g. the administrator Role, are only created by seeding,
+    ///     because <see cref="IsAdministrator"/> trusts <see cref="IsSystem"/>.
+    /// </remarks>
     /// <param name="name">The unique technical Name of the Role, see <see cref="NamePattern"/>.</param>
     /// <param name="displayName">The human-readable Name of the Role.</param>
     /// <param name="description">The optional Description of the Role.</param>
-    /// <param name="isSystem">Whether the Role is a built-in System Role.</param>
     /// <returns>The created Role.</returns>
     /// <exception cref="ArgumentException">Thrown when a value is empty, too long or the Name has an invalid format.</exception>
-    public static Role Create(string name, string displayName, string? description = null, bool isSystem = false)
+    public static Role Create(string name, string displayName, string? description = null)
     {
-        var role = new Role
-        {
-            IsSystem = isSystem
-        };
+        var role = new Role();
 
         role.SetName(name);
         role.SetDisplayName(displayName);
@@ -137,13 +139,13 @@ public sealed class Role
     /// <exception cref="InvalidOperationException">Thrown when the Role is a System Role and the Name changes.</exception>
     public void SetName(string name)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(name);
 
         var trimmed = name.Trim();
 
         if (!IsValidName(trimmed))
         {
-            throw new ArgumentException(
+            throw new DomainValidationException(
                 $"Name must be at most {NameMaxLength} characters and only contain lowercase letters, digits, '.', '_' and '-'.",
                 nameof(name));
         }
@@ -164,13 +166,13 @@ public sealed class Role
     /// <exception cref="ArgumentException">Thrown when the Display Name is empty or too long.</exception>
     public void SetDisplayName(string displayName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(displayName);
 
         var trimmed = displayName.Trim();
 
         if (trimmed.Length > DisplayNameMaxLength)
         {
-            throw new ArgumentException($"Display Name must not be longer than {DisplayNameMaxLength} characters.", nameof(displayName));
+            throw new DomainValidationException($"Display Name must not be longer than {DisplayNameMaxLength} characters.", nameof(displayName));
         }
 
         DisplayName = trimmed;
@@ -187,7 +189,7 @@ public sealed class Role
 
         if (trimmed?.Length > DescriptionMaxLength)
         {
-            throw new ArgumentException($"Description must not be longer than {DescriptionMaxLength} characters.", nameof(description));
+            throw new DomainValidationException($"Description must not be longer than {DescriptionMaxLength} characters.", nameof(description));
         }
 
         Description = string.IsNullOrEmpty(trimmed) ? null : trimmed;

@@ -44,8 +44,7 @@ public sealed class DeleteUserService(
 
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
-        user.State = UserState.Deleted;
-        user.RotateSecurityStamp();
+        user.MarkDeleted();
 
         await userRepository.SaveChangesAsync(cancellationToken);
 

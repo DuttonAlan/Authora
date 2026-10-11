@@ -40,8 +40,7 @@ public sealed class UnlockUserService(
             return;
         }
 
-        user.FailedLoginCount = 0;
-        user.LockoutEndAt = null;
+        user.Unlock();
 
         await userRepository.SaveChangesAsync(cancellationToken);
 

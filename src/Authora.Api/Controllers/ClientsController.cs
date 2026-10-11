@@ -370,7 +370,7 @@ public sealed class ClientsController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>201 Created with the new Secret.</returns>
     /// <response code="201">Responds with the new Secret, including its plain-text value.</response>
-    /// <response code="400">Responds with problem details if the expiry is not in the future.</response>
+    /// <response code="400">Responds with problem details if the expiry is not in the future or more than 730 days from now.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the Client is a Public Client, which cannot have Secrets.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>

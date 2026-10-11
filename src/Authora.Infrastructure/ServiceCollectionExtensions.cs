@@ -32,9 +32,18 @@ public static class ServiceCollectionExtensions
         serviceCollection.TryAddSingleton(TimeProvider.System);
         serviceCollection.AddSingleton<ModifiedAtInterceptor>();
 
+        var connectionString = configuration.GetConnectionString("Database");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "The connection string 'Database' is not configured. Set 'ConnectionStrings:Database', "
+                + "e.g. via the environment variable 'ConnectionStrings__Database'.");
+        }
+
         serviceCollection.AddDbContext<AuthoraContext>((serviceProvider, options) =>
         {
-            options.UseNpgsql(configuration.GetConnectionString("Database"));
+            options.UseNpgsql(connectionString);
             options.AddInterceptors(serviceProvider.GetRequiredService<ModifiedAtInterceptor>());
         });
 

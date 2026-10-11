@@ -5,6 +5,7 @@
 using Authora.Core.Abstractions;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 
 using Microsoft.Extensions.Logging;
 
@@ -24,7 +25,7 @@ public sealed class RegisterClientService(
     ILogger<RegisterClientService> logger)
 {
     /// <summary>
-    ///     Registers a new Client. A Confidential Client also gets its first Secret, which never expires.
+    ///     Registers a new Client. A Confidential Client also gets its first Secret with the default lifetime of 365 days.
     /// </summary>
     /// <param name="request">The request to register the Client.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -36,7 +37,7 @@ public sealed class RegisterClientService(
     {
         var client = Client.Create(
             request.Name,
-            request.Type ?? throw new ArgumentException("Type is required.", nameof(request)));
+            request.Type ?? throw new DomainValidationException("Type is required.", nameof(request)));
 
         if (request.GrantTypes is not null)
         {
@@ -61,7 +62,7 @@ public sealed class RegisterClientService(
 
             if (missingScopeIds.Count > 0)
             {
-                throw new ArgumentException(
+                throw new DomainValidationException(
                     $"Scopes not found: {string.Join(", ", missingScopeIds)}.",
                     nameof(request));
             }
