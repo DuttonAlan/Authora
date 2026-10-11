@@ -34,11 +34,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.FirstName)
             .IsRequired()
-            .HasMaxLength(50);
+            .HasMaxLength(User.NameMaxLength);
 
         builder.Property(x => x.LastName)
             .IsRequired()
-            .HasMaxLength(50);
+            .HasMaxLength(User.NameMaxLength);
 
         builder.Property(x => x.PasswordHash)
             .HasMaxLength(256);

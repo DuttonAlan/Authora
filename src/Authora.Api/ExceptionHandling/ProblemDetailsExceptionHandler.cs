@@ -28,12 +28,15 @@ public sealed class ProblemDetailsExceptionHandler(IProblemDetailsService proble
         var (statusCode, detail) = exception switch
         {
             NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
-            ConflictException or InvalidOperationException => (StatusCodes.Status409Conflict, exception.Message),
+
+            // InvalidOperationException is deliberately not mapped: framework code (e.g. EF Core) throws it for bugs,
+            // which must stay a 500 without exposing the message. Services throw ConflictException for rule violations.
+            ConflictException => (StatusCodes.Status409Conflict, exception.Message),
 
             // A unique index was violated, e.g. by a concurrent request that passed the same uniqueness check.
             DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } }
                 => (StatusCodes.Status409Conflict, "The resource conflicts with an existing resource."),
-            
+
             ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
             _ => (0, null)
         };

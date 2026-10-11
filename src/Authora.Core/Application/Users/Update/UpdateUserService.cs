@@ -23,6 +23,7 @@ public sealed class UpdateUserService(IUserRepository userRepository)
     /// <returns>A Task that completes once the User is updated.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
     /// <exception cref="ConflictException">Thrown when the new Email is already used by another User.</exception>
+    /// <exception cref="ArgumentException">Thrown when a value is empty, only whitespace, too long, or the Email is not valid.</exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateUserRequest request,
@@ -46,12 +47,12 @@ public sealed class UpdateUserService(IUserRepository userRepository)
 
         if (request.FirstName is not null)
         {
-            user.FirstName = request.FirstName.Trim();
+            user.SetFirstName(request.FirstName);
         }
 
         if (request.LastName is not null)
         {
-            user.LastName = request.LastName.Trim();
+            user.SetLastName(request.LastName);
         }
 
         // Only changed values are written; ModifiedAt is set when saving.

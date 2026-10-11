@@ -26,8 +26,7 @@ public sealed class UpdateRoleService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Role is updated.</returns>
     /// <exception cref="NotFoundException">Thrown when the Role does not exist.</exception>
-    /// <exception cref="ConflictException">Thrown when the new Name is already used by another Role.</exception>
-    /// <exception cref="InvalidOperationException">Thrown when the Name of a System Role would change.</exception>
+    /// <exception cref="ConflictException">Thrown when the new Name is already used by another Role, or the Name of a System Role would change.</exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateRoleRequest request,
@@ -40,11 +39,17 @@ public sealed class UpdateRoleService(
         {
             var name = request.Name.Trim();
 
-            if (name != role.Name
-                && !role.IsSystem
-                && await roleRepository.NameExists(name, cancellationToken))
+            if (name != role.Name)
             {
-                throw new ConflictException("The Name is already used by another Role.");
+                if (role.IsSystem)
+                {
+                    throw new ConflictException("The Name of a System Role cannot be changed.");
+                }
+
+                if (await roleRepository.NameExists(name, cancellationToken))
+                {
+                    throw new ConflictException("The Name is already used by another Role.");
+                }
             }
 
             role.SetName(name);
