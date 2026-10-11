@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "differential-review@trailofbits": true,
+    "insecure-defaults@trailofbits": true,
+    "sharp-edges@trailofbits": true,
+    "supply-chain-risk-auditor@trailofbits": true
+  }
+}
