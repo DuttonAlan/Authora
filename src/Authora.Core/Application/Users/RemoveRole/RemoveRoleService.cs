@@ -26,7 +26,7 @@ public sealed class RemoveRoleService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Role is removed.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
-    /// <exception cref="ConflictException">Thrown when the administrator Role would be removed from the last administrator.</exception>
+    /// <exception cref="ConflictException">Thrown when the User is deleted, or the administrator Role would be removed from the last administrator.</exception>
     public async Task ExecuteAsync(
         Guid userId,
         Guid roleId,
@@ -35,7 +35,9 @@ public sealed class RemoveRoleService(
         var user = await userRepository.GetUserById(userId, cancellationToken)
             ?? throw new NotFoundException($"User '{userId}' was not found.");
 
-        var role = user.Roles.FirstOrDefault(role => role.Id == roleId);
+        DeletedUserGuard.EnsureNotDeleted(user);
+
+        var role =user.Roles.FirstOrDefault(role => role.Id == roleId);
 
         if (role is null)
         {
