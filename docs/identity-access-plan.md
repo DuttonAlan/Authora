@@ -150,7 +150,7 @@ A missing or inactive token returns `401`.
 
 `IdentitySeeder` runs at every start, before requests are served. It creates what is missing: the Permissions of `PermissionNames`, the System Role `admin` with all Permissions, and the System Scope `authora.admin`.
 
-While no administrator who can sign in exists, it also creates the first administrator from the configuration (US-003), and optionally a Public Client to get tokens with:
+While no administrator who can sign in exists, it also creates the first administrator from the configuration (US-003). If `Client:RedirectUris` is set and no enabled Client is allowed `authora.admin` yet, it creates a Public Client to get tokens with. This also works after the administrator exists, because registering a Client through the API needs an admin token:
 
 ```json
 "Authora": {
@@ -161,7 +161,7 @@ While no administrator who can sign in exists, it also creates the first adminis
 }
 ```
 
-Set the password through an environment variable (`Authora__Bootstrap__Administrator__Password`), not a file. The log shows the Ids of the created User and Client. Once an administrator exists, the section is ignored and a warning asks to remove the password. If the Email is already used by another User, startup fails instead of taking over that account.
+Set the password through an environment variable (`Authora__Bootstrap__Administrator__Password`), not a file. The log shows the Ids of the created User and Client. Once an administrator exists, the `Administrator` section is ignored and a warning asks to remove the password. If the Email is already used by another User, startup fails instead of taking over that account.
 
 To call the API, use the Authorization Code flow with PKCE against the bootstrapped Client with `scope=authora.admin`, then send the Access Token.
 

@@ -57,7 +57,8 @@ public sealed class IdentitySeeder(
 
         await context.SaveChangesAsync(cancellationToken);
 
-        await BootstrapAdministratorAsync(administratorRole, adminApiScope, cancellationToken);
+        await BootstrapAdministratorAsync(administratorRole, cancellationToken);
+        await BootstrapAdminClientAsync(adminApiScope, cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -128,7 +129,7 @@ public sealed class IdentitySeeder(
         return scope;
     }
 
-    private async Task BootstrapAdministratorAsync(Role administratorRole, Scope adminApiScope, CancellationToken cancellationToken)
+    private async Task BootstrapAdministratorAsync(Role administratorRole, CancellationToken cancellationToken)
     {
         var settings = options.Value;
 
@@ -175,20 +176,38 @@ public sealed class IdentitySeeder(
         context.Users.Add(user);
 
         logger.AdministratorBootstrapped(user.Id);
+    }
 
-        if (settings.Client.RedirectUris.Count > 0)
+    // Independent of the administrator, so a Client configured after the administrator was created is still created.
+    // Registering a Client through the API needs an admin token, which in turn needs a Client.
+    private async Task BootstrapAdminClientAsync(Scope adminApiScope, CancellationToken cancellationToken)
+    {
+        var settings = options.Value.Client;
+
+        if (settings.RedirectUris.Count == 0)
         {
-            var client = Client.Create(settings.Client.Name, ClientType.Public);
-
-            foreach (var redirectUri in settings.Client.RedirectUris)
-            {
-                client.AddRedirectUri(redirectUri);
-            }
-
-            client.AllowScope(adminApiScope);
-            context.Clients.Add(client);
-
-            logger.AdminClientBootstrapped(client.Id, client.Name);
+            return;
         }
+
+        var adminClientExists = await context.Clients
+            .Where(client => client.Status == ClientStatus.Enabled)
+            .AnyAsync(client => client.AllowedScopes.Any(scope => scope.Id == adminApiScope.Id), cancellationToken);
+
+        if (adminClientExists)
+        {
+            return;
+        }
+
+        var client = Client.Create(settings.Name, ClientType.Public);
+
+        foreach (var redirectUri in settings.RedirectUris)
+        {
+            client.AddRedirectUri(redirectUri);
+        }
+
+        client.AllowScope(adminApiScope);
+        context.Clients.Add(client);
+
+        logger.AdminClientBootstrapped(client.Id, client.Name);
     }
 }
