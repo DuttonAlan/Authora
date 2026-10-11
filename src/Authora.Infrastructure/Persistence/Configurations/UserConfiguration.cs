@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Domain.Entities;
+using Authora.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,7 +18,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<User> builder)
     {
-        builder.ToTable("users", "identity");
+        builder.ToTable("users", Schemas.Identity);
 
         builder.HasKey(x => x.Id);
 
@@ -52,6 +53,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        // Optimistic concurrency via the PostgreSQL system column xmin: saving a User that another request changed
+        // since it was loaded fails instead of overwriting the change (e.g. a sign-in undoing a password reset).
+        builder.Property<uint>(UserRepository.VersionProperty)
+            .IsRowVersion();
+
         builder.HasIndex(x => x.NormalizedEmail)
             .IsUnique();
 
@@ -63,7 +69,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
                 left => left.HasOne<User>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade),
                 join =>
                 {
-                    join.ToTable("user_roles", "identity");
+                    join.ToTable("user_roles", Schemas.Identity);
                     join.HasKey("UserId", "RoleId");
                 });
 

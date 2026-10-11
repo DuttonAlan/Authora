@@ -17,7 +17,7 @@ public sealed class PermissionConfiguration : IEntityTypeConfiguration<Permissio
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Permission> builder)
     {
-        builder.ToTable("permissions", "identity");
+        builder.ToTable("permissions", Schemas.Identity);
 
         builder.HasKey(x => x.Id);
 

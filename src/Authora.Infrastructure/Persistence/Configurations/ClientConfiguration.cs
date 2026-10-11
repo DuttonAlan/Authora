@@ -18,7 +18,7 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Client> builder)
     {
-        builder.ToTable("clients", "identity");
+        builder.ToTable("clients", Schemas.Identity);
 
         builder.HasKey(x => x.Id);
 
@@ -57,7 +57,7 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
 
         builder.OwnsMany(x => x.RedirectUris, redirectUri =>
         {
-            redirectUri.ToTable("client_redirect_uris", "identity");
+            redirectUri.ToTable("client_redirect_uris", Schemas.Identity);
 
             redirectUri.WithOwner()
                 .HasForeignKey("ClientId");
@@ -81,7 +81,7 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
                 left => left.HasOne<Client>().WithMany().HasForeignKey("ClientId").OnDelete(DeleteBehavior.Cascade),
                 join =>
                 {
-                    join.ToTable("client_scopes", "identity");
+                    join.ToTable("client_scopes", Schemas.Identity);
                     join.HasKey("ClientId", "ScopeId");
                 });
 

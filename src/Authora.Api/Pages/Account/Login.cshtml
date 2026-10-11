@@ -1,0 +1,35 @@
+@page "/account/login"
+@model Authora.Api.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Sign in";
+}
+
+@if (Model.IsSignedIn && Model.ErrorMessage is null)
+{
+    <h1>You are signed in</h1>
+    <p>Signed in as <strong>@Model.SignedInEmail</strong>.</p>
+    <p><a href="/account/logout">Sign out</a></p>
+}
+else
+{
+    <h1>Sign in</h1>
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error" role="alert">@Model.ErrorMessage</p>
+    }
+
+    <form method="post">
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <label asp-for="Email">Email</label>
+        <input asp-for="Email" type="email" autocomplete="username" required autofocus />
+
+        <label asp-for="Password">Password</label>
+        <input asp-for="Password" type="password" autocomplete="current-password" required />
+
+        <div class="actions">
+            <button type="submit" class="primary">Sign in</button>
+        </div>
+    </form>
+}

@@ -38,6 +38,10 @@ public sealed class ProblemDetailsExceptionHandler(IProblemDetailsService proble
             DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } }
                 => (StatusCodes.Status409Conflict, "The resource conflicts with an existing resource."),
 
+            // A concurrency token did not match, because a concurrent request changed the same resource.
+            DbUpdateConcurrencyException
+                => (StatusCodes.Status409Conflict, "The resource was changed by another request. Load it again and retry."),
+
             // ArgumentException is deliberately not mapped for the same reason as InvalidOperationException.
             // Domain and services throw DomainValidationException for invalid input.
             DomainValidationException => (StatusCodes.Status400BadRequest, exception.Message),

@@ -115,6 +115,12 @@ public sealed class User
     public IReadOnlyCollection<Role> Roles => _roles;
 
     /// <summary>
+    ///     Whether the User may sign in and use tokens: the User is <see cref="UserState.Active"/> or
+    ///     <see cref="UserState.Inactive"/> and has a password. Does not check the lockout, see <see cref="IsLockedOut(DateTime)"/>.
+    /// </summary>
+    public bool CanSignIn => (State is UserState.Active or UserState.Inactive) && PasswordHash is not null;
+
+    /// <summary>
     ///     Creates a new <see cref="UserState.Active"/> User without a password.
     /// </summary>
     /// <remarks>
@@ -169,6 +175,53 @@ public sealed class User
 
         PasswordHash = passwordHash;
         RotateSecurityStamp();
+    }
+
+    /// <summary>
+    ///     Replaces the password hash with a new hash of the same password, e.g. after the hashing parameters were
+    ///     increased. Unlike <see cref="SetPasswordHash(string)"/>, it does not rotate the <see cref="SecurityStamp"/>,
+    ///     because the password did not change.
+    /// </summary>
+    /// <param name="passwordHash">The new hash of the current password.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="passwordHash"/> is empty.</exception>
+    public void RehashPassword(string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+
+        PasswordHash = passwordHash;
+    }
+
+    /// <summary>
+    ///     Checks whether the User is locked out after too many failed sign-in attempts.
+    /// </summary>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <returns><see langword="true"/> if the lockout has not ended yet.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
+    public bool IsLockedOut(DateTime now)
+    {
+        UtcGuard.EnsureUtc(now);
+
+        return LockoutEndAt > now;
+    }
+
+    /// <summary>
+    ///     Records a successful sign-in: resets the failed attempts, sets <see cref="LastLoginAt"/> and makes an
+    ///     <see cref="UserState.Inactive"/> User <see cref="UserState.Active"/> again.
+    /// </summary>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
+    public void RecordSuccessfulSignIn(DateTime now)
+    {
+        UtcGuard.EnsureUtc(now);
+
+        FailedLoginCount = 0;
+        LockoutEndAt = null;
+        LastLoginAt = now;
+
+        if (State == UserState.Inactive)
+        {
+            State = UserState.Active;
+        }
     }
 
     /// <summary>

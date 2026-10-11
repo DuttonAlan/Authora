@@ -39,6 +39,14 @@ public interface IClientRepository
     public Task<IReadOnlyList<Client>> GetClients(CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Checks in the database whether a Client is disabled, ignoring any tracked (possibly outdated) instance.
+    /// </summary>
+    /// <param name="id">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if the Client is disabled or no longer exists.</returns>
+    public Task<bool> IsClientDisabled(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Deletes a Client, including its Secrets and Redirect URIs.
     /// </summary>
     /// <param name="client">The tracked Client to delete.</param>
