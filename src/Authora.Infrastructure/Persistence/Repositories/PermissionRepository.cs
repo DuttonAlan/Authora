@@ -19,4 +19,13 @@ public sealed class PermissionRepository(AuthoraContext context) : IPermissionRe
         return await context.Permissions
             .FirstOrDefaultAsync(permission => permission.Id == id, cancellationToken);
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Permission>> GetPermissions(CancellationToken cancellationToken = default)
+    {
+        return await context.Permissions
+            .AsNoTracking()
+            .OrderBy(permission => permission.Name)
+            .ToListAsync(cancellationToken);
+    }
 }
