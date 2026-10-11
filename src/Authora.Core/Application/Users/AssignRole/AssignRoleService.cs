@@ -28,6 +28,7 @@ public sealed class AssignRoleService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Role is assigned.</returns>
     /// <exception cref="NotFoundException">Thrown when the User or the Role does not exist.</exception>
+    /// <exception cref="ConflictException">Thrown when the User is deleted.</exception>
     public async Task ExecuteAsync(
         Guid userId,
         Guid roleId,
@@ -35,6 +36,8 @@ public sealed class AssignRoleService(
     {
         var user = await userRepository.GetUserById(userId, cancellationToken)
             ?? throw new NotFoundException($"User '{userId}' was not found.");
+
+        DeletedUserGuard.EnsureNotDeleted(user);
 
         if (user.Roles.Any(role => role.Id == roleId))
         {

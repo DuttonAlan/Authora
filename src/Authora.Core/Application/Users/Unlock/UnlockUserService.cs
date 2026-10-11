@@ -25,12 +25,15 @@ public sealed class UnlockUserService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the User is unlocked.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
+    /// <exception cref="ConflictException">Thrown when the User is deleted.</exception>
     public async Task ExecuteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
+
+        DeletedUserGuard.EnsureNotDeleted(user);
 
         if (user.FailedLoginCount == 0 && user.LockoutEndAt is null)
         {

@@ -22,7 +22,7 @@ public sealed class UpdateUserService(IUserRepository userRepository)
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the User is updated.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
-    /// <exception cref="ConflictException">Thrown when the new Email is already used by another User.</exception>
+    /// <exception cref="ConflictException">Thrown when the User is deleted, or the new Email is already used by another User.</exception>
     /// <exception cref="ArgumentException">Thrown when a value is empty, only whitespace, too long, or the Email is not valid.</exception>
     public async Task ExecuteAsync(
         Guid id,
@@ -31,6 +31,8 @@ public sealed class UpdateUserService(IUserRepository userRepository)
     {
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
+
+        DeletedUserGuard.EnsureNotDeleted(user);
 
         if (request.Email is not null)
         {

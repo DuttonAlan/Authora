@@ -196,7 +196,7 @@ public sealed class UsersController(
     /// <response code="204">Responds with no content once the User was updated.</response>
     /// <response code="400">Responds with validation problem details if the request body is invalid.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
-    /// <response code="409">Responds with problem details if the new Email is already used by another User.</response>
+    /// <response code="409">Responds with problem details if the User is deleted, or the new Email is already used by another User.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
@@ -284,10 +284,12 @@ public sealed class UsersController(
     /// <returns>204 No Content once the User is unlocked.</returns>
     /// <response code="204">Responds with no content once the User was unlocked.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/unlock")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     public async Task<IActionResult> Unlock(
         Guid id,
@@ -309,10 +311,12 @@ public sealed class UsersController(
     /// <returns>204 No Content once the Sessions are revoked.</returns>
     /// <response code="204">Responds with no content once the Sessions were revoked.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the User is deleted. Its Sessions were already revoked on deletion.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/revoke-sessions")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     public async Task<IActionResult> RevokeSessions(
         Guid id,
@@ -357,10 +361,12 @@ public sealed class UsersController(
     /// <returns>204 No Content once the Role is assigned.</returns>
     /// <response code="204">Responds with no content once the Role was assigned.</response>
     /// <response code="404">Responds with problem details if no User or no Role with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     public async Task<IActionResult> AssignRole(
         Guid id,
@@ -385,7 +391,7 @@ public sealed class UsersController(
     /// <returns>204 No Content once the Role is removed.</returns>
     /// <response code="204">Responds with no content once the Role was removed, or if the Role was not assigned.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
-    /// <response code="409">Responds with problem details if the User is the last administrator.</response>
+    /// <response code="409">Responds with problem details if the User is deleted, or the User is the last administrator.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpDelete("{id:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
