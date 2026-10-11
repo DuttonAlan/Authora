@@ -27,9 +27,9 @@ public sealed class ValidateSessionService(
     ILogger<ValidateSessionService> logger)
 {
     /// <summary>
-    ///     The activity of a Session is only saved if it is older than this, so not every request writes to the database.
+    ///     The activity of a Session is saved at most this often, so not every request writes to the database.
     /// </summary>
-    private static readonly TimeSpan ActivityUpdateInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan MaxActivityUpdateInterval = TimeSpan.FromMinutes(1);
 
     /// <summary>
     ///     Validates a Session token and records the activity of the Session.
@@ -46,8 +46,9 @@ public sealed class ValidateSessionService(
 
         var session = await sessionRepository.GetSessionByTokenHash(secretHasher.Hash(sessionToken), cancellationToken);
         var now = timeProvider.GetUtcNow().UtcDateTime;
+        var idleTimeout = options.Value.SessionIdleTimeout;
 
-        if (session is null || !session.IsActive(now, options.Value.SessionIdleTimeout))
+        if (session is null || !session.IsActive(now, idleTimeout))
         {
             return null;
         }
@@ -64,7 +65,11 @@ public sealed class ValidateSessionService(
             return null;
         }
 
-        if (now - session.LastActivityAt >= ActivityUpdateInterval)
+        // The saved activity lags behind by up to the interval, which shortens the effective idle timeout. Scaling the
+        // interval to a tenth of the timeout keeps the loss at 10%, so short timeouts do not sign out active Users.
+        var activityUpdateInterval = idleTimeout / 10 < MaxActivityUpdateInterval ? idleTimeout / 10 : MaxActivityUpdateInterval;
+
+        if (now - session.LastActivityAt >= activityUpdateInterval)
         {
             session.RecordActivity(now);
             await sessionRepository.SaveChangesAsync(cancellationToken);
