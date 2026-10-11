@@ -50,8 +50,7 @@ public sealed class DeactivateUserService(
 
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
-        user.State = UserState.Deactivated;
-        user.RotateSecurityStamp();
+        user.Deactivate();
 
         await userRepository.SaveChangesAsync(cancellationToken);
 

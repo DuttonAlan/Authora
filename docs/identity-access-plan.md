@@ -19,7 +19,7 @@ The OAuth runtime (Sessions, Authorization Codes, Refresh Tokens, sign-in) is ou
 | DELETE | `/{id}` ✅ | `DeleteUserService` | Currently a hard delete. `UserState.Deleted` means "keep for history", so set `State = Deleted` and call `RotateSecurityStamp()` instead. |
 | POST | `/{id}/deactivate` | `DeactivateUserService` | Set `State = Deactivated` and call `RotateSecurityStamp()`. Log it. |
 | POST | `/{id}/activate` | `ActivateUserService` | Set `State = Active`. Reject `Deleted` Users. |
-| POST | `/{id}/unlock` | `UnlockUserService` | Set `FailedLoginCount = 0` and `LockoutEndAt = null`. |
+| POST | `/{id}/unlock` | `UnlockUserService` | `User.Unlock()` resets `FailedLoginCount` and `LockoutEndAt`. |
 | POST | `/{id}/revoke-sessions` | `RevokeUserSessionsService` | Call `RotateSecurityStamp()`. This is the admin "sign out everywhere" (US-009). |
 | GET | `/{id}/roles` | `GetUserRolesService` | |
 | PUT | `/{id}/roles/{roleId}` | `AssignRoleService` | Idempotent. Return 404 for an unknown User or Role. Load `Roles` first. |
@@ -68,7 +68,7 @@ Permissions are defined in code, not through CRUD endpoints. A Permission only h
 | DELETE | `/{id}` | `DeleteClientService` | Or only allow disabling, to keep the audit trail. |
 | POST | `/{id}/enable` | `EnableClientService` | Log it. |
 | POST | `/{id}/disable` | `DisableClientService` | Log it (US-014). Later, also revoke the Client's Refresh Tokens. |
-| POST | `/{id}/redirect-uris` | `AddRedirectUriService` | `RedirectUri.Create` validates the URI; `ArgumentException` maps to 400. |
+| POST | `/{id}/redirect-uris` | `AddRedirectUriService` | `RedirectUri.Create` validates the URI; `DomainValidationException` maps to 400. |
 | DELETE | `/{id}/redirect-uris` | `RemoveRedirectUriService` | Pass the URI in the body or query string, because a URI in the route path is awkward. |
 | PUT | `/{id}/scopes/{scopeId}` | `AllowScopeService` | Load `AllowedScopes` first. |
 | DELETE | `/{id}/scopes/{scopeId}` | `DisallowScopeService` | |
@@ -87,7 +87,7 @@ Permissions are defined in code, not through CRUD endpoints. A Permission only h
 | Item | Purpose |
 |---|---|
 | `NotFoundException`, `ConflictException` (or a `Result<T>` type) | Typed outcomes for services instead of `new Exception(...)`. |
-| `IExceptionHandler` (in Api) | Maps exceptions to ProblemDetails: `ArgumentException` → 400, `NotFoundException` → 404, `ConflictException` / `InvalidOperationException` → 409, unique-violation `DbUpdateException` (Npgsql `23505`) → 409. Covers US-004. |
+| `IExceptionHandler` (in Api) | Maps exceptions to ProblemDetails: `DomainValidationException` → 400, `NotFoundException` → 404, `ConflictException` → 409, unique-violation `DbUpdateException` (Npgsql `23505`) → 409. Covers US-004. |
 | Repository abstractions | `IRoleRepository`, `IPermissionRepository`, `IScopeRepository`, `IClientRepository`. Each loads the whole aggregate tracked, with `Include`s, and has a `SaveChangesAsync`. |
 | `IPasswordHasher` | `Hash(password)` and `Verify(hash, password)` → `Success` / `Failed` / `SuccessRehashNeeded`. Needed for TD-001 and the bootstrap administrator. |
 | `ISecretGenerator` | Generates Client Secrets now. Reset tokens, Authorization Codes and Refresh Tokens use it later. |

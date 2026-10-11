@@ -5,6 +5,7 @@
 using System.Net.Mail;
 
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 
 namespace Authora.Core.Domain.Entities;
 
@@ -71,20 +72,21 @@ public sealed class User
     public string? PasswordHash { get; private set; }
 
     /// <summary>
-    ///     Number of failed login attempts in a row. Reset after a successful login.
+    ///     Number of failed login attempts in a row. Reset after a successful login or via <see cref="Unlock"/>.
     /// </summary>
-    public int FailedLoginCount { get; set; }
+    public int FailedLoginCount { get; private set; }
 
     /// <summary>
     ///     Point in time (UTC) until which the User is locked out after too many failed login attempts,
-    ///     or <see langword="null"/> if the User is not locked out.
+    ///     or <see langword="null"/> if the User is not locked out. Reset via <see cref="Unlock"/>.
     /// </summary>
-    public DateTime? LockoutEndAt { get; set; }
+    public DateTime? LockoutEndAt { get; private set; }
 
     /// <summary>
     ///     State of the User. Only <see cref="UserState.Active"/> and <see cref="UserState.Inactive"/> Users can sign in.
+    ///     Changed via <see cref="Activate"/>, <see cref="Deactivate"/> and <see cref="MarkDeleted"/>.
     /// </summary>
-    public UserState State { get; set; } = UserState.Active;
+    public UserState State { get; private set; } = UserState.Active;
 
     /// <summary>
     ///     Point in time (UTC) when the User was created.
@@ -205,25 +207,86 @@ public sealed class User
     }
 
     /// <summary>
+    ///     Makes the User <see cref="UserState.Active"/>, so the User can sign in again.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the User is deleted, which is final.</exception>
+    public void Activate()
+    {
+        EnsureNotDeleted();
+
+        State = UserState.Active;
+    }
+
+    /// <summary>
+    ///     Makes the User <see cref="UserState.Deactivated"/>, so the User can no longer sign in,
+    ///     and rotates the <see cref="SecurityStamp"/>, which invalidates all existing Sessions and Refresh Tokens.
+    /// </summary>
+    /// <remarks>
+    ///     Does not check whether the User is the last administrator. Callers must check this first.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when the User is deleted, which is final.</exception>
+    public void Deactivate()
+    {
+        EnsureNotDeleted();
+
+        State = UserState.Deactivated;
+        RotateSecurityStamp();
+    }
+
+    /// <summary>
+    ///     Makes the User <see cref="UserState.Deleted"/>, which is final, and rotates the <see cref="SecurityStamp"/>,
+    ///     which invalidates all existing Sessions and Refresh Tokens. The record is kept for history.
+    /// </summary>
+    /// <remarks>
+    ///     Does not check whether the User is the last administrator. Callers must check this first.
+    /// </remarks>
+    public void MarkDeleted()
+    {
+        State = UserState.Deleted;
+        RotateSecurityStamp();
+    }
+
+    /// <summary>
+    ///     Resets the failed login attempts and ends a lockout, so the User can sign in again right away.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the User is deleted, which is final.</exception>
+    public void Unlock()
+    {
+        EnsureNotDeleted();
+
+        FailedLoginCount = 0;
+        LockoutEndAt = null;
+    }
+
+    // Services check this first and return 409. This is the last line of defense if a new code path forgets it.
+    private void EnsureNotDeleted()
+    {
+        if (State == UserState.Deleted)
+        {
+            throw new InvalidOperationException("A deleted User cannot be changed.");
+        }
+    }
+
+    /// <summary>
     ///     Sets the <see cref="Email"/> and the <see cref="NormalizedEmail"/> of the User.
     /// </summary>
     /// <param name="email">The new Email of the User.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="email"/> is empty, too long or not a valid Email.</exception>
     public void SetEmail(string email)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(email);
 
         var trimmed = email.Trim();
 
         if (trimmed.Length > EmailMaxLength)
         {
-            throw new ArgumentException($"Email must not be longer than {EmailMaxLength} characters.", nameof(email));
+            throw new DomainValidationException($"Email must not be longer than {EmailMaxLength} characters.", nameof(email));
         }
 
         // MailAddress also accepts "Name <a@b.c>", so the parsed address must equal the input.
         if (!MailAddress.TryCreate(trimmed, out var address) || address.Address != trimmed)
         {
-            throw new ArgumentException("Email is not valid.", nameof(email));
+            throw new DomainValidationException("Email is not valid.", nameof(email));
         }
 
         Email = trimmed;
@@ -239,13 +302,13 @@ public sealed class User
 
     private static string ValidateName(string name, string paramName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name, paramName);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(name, paramName);
 
         var trimmed = name.Trim();
 
         if (trimmed.Length > NameMaxLength)
         {
-            throw new ArgumentException($"Name must not be longer than {NameMaxLength} characters.", paramName);
+            throw new DomainValidationException($"Name must not be longer than {NameMaxLength} characters.", paramName);
         }
 
         return trimmed;

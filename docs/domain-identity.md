@@ -107,7 +107,7 @@ A Secret a Confidential Client uses to authenticate at the `/token` endpoint. It
 | Property | Description |
 |---|---|
 | `SecretHash` | Hash of the Secret. The plain-text Secret is shown once on creation and never stored. |
-| `ExpiresAt` | Expiry, or `null` if the Secret never expires. |
+| `ExpiresAt` | Expiry. Defaults to 365 days after creation, at most 730 days. Every Secret expires. |
 | `RevokedAt` | Revocation time, or `null` if not revoked. |
 
 A Client can have several active Secrets at once, which allows rotation without downtime: add a new Secret, update the Client application, then revoke the old Secret. Secrets are revoked, not deleted, so the history stays available for auditing.
@@ -152,7 +152,8 @@ Validation:
 
 - The URI must be absolute.
 - The URI must not contain a fragment (`#...`).
-- The URI must use HTTPS. HTTP is only allowed for loopback addresses, e.g. for local development.
+- The URI must use HTTPS. HTTP is only allowed for loopback IP literals (`127.0.0.1`, `[::1]`), e.g. for native apps and local development. `localhost` is rejected for HTTP, because it depends on name resolution (RFC 8252, Section 8.3).
+- The URI must not contain user information (`user:password@`).
 
 `Matches(requested)` performs the exact, case-sensitive string comparison OAuth 2.1 requires.
 
@@ -180,7 +181,7 @@ Validation:
 
 ### GrantTypes
 
-A `[Flags]` enum, so values can be combined with `|` and checked with `HasFlag`. Never compare with `==`, because that fails as soon as more than one flag is set.
+A `[Flags]` enum, so values can be combined with `|`. Check a requested Grant Type with `Client.IsGrantTypeAllowed`, never with `HasFlag`, which returns `true` for `GrantTypes.None` (an unknown `grant_type`), and never with `==`, which fails as soon as more than one flag is set.
 
 | Value | `grant_type` at `/token` |
 |---|---|
@@ -227,7 +228,7 @@ The composite primary keys of the join tables prevent duplicate assignments.
 - **Load collections before changing them.** Use `Include` (e.g. `.Include(u => u.Roles)`) before calling methods like `AssignRole`, `AllowScope` or `GrantPermission`. Without it, the collection is empty: duplicate checks do not work and removals do nothing.
 - **Do not use `DbSet.Update()` for aggregates with collections.** Because Ids are created in code, `Update()` treats new children (e.g. a new `ClientSecret`) as existing rows and saving fails. Load the aggregate tracked, change it through its methods and call `SaveChangesAsync()`.
 - **Check `IsSystem` before deleting a Role.** Deleting a Role cascades to `user_roles` and silently removes it from all Users.
-- **Handle domain validation errors.** `User.Create`, `SetEmail`, `SetPasswordHash` and `RedirectUri.Create` throw `ArgumentException` for invalid input. The API should return 400 for these.
+- **Handle domain validation errors.** The domain throws `DomainValidationException` for invalid input, e.g. in `User.Create`, `SetEmail` and `RedirectUri.Create`, and the API returns 400 for it. A plain `ArgumentException` is a bug and stays a 500.
 
 ## Not covered yet
 

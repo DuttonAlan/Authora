@@ -4,7 +4,9 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 
 using Microsoft.Extensions.Logging;
 
@@ -15,12 +17,10 @@ namespace Authora.Core.Application.Clients.CreateSecret;
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="clientSecretIssuer">The issuer for the new Secret.</param>
-/// <param name="timeProvider">The TimeProvider to check the expiry.</param>
 /// <param name="logger">The Logger to record the creation.</param>
 public sealed class CreateClientSecretService(
     IClientRepository clientRepository,
     ClientSecretIssuer clientSecretIssuer,
-    TimeProvider timeProvider,
     ILogger<CreateClientSecretService> logger)
 {
     /// <summary>
@@ -31,7 +31,9 @@ public sealed class CreateClientSecretService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The new Secret including its plain-text value, which is only returned once.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
-    /// <exception cref="ArgumentException">Thrown when the expiry is not in the future.</exception>
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when the expiry is not in the future or later than <see cref="ClientSecret.MaxLifetime"/> from now.
+    /// </exception>
     /// <exception cref="ConflictException">Thrown when the Client is not a Confidential Client.</exception>
     public async Task<IssuedClientSecretResponse> ExecuteAsync(
         Guid id,
@@ -46,14 +48,7 @@ public sealed class CreateClientSecretService(
             throw new ConflictException("Only Confidential Clients can have Secrets.");
         }
 
-        var expiresAt = request.ExpiresAt?.UtcDateTime;
-
-        if (expiresAt <= timeProvider.GetUtcNow().UtcDateTime)
-        {
-            throw new ArgumentException("The expiry of the Secret must be in the future.", nameof(request));
-        }
-
-        var secret = clientSecretIssuer.Issue(client, expiresAt);
+        var secret = clientSecretIssuer.Issue(client, request.ExpiresAt?.UtcDateTime);
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

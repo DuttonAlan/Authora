@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Authora.Core.Abstractions;
+using Authora.Core.Domain.ValueObjects;
 
 namespace Authora.Infrastructure.Security;
 
@@ -20,25 +21,25 @@ namespace Authora.Infrastructure.Security;
 public sealed class Sha256SecretHasher : ISecretHasher
 {
     /// <inheritdoc/>
-    public string Hash(string secret)
+    public SecretHash Hash(string secret)
     {
         ArgumentNullException.ThrowIfNull(secret);
 
-        return Base64Url.EncodeToString(SHA256.HashData(Encoding.UTF8.GetBytes(secret)));
+        return SecretHash.FromHashedValue(Base64Url.EncodeToString(SHA256.HashData(Encoding.UTF8.GetBytes(secret))));
     }
 
     /// <inheritdoc/>
-    public bool Verify(string secret, string hash)
+    public bool Verify(string secret, SecretHash hash)
     {
         ArgumentNullException.ThrowIfNull(secret);
         ArgumentNullException.ThrowIfNull(hash);
 
-        if (!Base64Url.IsValid(hash, out var decodedLength) || decodedLength != SHA256.HashSizeInBytes)
+        if (!Base64Url.IsValid(hash.Value, out var decodedLength) || decodedLength != SHA256.HashSizeInBytes)
         {
             return false;
         }
 
-        var expected = Base64Url.DecodeFromChars(hash);
+        var expected = Base64Url.DecodeFromChars(hash.Value);
         var actual = SHA256.HashData(Encoding.UTF8.GetBytes(secret));
 
         return CryptographicOperations.FixedTimeEquals(actual, expected);

@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.ValueObjects;
+
 namespace Authora.Core.Abstractions;
 
 /// <summary>
@@ -17,7 +19,7 @@ public interface ISecretHasher
     /// </summary>
     /// <param name="secret">The plain-text secret.</param>
     /// <returns>The hash to store.</returns>
-    public string Hash(string secret);
+    public SecretHash Hash(string secret);
 
     /// <summary>
     ///     Checks in constant time whether a secret matches a stored hash.
@@ -25,5 +27,5 @@ public interface ISecretHasher
     /// <param name="secret">The plain-text secret to check.</param>
     /// <param name="hash">The stored hash.</param>
     /// <returns>True if the secret matches the hash.</returns>
-    public bool Verify(string secret, string hash);
+    public bool Verify(string secret, SecretHash hash);
 }

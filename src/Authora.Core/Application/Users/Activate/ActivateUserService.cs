@@ -44,7 +44,7 @@ public sealed class ActivateUserService(
             return;
         }
 
-        user.State = UserState.Active;
+        user.Activate();
 
         await userRepository.SaveChangesAsync(cancellationToken);
 
