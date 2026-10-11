@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Logging;
@@ -36,6 +37,9 @@ public sealed class SignInService(
     IOptions<SignInOptions> options,
     ILogger<SignInService> logger)
 {
+    // How often a sign-in is tried when the User is changed by another request at the same time.
+    private const int MaxAttempts = 3;
+
     // Hash of a random password, verified for Users that cannot sign in, so they take as long as real ones.
     private static string? dummyPasswordHash;
 
@@ -51,6 +55,29 @@ public sealed class SignInService(
         ArgumentNullException.ThrowIfNull(email);
         ArgumentNullException.ThrowIfNull(password);
 
+        // If another request changes the User while the password is verified (e.g. a password reset or a lockout),
+        // saving fails and the sign-in starts over with the current User, so it never overwrites that change.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await TrySignInAsync(email, password, cancellationToken);
+            }
+            catch (ConflictException) when (attempt < MaxAttempts)
+            {
+                logger.SignInRetried(attempt);
+            }
+            catch (ConflictException)
+            {
+                logger.SignInRetried(attempt);
+
+                return SignInResult.Failed;
+            }
+        }
+    }
+
+    private async Task<SignInResult> TrySignInAsync(string email, string password, CancellationToken cancellationToken)
+    {
         var user = await userRepository.GetUserByNormalizedEmail(User.Normalize(email), cancellationToken);
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
@@ -82,14 +109,19 @@ public sealed class SignInService(
 
         if (verification == PasswordVerification.Failed)
         {
-            user.RecordFailedSignIn(now, options.Value.MaxFailedAttempts, options.Value.LockoutDuration);
-            await userRepository.SaveChangesAsync(cancellationToken);
+            // Counted atomically in the database, so concurrent wrong passwords cannot count as one.
+            var lockoutEndAt = await userRepository.RecordFailedSignIn(
+                user.Id,
+                now,
+                options.Value.MaxFailedAttempts,
+                options.Value.LockoutDuration,
+                cancellationToken);
 
             logger.SignInFailed(user.Id, "wrong password");
 
-            if (user.LockoutEndAt is { } lockoutEndAt && user.IsLockedOut(now))
+            if (lockoutEndAt > now)
             {
-                logger.LockedOut(user.Id, lockoutEndAt);
+                logger.LockedOut(user.Id, lockoutEndAt.Value);
             }
 
             return SignInResult.Failed;
@@ -102,10 +134,12 @@ public sealed class SignInService(
 
         user.RecordSuccessfulSignIn(now);
 
+        // Throws a ConflictException if the User was changed since it was loaded.
+        await userRepository.SaveChangesAsync(cancellationToken);
+
         var sessionToken = secretGenerator.Generate();
         var session = Session.Create(user, secretHasher.Hash(sessionToken), now, options.Value.SessionLifetime);
 
-        // Saves the changes to the User in the same transaction.
         await sessionRepository.CreateSession(session, cancellationToken);
 
         logger.SignedIn(user.Id, session.Id);

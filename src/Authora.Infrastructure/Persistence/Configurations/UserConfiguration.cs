@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Domain.Entities;
+using Authora.Infrastructure.Persistence.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -51,6 +52,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.CreatedAt)
             .IsRequired();
+
+        // Optimistic concurrency via the PostgreSQL system column xmin: saving a User that another request changed
+        // since it was loaded fails instead of overwriting the change (e.g. a sign-in undoing a password reset).
+        builder.Property<uint>(UserRepository.VersionProperty)
+            .IsRowVersion();
 
         builder.HasIndex(x => x.NormalizedEmail)
             .IsUnique();

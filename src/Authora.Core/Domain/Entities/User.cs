@@ -205,26 +205,6 @@ public sealed class User
     }
 
     /// <summary>
-    ///     Records a failed sign-in attempt. Locks the User out once <paramref name="maxFailedAttempts"/> is reached.
-    /// </summary>
-    /// <param name="now">The current point in time (UTC).</param>
-    /// <param name="maxFailedAttempts">The number of failed attempts in a row that lock the User out.</param>
-    /// <param name="lockoutDuration">How long the User is locked out.</param>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
-    public void RecordFailedSignIn(DateTime now, int maxFailedAttempts, TimeSpan lockoutDuration)
-    {
-        UtcGuard.EnsureUtc(now);
-
-        FailedLoginCount++;
-
-        if (FailedLoginCount >= maxFailedAttempts)
-        {
-            LockoutEndAt = now + lockoutDuration;
-            FailedLoginCount = 0;
-        }
-    }
-
-    /// <summary>
     ///     Records a successful sign-in: resets the failed attempts, sets <see cref="LastLoginAt"/> and makes an
     ///     <see cref="UserState.Inactive"/> User <see cref="UserState.Active"/> again.
     /// </summary>
