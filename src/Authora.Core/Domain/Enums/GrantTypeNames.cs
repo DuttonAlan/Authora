@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.Exceptions;
+
 namespace Authora.Core.Domain.Enums;
 
 /// <summary>
@@ -30,7 +32,10 @@ public static class GrantTypeNames
     ///     Converts a single <c>grant_type</c> value to its <see cref="GrantTypes"/> flag. Names are case-sensitive.
     /// </summary>
     /// <param name="name">The <c>grant_type</c> value, e.g. <c>authorization_code</c>.</param>
-    /// <param name="grantType">The matching flag, or <see cref="GrantTypes.None"/> if the name is unknown.</param>
+    /// <param name="grantType">
+    ///     The matching flag, or <see cref="GrantTypes.None"/> if the name is unknown. Check it with
+    ///     <see cref="Entities.Client.IsGrantTypeAllowed(GrantTypes)"/>, which rejects <see cref="GrantTypes.None"/>.
+    /// </param>
     /// <returns>True if the name is a known Grant Type.</returns>
     public static bool TryParse(string? name, out GrantTypes grantType)
     {
@@ -63,7 +68,7 @@ public static class GrantTypeNames
         {
             if (!TryParse(name, out var grantType))
             {
-                throw new ArgumentException(
+                throw new DomainValidationException(
                     $"Grant Type '{name}' is unknown. Allowed values: {string.Join(", ", Names.Select(entry => entry.Name))}.",
                     nameof(names));
             }

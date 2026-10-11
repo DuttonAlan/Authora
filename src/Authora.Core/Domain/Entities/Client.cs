@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 using Authora.Core.Domain.ValueObjects;
 
 namespace Authora.Core.Domain.Entities;
@@ -83,8 +84,9 @@ public sealed class Client
 
     /// <summary>
     ///     Grant Types the Client is allowed to use at the /token endpoint.
-    ///     Combine multiple values with <c>|</c> and check them with <see cref="Enum.HasFlag(Enum)"/>.
     ///     Set via <see cref="SetAllowedGrantTypes(GrantTypes)"/>.
+    ///     Check a requested Grant Type with <see cref="IsGrantTypeAllowed(GrantTypes)"/>, not with
+    ///     <see cref="Enum.HasFlag(Enum)"/>, which returns <see langword="true"/> for <see cref="GrantTypes.None"/>.
     /// </summary>
     public GrantTypes AllowedGrantTypes { get; private set; } = DefaultGrantTypes;
 
@@ -130,7 +132,7 @@ public sealed class Client
     {
         if (!Enum.IsDefined(type))
         {
-            throw new ArgumentException($"Client Type '{type}' is unknown.", nameof(type));
+            throw new DomainValidationException($"Client Type '{type}' is unknown.", nameof(type));
         }
 
         var client = new Client
@@ -150,13 +152,13 @@ public sealed class Client
     /// <exception cref="ArgumentException">Thrown when the Name is empty or too long.</exception>
     public void SetName(string name)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(name);
 
         var trimmed = name.Trim();
 
         if (trimmed.Length > NameMaxLength)
         {
-            throw new ArgumentException($"Name must not be longer than {NameMaxLength} characters.", nameof(name));
+            throw new DomainValidationException($"Name must not be longer than {NameMaxLength} characters.", nameof(name));
         }
 
         Name = trimmed;
@@ -172,12 +174,12 @@ public sealed class Client
     {
         if (accessTokenTTL <= 0)
         {
-            throw new ArgumentException("Access Token TTL must be greater than 0.", nameof(accessTokenTTL));
+            throw new DomainValidationException("Access Token TTL must be greater than 0.", nameof(accessTokenTTL));
         }
 
         if (refreshTokenTTL <= accessTokenTTL)
         {
-            throw new ArgumentException("Refresh Token TTL must be greater than the Access Token TTL.", nameof(refreshTokenTTL));
+            throw new DomainValidationException("Refresh Token TTL must be greater than the Access Token TTL.", nameof(refreshTokenTTL));
         }
 
         AccessTokenTTL = accessTokenTTL;
@@ -196,20 +198,33 @@ public sealed class Client
     {
         if (grantTypes == GrantTypes.None)
         {
-            throw new ArgumentException("At least one Grant Type must be allowed.", nameof(grantTypes));
+            throw new DomainValidationException("At least one Grant Type must be allowed.", nameof(grantTypes));
         }
 
         if ((grantTypes & ~AllGrantTypes) != 0)
         {
-            throw new ArgumentException("Grant Types contain an unknown value.", nameof(grantTypes));
+            throw new DomainValidationException("Grant Types contain an unknown value.", nameof(grantTypes));
         }
 
         if (grantTypes.HasFlag(GrantTypes.RefreshToken) && !grantTypes.HasFlag(GrantTypes.AuthorizationCode))
         {
-            throw new ArgumentException("The Refresh Token Grant Type requires the Authorization Code Grant Type.", nameof(grantTypes));
+            throw new DomainValidationException("The Refresh Token Grant Type requires the Authorization Code Grant Type.", nameof(grantTypes));
         }
 
         AllowedGrantTypes = grantTypes;
+    }
+
+    /// <summary>
+    ///     Checks whether the Client is allowed to use a single requested Grant Type, e.g. at the /token endpoint.
+    /// </summary>
+    /// <param name="grantType">The requested Grant Type, e.g. from <see cref="GrantTypeNames.TryParse(string?, out GrantTypes)"/>.</param>
+    /// <returns>
+    ///     <see langword="true"/> if the Grant Type is allowed. Always <see langword="false"/> for <see cref="GrantTypes.None"/>
+    ///     (an unknown <c>grant_type</c>) and for combined values, because a request uses exactly one Grant Type.
+    /// </returns>
+    public bool IsGrantTypeAllowed(GrantTypes grantType)
+    {
+        return int.IsPow2((int)grantType) && (AllowedGrantTypes & grantType) == grantType;
     }
 
     /// <summary>
@@ -266,17 +281,42 @@ public sealed class Client
     ///     Adds a new Secret to the Client.
     /// </summary>
     /// <param name="secretHash">The hash of the Secret. The plain-text Secret must never be passed to the domain.</param>
-    /// <param name="expiresAt">Point in time (UTC) when the Secret expires, or <see langword="null"/> if it never expires.</param>
+    /// <param name="now">The current point in time (UTC), used as the creation time.</param>
+    /// <param name="expiresAt">
+    ///     Point in time (UTC) when the Secret expires, or <see langword="null"/> for <see cref="ClientSecret.DefaultLifetime"/>.
+    /// </param>
     /// <returns>The created Secret.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the Client is not a Confidential Client.</exception>
-    public ClientSecret AddSecret(string secretHash, DateTime? expiresAt)
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when the expiry is not in the future or later than <see cref="ClientSecret.MaxLifetime"/> from now.
+    /// </exception>
+    /// <exception cref="ArgumentException">Thrown when a point in time is not in UTC.</exception>
+    public ClientSecret AddSecret(SecretHash secretHash, DateTime now, DateTime? expiresAt)
     {
+        ArgumentNullException.ThrowIfNull(secretHash);
+        UtcGuard.EnsureUtc(now);
+
         if (Type != ClientType.Confidential)
         {
             throw new InvalidOperationException("Only confidential clients can have secrets.");
         }
 
-        var secret = new ClientSecret { SecretHash = secretHash, ExpiresAt = expiresAt };
+        var effectiveExpiresAt = expiresAt ?? now + ClientSecret.DefaultLifetime;
+        UtcGuard.EnsureUtc(effectiveExpiresAt, nameof(expiresAt));
+
+        if (effectiveExpiresAt <= now)
+        {
+            throw new DomainValidationException("The expiry of the Secret must be in the future.", nameof(expiresAt));
+        }
+
+        if (effectiveExpiresAt > now + ClientSecret.MaxLifetime)
+        {
+            throw new DomainValidationException(
+                $"The Secret must expire within {ClientSecret.MaxLifetime.TotalDays} days.",
+                nameof(expiresAt));
+        }
+
+        var secret = new ClientSecret { SecretHash = secretHash, CreatedAt = now, ExpiresAt = effectiveExpiresAt };
         _secrets.Add(secret);
 
         return secret;
@@ -287,8 +327,11 @@ public sealed class Client
     /// </summary>
     /// <param name="secretId">The Id of the Secret to revoke.</param>
     /// <param name="now">The current point in time (UTC).</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
     public void RevokeSecret(Guid secretId, DateTime now)
     {
+        UtcGuard.EnsureUtc(now);
+
         _secrets.FirstOrDefault(x => x.Id == secretId)?.Revoke(now);
     }
 

@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.ValueObjects;
+
 namespace Authora.Core.Domain.Entities;
 
 /// <summary>
@@ -9,10 +11,21 @@ namespace Authora.Core.Domain.Entities;
 /// </summary>
 /// <remarks>
 ///     A Client can have multiple active Secrets at once to allow rotation without downtime.
-///     Secrets are created and revoked through the <see cref="Client"/>.
+///     Secrets are created and revoked through the <see cref="Client"/>. Every Secret expires, so a leaked
+///     Secret that nobody revokes cannot be used forever.
 /// </remarks>
 public sealed class ClientSecret
 {
+    /// <summary>
+    ///     Lifetime of a Secret when no expiry is given (365 days).
+    /// </summary>
+    public static readonly TimeSpan DefaultLifetime = TimeSpan.FromDays(365);
+
+    /// <summary>
+    ///     Longest allowed lifetime of a Secret (730 days).
+    /// </summary>
+    public static readonly TimeSpan MaxLifetime = TimeSpan.FromDays(730);
+
     /// <summary>
     ///     Id of the Secret.
     /// </summary>
@@ -26,17 +39,17 @@ public sealed class ClientSecret
     /// <summary>
     ///     Hash of the Secret. The plain-text Secret is only shown once when it is created and never stored.
     /// </summary>
-    public required string SecretHash { get; init; }
+    public required SecretHash SecretHash { get; init; }
 
     /// <summary>
     ///     Point in time (UTC) when the Secret was created.
     /// </summary>
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public required DateTime CreatedAt { get; init; }
 
     /// <summary>
-    ///     Point in time (UTC) when the Secret expires, or <see langword="null"/> if it never expires.
+    ///     Point in time (UTC) when the Secret expires.
     /// </summary>
-    public DateTime? ExpiresAt { get; init; }
+    public required DateTime ExpiresAt { get; init; }
 
     /// <summary>
     ///     Point in time (UTC) when the Secret was revoked, or <see langword="null"/> if it is not revoked.
@@ -48,17 +61,23 @@ public sealed class ClientSecret
     /// </summary>
     /// <param name="now">The current point in time (UTC).</param>
     /// <returns><see langword="true"/> if the Secret is active, otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
     public bool IsActive(DateTime now)
     {
-        return RevokedAt is null && (ExpiresAt is null || ExpiresAt > now);
+        UtcGuard.EnsureUtc(now);
+
+        return RevokedAt is null && ExpiresAt > now;
     }
 
     /// <summary>
     ///     Revokes the Secret. Revoking an already revoked Secret keeps the original revocation time.
     /// </summary>
     /// <param name="now">The current point in time (UTC).</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
     public void Revoke(DateTime now)
     {
+        UtcGuard.EnsureUtc(now);
+
         RevokedAt ??= now;
     }
 }

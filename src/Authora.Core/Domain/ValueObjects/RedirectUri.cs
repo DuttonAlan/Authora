@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.Exceptions;
+
 namespace Authora.Core.Domain.ValueObjects;
 
 /// <summary>
@@ -25,31 +27,43 @@ public sealed record RedirectUri
     /// </summary>
     /// <param name="value">The Redirect URI to register.</param>
     /// <returns>The created Redirect URI.</returns>
-    /// <exception cref="ArgumentException">
-    ///     Thrown when the URI is not absolute, contains a fragment, contains whitespaces, or does not use HTTPS
-    ///     (HTTP is only allowed for loopback addresses).
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when the URI is not absolute, contains a fragment, user information or whitespaces, or does not use
+    ///     HTTPS (HTTP is only allowed for the loopback IP literals <c>127.0.0.1</c> and <c>[::1]</c>).
     /// </exception>
     public static RedirectUri Create(string value)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
         {
-            throw new ArgumentException("Redirect URI must be absolute.", nameof(value));
+            throw new DomainValidationException("Redirect URI must be absolute.", nameof(value));
         }
 
         if (!string.IsNullOrEmpty(uri.Fragment))
         {
-            throw new ArgumentException("Redirect URI must not contain a fragment.", nameof(value));
+            throw new DomainValidationException("Redirect URI must not contain a fragment.", nameof(value));
         }
 
-        var isLoopback = uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback;
-        if (uri.Scheme != Uri.UriSchemeHttps && !isLoopback)
+        if (!string.IsNullOrEmpty(uri.UserInfo))
         {
-            throw new ArgumentException("Redirect URI must use HTTPS (HTTP only for loopback).", nameof(value));
+            throw new DomainValidationException("Redirect URI must not contain user information.", nameof(value));
+        }
+
+        // RFC 8252, Section 8.3: loopback redirects must use an IP literal, because "localhost" depends on name
+        // resolution and could be resolved to a remote host.
+        var isLoopbackIp = uri.Scheme == Uri.UriSchemeHttp
+            && uri.HostNameType is UriHostNameType.IPv4 or UriHostNameType.IPv6
+            && uri.IsLoopback;
+
+        if (uri.Scheme != Uri.UriSchemeHttps && !isLoopbackIp)
+        {
+            throw new DomainValidationException(
+                "Redirect URI must use HTTPS (HTTP only for the loopback IP addresses 127.0.0.1 and [::1]).",
+                nameof(value));
         }
 
         if (value != value.Trim())
         {
-            throw new ArgumentException("Redirect URI can't contain whitespaces.", nameof(value));
+            throw new DomainValidationException("Redirect URI can't contain whitespaces.", nameof(value));
         }
 
         return new RedirectUri(value);

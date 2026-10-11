@@ -41,7 +41,7 @@ internal static partial class ClientLog
     public static partial void ScopeDisallowed(this ILogger logger, Guid clientId, Guid scopeId, string scopeName);
 
     [LoggerMessage(EventId = 4010, Level = LogLevel.Information, Message = "Secret {SecretId} was created for Client {ClientId}, expires at {ExpiresAt}.")]
-    public static partial void SecretCreated(this ILogger logger, Guid clientId, Guid secretId, DateTime? expiresAt);
+    public static partial void SecretCreated(this ILogger logger, Guid clientId, Guid secretId, DateTime expiresAt);
 
     [LoggerMessage(EventId = 4011, Level = LogLevel.Warning, Message = "Secret {SecretId} of Client {ClientId} was revoked.")]
     public static partial void SecretRevoked(this ILogger logger, Guid clientId, Guid secretId);

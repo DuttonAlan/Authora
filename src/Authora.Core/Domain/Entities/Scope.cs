@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.Exceptions;
+
 namespace Authora.Core.Domain.Entities;
 
 /// <summary>
@@ -10,7 +12,7 @@ namespace Authora.Core.Domain.Entities;
 /// <remarks>
 ///     Scopes are requested via the <c>scope</c> parameter and shown to the User on the consent screen.
 ///     They are not the same as <see cref="Permission"/>s, which define what a User may do.
-///     A Scope can only be created via <see cref="Create(string, string, string?, bool)"/>,
+///     A Scope can only be created via <see cref="Create(string, string, string?)"/>,
 ///     so a Scope with an invalid Name can never exist.
 /// </remarks>
 public sealed class Scope
@@ -85,29 +87,30 @@ public sealed class Scope
     /// <summary>
     ///     Creates a new Scope.
     /// </summary>
+    /// <remarks>
+    ///     Always creates a regular Scope. System Scopes, e.g. <c>openid</c>, are only created by seeding.
+    /// </remarks>
     /// <param name="name">The unique Name of the Scope, see <see cref="NamePattern"/>.</param>
     /// <param name="displayName">The human-readable Name of the Scope.</param>
     /// <param name="description">The optional Description of the Scope.</param>
-    /// <param name="isSystem">Whether the Scope is a built-in System Scope.</param>
     /// <returns>The created Scope.</returns>
     /// <exception cref="ArgumentException">Thrown when a value is empty, too long or the Name has an invalid format.</exception>
-    public static Scope Create(string name, string displayName, string? description = null, bool isSystem = false)
+    public static Scope Create(string name, string displayName, string? description = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(name);
 
         var trimmed = name.Trim();
 
         if (!IsValidName(trimmed))
         {
-            throw new ArgumentException(
+            throw new DomainValidationException(
                 $"Name must be at most {NameMaxLength} characters and only contain printable ASCII characters except space, '\"' and '\\'.",
                 nameof(name));
         }
 
         var scope = new Scope
         {
-            Name = trimmed,
-            IsSystem = isSystem
+            Name = trimmed
         };
 
         scope.SetDisplayName(displayName);
@@ -136,13 +139,13 @@ public sealed class Scope
     /// <exception cref="ArgumentException">Thrown when the Display Name is empty or too long.</exception>
     public void SetDisplayName(string displayName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        DomainValidationException.ThrowIfNullOrWhiteSpace(displayName);
 
         var trimmed = displayName.Trim();
 
         if (trimmed.Length > DisplayNameMaxLength)
         {
-            throw new ArgumentException($"Display Name must not be longer than {DisplayNameMaxLength} characters.", nameof(displayName));
+            throw new DomainValidationException($"Display Name must not be longer than {DisplayNameMaxLength} characters.", nameof(displayName));
         }
 
         DisplayName = trimmed;
@@ -159,7 +162,7 @@ public sealed class Scope
 
         if (trimmed?.Length > DescriptionMaxLength)
         {
-            throw new ArgumentException($"Description must not be longer than {DescriptionMaxLength} characters.", nameof(description));
+            throw new DomainValidationException($"Description must not be longer than {DescriptionMaxLength} characters.", nameof(description));
         }
 
         Description = string.IsNullOrEmpty(trimmed) ? null : trimmed;

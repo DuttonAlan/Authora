@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Domain.Exceptions;
 
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +38,9 @@ public sealed class ProblemDetailsExceptionHandler(IProblemDetailsService proble
             DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } }
                 => (StatusCodes.Status409Conflict, "The resource conflicts with an existing resource."),
 
-            ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
+            // ArgumentException is deliberately not mapped for the same reason as InvalidOperationException.
+            // Domain and services throw DomainValidationException for invalid input.
+            DomainValidationException => (StatusCodes.Status400BadRequest, exception.Message),
             _ => (0, null)
         };
 
