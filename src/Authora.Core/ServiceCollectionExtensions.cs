@@ -2,6 +2,20 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Clients;
+using Authora.Core.Application.Clients.AddRedirectUri;
+using Authora.Core.Application.Clients.AllowScope;
+using Authora.Core.Application.Clients.CreateSecret;
+using Authora.Core.Application.Clients.Delete;
+using Authora.Core.Application.Clients.Disable;
+using Authora.Core.Application.Clients.DisallowScope;
+using Authora.Core.Application.Clients.Enable;
+using Authora.Core.Application.Clients.Get;
+using Authora.Core.Application.Clients.GetAll;
+using Authora.Core.Application.Clients.Register;
+using Authora.Core.Application.Clients.RemoveRedirectUri;
+using Authora.Core.Application.Clients.RevokeSecret;
+using Authora.Core.Application.Clients.Update;
 using Authora.Core.Application.Permissions.GetAll;
 using Authora.Core.Application.Roles.Create;
 using Authora.Core.Application.Roles.Delete;
@@ -45,6 +59,21 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
+        serviceCollection.AddTransient<ClientSecretIssuer>();
+        serviceCollection.AddTransient<AddRedirectUriService>();
+        serviceCollection.AddTransient<AllowScopeService>();
+        serviceCollection.AddTransient<CreateClientSecretService>();
+        serviceCollection.AddTransient<DeleteClientService>();
+        serviceCollection.AddTransient<DisableClientService>();
+        serviceCollection.AddTransient<DisallowScopeService>();
+        serviceCollection.AddTransient<EnableClientService>();
+        serviceCollection.AddTransient<GetAllClientsService>();
+        serviceCollection.AddTransient<GetClientService>();
+        serviceCollection.AddTransient<RegisterClientService>();
+        serviceCollection.AddTransient<RemoveRedirectUriService>();
+        serviceCollection.AddTransient<RevokeClientSecretService>();
+        serviceCollection.AddTransient<UpdateClientService>();
+
         serviceCollection.AddTransient<GetAllPermissionsService>();
 
         serviceCollection.AddTransient<CreateRoleService>();

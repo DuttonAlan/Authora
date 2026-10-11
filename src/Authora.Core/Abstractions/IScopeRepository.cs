@@ -32,6 +32,14 @@ public interface IScopeRepository
     public Task<Scope?> GetScopeById(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Get the Scopes with the given Ids. Ids without a matching Scope are skipped.
+    /// </summary>
+    /// <param name="ids">Ids of the Scopes.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The tracked Scopes that exist.</returns>
+    public Task<IReadOnlyList<Scope>> GetScopesByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Get all Scopes ordered by their Name.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

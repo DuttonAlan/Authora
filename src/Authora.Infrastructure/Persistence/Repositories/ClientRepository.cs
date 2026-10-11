@@ -1,0 +1,59 @@
+// Copyright(c) Alan Dutton.
+// Licensed under the MIT License.
+// See the LICENSE file in the project root for license information.
+
+using Authora.Core.Abstractions;
+using Authora.Core.Domain.Entities;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Authora.Infrastructure.Persistence.Repositories;
+
+/// <inheritdoc/>
+/// <param name="context">The DbContext to access the Clients.</param>
+public sealed class ClientRepository(AuthoraContext context) : IClientRepository
+{
+    /// <inheritdoc/>
+    public async Task<Guid> CreateClient(Client client, CancellationToken cancellationToken = default)
+    {
+        context.Clients.Add(client);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return client.Id;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Client?> GetClientById(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Redirect URIs are owned by the Client and loaded automatically.
+        return await context.Clients
+            .AsSplitQuery()
+            .Include(client => client.Secrets)
+            .Include(client => client.AllowedScopes)
+            .FirstOrDefaultAsync(client => client.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Client>> GetClients(CancellationToken cancellationToken = default)
+    {
+        return await context.Clients
+            .AsNoTracking()
+            .OrderBy(client => client.Name)
+            .ThenBy(client => client.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task DeleteClient(Client client, CancellationToken cancellationToken = default)
+    {
+        // Secrets, Redirect URIs and client_scopes are removed with the Client (cascade delete).
+        context.Clients.Remove(client);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await context.SaveChangesAsync(cancellationToken);
+    }
+}
