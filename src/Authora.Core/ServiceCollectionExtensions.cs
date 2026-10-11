@@ -6,6 +6,7 @@ using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddRedirectUri;
 using Authora.Core.Application.Clients.AllowScope;
@@ -76,6 +77,8 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<SignInService>();
         serviceCollection.AddTransient<SignOutService>();
         serviceCollection.AddTransient<ValidateSessionService>();
+
+        serviceCollection.AddTransient<PermissionEvaluator>();
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OAuthOptions>, OAuthOptionsValidator>());
         serviceCollection.AddTransient<AccessTokenValidator>();
