@@ -31,4 +31,7 @@ internal static partial class UserLog
 
     [LoggerMessage(EventId = 1007, Level = LogLevel.Information, Message = "Role {RoleId} ({RoleName}) was removed from User {UserId}.")]
     public static partial void RoleRemoved(this ILogger logger, Guid userId, Guid roleId, string roleName);
+
+    [LoggerMessage(EventId = 1008, Level = LogLevel.Information, Message = "The password of User {UserId} was set. All Sessions and tokens of the User were revoked.")]
+    public static partial void PasswordSet(this ILogger logger, Guid userId);
 }

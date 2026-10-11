@@ -17,7 +17,7 @@ public sealed class ScopeConfiguration : IEntityTypeConfiguration<Scope>
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Scope> builder)
     {
-        builder.ToTable("scopes", "identity");
+        builder.ToTable("scopes", Schemas.Identity);
 
         builder.HasKey(x => x.Id);
 

@@ -53,11 +53,15 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
         serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();
+        serviceCollection.AddSingleton<IPasswordHasher, PasswordHasher>();
 
+        serviceCollection.AddTransient<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
         serviceCollection.AddTransient<IClientRepository, ClientRepository>();
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
         serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();
+        serviceCollection.AddTransient<ISessionRepository, SessionRepository>();
+        serviceCollection.AddTransient<ITokenRepository, TokenRepository>();
         serviceCollection.AddTransient<IUserRepository, UserRepository>();
 
         return serviceCollection;

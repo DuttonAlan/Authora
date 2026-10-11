@@ -45,4 +45,7 @@ internal static partial class ClientLog
 
     [LoggerMessage(EventId = 4011, Level = LogLevel.Warning, Message = "Secret {SecretId} of Client {ClientId} was revoked.")]
     public static partial void SecretRevoked(this ILogger logger, Guid clientId, Guid secretId);
+
+    [LoggerMessage(EventId = 4012, Level = LogLevel.Warning, Message = "{RevokedGrants} Grant(s) of Client {ClientId} were revoked, including their Access and Refresh Tokens.")]
+    public static partial void ClientGrantsRevoked(this ILogger logger, Guid clientId, int revokedGrants);
 }

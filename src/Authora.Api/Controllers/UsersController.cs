@@ -17,6 +17,7 @@ using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
 using Authora.Core.Domain.Enums;
@@ -39,6 +40,7 @@ namespace Authora.Api.Controllers;
 /// <param name="getUserService">The Service to get the User.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
 /// <param name="revokeUserSessionsService">The Service to revoke all Sessions of the User.</param>
+/// <param name="setPasswordService">The Service to set the password of the User.</param>
 /// <param name="unlockUserService">The Service to unlock the User.</param>
 /// <param name="updateUserService">The Service to update the User.</param>
 [ApiController]
@@ -56,6 +58,7 @@ public sealed class UsersController(
     GetUserService getUserService,
     RemoveRoleService removeRoleService,
     RevokeUserSessionsService revokeUserSessionsService,
+    SetPasswordService setPasswordService,
     UnlockUserService unlockUserService,
     UpdateUserService updateUserService) : ControllerBase
 {
@@ -323,6 +326,39 @@ public sealed class UsersController(
         CancellationToken cancellationToken)
     {
         await revokeUserSessionsService.ExecuteAsync(id, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Sets the password of the User.
+    /// </summary>
+    /// <remarks>
+    ///     The password must be 12 to 128 characters long. Setting it signs the User out everywhere:
+    ///     all Sessions end and all tokens issued for the User become invalid.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="request">The request with the new password.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the password is set.</returns>
+    /// <response code="204">Responds with no content once the password was set.</response>
+    /// <response code="400">Responds with validation problem details if the password is too short or too long.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the User is deleted.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpPut("{id:guid}/password")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    public async Task<IActionResult> SetPassword(
+        Guid id,
+        SetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await setPasswordService.ExecuteAsync(id, request, cancellationToken);
 
         return NoContent();
     }

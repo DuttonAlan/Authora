@@ -1,0 +1,147 @@
+:root {
+    --background: #f4f5f7;
+    --surface: #ffffff;
+    --text: #1d2330;
+    --muted: #5d6576;
+    --border: #d9dce3;
+    --primary: #2f5bea;
+    --primary-text: #ffffff;
+    --error-background: #fdecec;
+    --error-text: #9b1c1c;
+    color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #14171d;
+        --surface: #1e222b;
+        --text: #e7e9ee;
+        --muted: #a2a9b8;
+        --border: #343a47;
+        --primary: #6f8ff5;
+        --primary-text: #0f1218;
+        --error-background: #3a1d1f;
+        --error-text: #f4b4b4;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--background);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+}
+
+.card {
+    width: 100%;
+    max-width: 420px;
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.brand {
+    margin: 0 0 16px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--primary);
+}
+
+h1 {
+    margin: 0 0 16px;
+    font-size: 1.4rem;
+}
+
+p {
+    margin: 0 0 16px;
+}
+
+.muted {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--text);
+    font: inherit;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+button {
+    flex: 1;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-text);
+}
+
+.error {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--error-background);
+    color: var(--error-text);
+}
+
+.scopes {
+    margin: 0 0 16px;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.scopes li {
+    padding: 10px 12px;
+}
+
+.scopes li + li {
+    border-top: 1px solid var(--border);
+}
+
+.scopes .description {
+    display: block;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+a {
+    color: var(--primary);
+}

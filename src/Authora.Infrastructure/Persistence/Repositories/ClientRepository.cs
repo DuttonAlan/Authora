@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Domain.Entities;
+using Authora.Core.Domain.Enums;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -41,6 +42,13 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
             .OrderBy(client => client.Name)
             .ThenBy(client => client.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> IsClientDisabled(Guid id, CancellationToken cancellationToken = default)
+    {
+        return !await context.Clients
+            .AnyAsync(client => client.Id == id && client.Status == ClientStatus.Enabled, cancellationToken);
     }
 
     /// <inheritdoc/>

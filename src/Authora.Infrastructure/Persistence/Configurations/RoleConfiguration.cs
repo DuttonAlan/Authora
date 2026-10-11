@@ -17,7 +17,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Role> builder)
     {
-        builder.ToTable("roles", "identity");
+        builder.ToTable("roles", Schemas.Identity);
 
         builder.HasKey(x => x.Id);
 
@@ -52,7 +52,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
                 left => left.HasOne<Role>().WithMany().HasForeignKey("RoleId").OnDelete(DeleteBehavior.Cascade),
                 join =>
                 {
-                    join.ToTable("role_permissions", "identity");
+                    join.ToTable("role_permissions", Schemas.Identity);
                     join.HasKey("RoleId", "PermissionId");
                 });
 
