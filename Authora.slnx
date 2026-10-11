@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Authora.Api/Authora.Api.csproj" />
+    <Project Path="src/Authora.Core/Authora.Core.csproj" Id="bcea19f8-281c-4952-a78e-0ef36ad2a1a3" />
+    <Project Path="src/Authora.Infrastructure/Authora.Infrastructure.csproj" Id="12b4c181-13eb-49cf-a41d-b3df1f3881cc" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/Directory.Build.props" />
+    <Project Path="tests/Authora.Api.IntegrationTests/Authora.Api.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

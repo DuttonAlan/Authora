@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/Solution Items/">
-    <File Path=".editorconfig" />
-  </Folder>
-  <Project Path="Authora.Api/Authora.Api.csproj" />
-  <Project Path="Authora.Core/Authora.Core.csproj" Id="bcea19f8-281c-4952-a78e-0ef36ad2a1a3" />
-  <Project Path="Authora.Infrastructure/Authora.Infrastructure.csproj" Id="12b4c181-13eb-49cf-a41d-b3df1f3881cc" />
-</Solution>

@@ -4,6 +4,8 @@
 
 using System.ComponentModel.DataAnnotations;
 
+using Authora.Api.Authorization;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Paging;
 using Authora.Core.Application.Users;
 using Authora.Core.Application.Users.Activate;
@@ -22,6 +24,7 @@ using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
 using Authora.Core.Domain.Enums;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Authora.Api.Controllers;
@@ -44,6 +47,7 @@ namespace Authora.Api.Controllers;
 /// <param name="unlockUserService">The Service to unlock the User.</param>
 /// <param name="updateUserService">The Service to update the User.</param>
 [ApiController]
+[Authorize(AuthorizationPolicies.AdminApi)]
 [Route("api/users")]
 [Tags("Users")]
 public sealed class UsersController(
@@ -82,6 +86,7 @@ public sealed class UsersController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Create)]
     public async Task<IActionResult> Create(
         CreateUserRequest request,
         CancellationToken cancellationToken)
@@ -113,6 +118,7 @@ public sealed class UsersController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Delete)]
     public async Task<IActionResult> Delete(
         Guid id,
         CancellationToken cancellationToken)
@@ -141,6 +147,7 @@ public sealed class UsersController(
     [ProducesResponseType<PagedResponse<GetAllUsersResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
     public async Task<IActionResult> GetAll(
         [FromQuery] UserState? state,
         [FromQuery, StringLength(254)] string? search,
@@ -170,6 +177,7 @@ public sealed class UsersController(
     [ProducesResponseType<GetUserResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
     public async Task<IActionResult> Get(
         Guid id,
         CancellationToken cancellationToken)
@@ -208,6 +216,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Update)]
     public async Task<IActionResult> Update(
         Guid id,
         UpdateUserRequest request,
@@ -240,6 +249,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ManageAccess)]
     public async Task<IActionResult> Deactivate(
         Guid id,
         CancellationToken cancellationToken)
@@ -267,6 +277,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ManageAccess)]
     public async Task<IActionResult> Activate(
         Guid id,
         CancellationToken cancellationToken)
@@ -294,6 +305,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ManageAccess)]
     public async Task<IActionResult> Unlock(
         Guid id,
         CancellationToken cancellationToken)
@@ -321,6 +333,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ManageAccess)]
     public async Task<IActionResult> RevokeSessions(
         Guid id,
         CancellationToken cancellationToken)
@@ -353,6 +366,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.SetPassword)]
     public async Task<IActionResult> SetPassword(
         Guid id,
         SetPasswordRequest request,
@@ -376,6 +390,7 @@ public sealed class UsersController(
     [ProducesResponseType<IReadOnlyList<UserRoleResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
     public async Task<IActionResult> GetRoles(
         Guid id,
         CancellationToken cancellationToken)
@@ -404,6 +419,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.AssignRoles)]
     public async Task<IActionResult> AssignRole(
         Guid id,
         Guid roleId,
@@ -434,6 +450,7 @@ public sealed class UsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.AssignRoles)]
     public async Task<IActionResult> RemoveRole(
         Guid id,
         Guid roleId,
@@ -461,6 +478,7 @@ public sealed class UsersController(
     [ProducesResponseType<IReadOnlyList<GetEffectivePermissionsResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
     public async Task<IActionResult> GetPermissions(
         Guid id,
         CancellationToken cancellationToken)

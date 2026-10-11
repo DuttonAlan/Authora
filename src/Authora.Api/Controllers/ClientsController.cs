@@ -4,6 +4,8 @@
 
 using System.ComponentModel.DataAnnotations;
 
+using Authora.Api.Authorization;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddRedirectUri;
 using Authora.Core.Application.Clients.AllowScope;
@@ -19,6 +21,7 @@ using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
 using Authora.Core.Application.Clients.Update;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -41,6 +44,7 @@ namespace Authora.Api.Controllers;
 /// <param name="revokeClientSecretService">The Service to revoke a Secret.</param>
 /// <param name="updateClientService">The Service to update the Client.</param>
 [ApiController]
+[Authorize(AuthorizationPolicies.AdminApi)]
 [Route("api/clients")]
 [Tags("Clients")]
 public sealed class ClientsController(
@@ -77,6 +81,7 @@ public sealed class ClientsController(
     [ProducesResponseType<RegisterClientResponse>(StatusCodes.Status201Created, "application/json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Create)]
     public async Task<IActionResult> Register(
         RegisterClientRequest request,
         CancellationToken cancellationToken)
@@ -103,6 +108,7 @@ public sealed class ClientsController(
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Delete)]
     public async Task<IActionResult> Delete(
         Guid id,
         CancellationToken cancellationToken)
@@ -122,6 +128,7 @@ public sealed class ClientsController(
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<GetAllClientsResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Read)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var clients = await getAllClientsService.ExecuteAsync(cancellationToken);
@@ -145,6 +152,7 @@ public sealed class ClientsController(
     [ProducesResponseType<GetClientResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Read)]
     public async Task<IActionResult> Get(
         Guid id,
         CancellationToken cancellationToken)
@@ -180,6 +188,7 @@ public sealed class ClientsController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> Update(
         Guid id,
         UpdateClientRequest request,
@@ -209,6 +218,7 @@ public sealed class ClientsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> Enable(
         Guid id,
         CancellationToken cancellationToken)
@@ -234,6 +244,7 @@ public sealed class ClientsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> Disable(
         Guid id,
         CancellationToken cancellationToken)
@@ -263,6 +274,7 @@ public sealed class ClientsController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AddRedirectUri(
         Guid id,
         AddRedirectUriRequest request,
@@ -293,6 +305,7 @@ public sealed class ClientsController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> RemoveRedirectUri(
         Guid id,
         [FromQuery, Required, StringLength(2048, MinimumLength = 1)] string uri,
@@ -320,6 +333,7 @@ public sealed class ClientsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AllowScope(
         Guid id,
         Guid scopeId,
@@ -347,6 +361,7 @@ public sealed class ClientsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> DisallowScope(
         Guid id,
         Guid scopeId,
@@ -382,6 +397,7 @@ public sealed class ClientsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.ManageSecrets)]
     public async Task<IActionResult> CreateSecret(
         Guid id,
         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CreateClientSecretRequest? request,
@@ -413,6 +429,7 @@ public sealed class ClientsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.ManageSecrets)]
     public async Task<IActionResult> RevokeSecret(
         Guid id,
         Guid secretId,
