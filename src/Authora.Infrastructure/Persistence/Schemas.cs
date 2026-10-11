@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain;
+
 namespace Authora.Infrastructure.Persistence;
 
 /// <summary>
@@ -27,5 +29,5 @@ internal static class Schemas
     /// <summary>
     ///     Maximum length of a space-delimited list of Scopes.
     /// </summary>
-    public const int ScopeMaxLength = 4000;
+    public const int ScopeMaxLength = ScopeList.MaxLength;
 }
