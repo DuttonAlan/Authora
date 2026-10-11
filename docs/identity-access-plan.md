@@ -148,7 +148,7 @@ A missing or inactive token returns `401`.
 
 ### Seeding and the first administrator
 
-`IdentitySeeder` runs at every start, before requests are served. It creates what is missing: the Permissions of `PermissionNames`, the System Role `admin` with all Permissions, and the System Scope `authora.admin`.
+`IdentitySeeder` runs at every start, before requests are served. It creates what is missing: the Permissions of `PermissionNames`, the System Role `admin` with all Permissions, and the System Scope `authora.admin`. If a regular Role or Scope already uses one of these Names, startup fails instead of promoting it.
 
 While no administrator who can sign in exists, it also creates the first administrator from the configuration (US-003). If `Client:RedirectUris` is set and no enabled Client is allowed `authora.admin` yet, it creates a Public Client to get tokens with. This also works after the administrator exists, because registering a Client through the API needs an admin token:
 
