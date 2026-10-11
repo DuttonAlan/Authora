@@ -2,6 +2,13 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Roles.Create;
+using Authora.Core.Application.Roles.Delete;
+using Authora.Core.Application.Roles.Get;
+using Authora.Core.Application.Roles.GetAll;
+using Authora.Core.Application.Roles.GrantPermission;
+using Authora.Core.Application.Roles.RevokePermission;
+using Authora.Core.Application.Roles.Update;
 using Authora.Core.Application.Users.Activate;
 using Authora.Core.Application.Users.AssignRole;
 using Authora.Core.Application.Users.Create;
@@ -32,6 +39,14 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
+        serviceCollection.AddTransient<CreateRoleService>();
+        serviceCollection.AddTransient<DeleteRoleService>();
+        serviceCollection.AddTransient<GetAllRolesService>();
+        serviceCollection.AddTransient<GetRoleService>();
+        serviceCollection.AddTransient<GrantPermissionService>();
+        serviceCollection.AddTransient<RevokePermissionService>();
+        serviceCollection.AddTransient<UpdateRoleService>();
+
         serviceCollection.AddTransient<ActivateUserService>();
         serviceCollection.AddTransient<AssignRoleService>();
         serviceCollection.AddTransient<CreateUserService>();

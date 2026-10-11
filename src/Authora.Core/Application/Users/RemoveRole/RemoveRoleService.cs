@@ -42,7 +42,7 @@ public sealed class RemoveRoleService(
             return;
         }
 
-        if (AdministratorGuard.IsAdministratorRole(role))
+        if (role.IsAdministrator)
         {
             await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
         }

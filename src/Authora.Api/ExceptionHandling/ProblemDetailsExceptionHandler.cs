@@ -33,7 +33,7 @@ public sealed class ProblemDetailsExceptionHandler(IProblemDetailsService proble
             // A unique index was violated, e.g. by a concurrent request that passed the same uniqueness check.
             DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } }
                 => (StatusCodes.Status409Conflict, "The resource conflicts with an existing resource."),
-
+            
             ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
             _ => (0, null)
         };
