@@ -15,16 +15,6 @@ namespace Authora.Core.Application.Users;
 internal static class AdministratorGuard
 {
     /// <summary>
-    ///     Checks whether the Role is the built-in administrator Role.
-    /// </summary>
-    /// <param name="role">The Role to check.</param>
-    /// <returns>True if the Role is the System Role <see cref="Role.AdministratorName"/>.</returns>
-    public static bool IsAdministratorRole(Role role)
-    {
-        return role.IsSystem && role.Name == Role.AdministratorName;
-    }
-
-    /// <summary>
     ///     Throws if the User is the last administrator who can sign in.
     /// </summary>
     /// <remarks>
@@ -45,7 +35,7 @@ internal static class AdministratorGuard
             return;
         }
 
-        var administratorRole = user.Roles.FirstOrDefault(IsAdministratorRole);
+        var administratorRole = user.Roles.FirstOrDefault(role => role.IsAdministrator);
 
         if (administratorRole is null)
         {

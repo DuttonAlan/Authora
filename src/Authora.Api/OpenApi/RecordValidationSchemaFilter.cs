@@ -50,6 +50,11 @@ public sealed class RecordValidationSchemaFilter : ISchemaFilter
                 }
             }
 
+            if (parameter.GetCustomAttribute<RegularExpressionAttribute>() is { } regularExpression)
+            {
+                property.Pattern = regularExpression.Pattern;
+            }
+
             if (parameter.GetCustomAttribute<EmailAddressAttribute>() is not null)
             {
                 property.Format = "email";
