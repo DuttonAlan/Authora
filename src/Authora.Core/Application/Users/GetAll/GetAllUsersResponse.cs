@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain.Enums;
+
 namespace Authora.Core.Application.Users.GetAll;
 
 /// <summary>
@@ -11,4 +13,5 @@ namespace Authora.Core.Application.Users.GetAll;
 /// <param name="Email" example="jane.doe@example.com">Email of the User.</param>
 /// <param name="FirstName" example="Jane">First Name of the User.</param>
 /// <param name="LastName" example="Doe">Last Name of the User.</param>
-public sealed record GetAllUsersResponse(Guid Id, string Email, string FirstName, string LastName);
+/// <param name="State" example="Active">State of the User.</param>
+public sealed record GetAllUsersResponse(Guid Id, string Email, string FirstName, string LastName, UserState State);

@@ -4,6 +4,8 @@
 
 using System.ComponentModel.DataAnnotations;
 
+using Authora.Core.Domain.Entities;
+
 namespace Authora.Core.Application.Users.Create;
 
 /// <summary>
@@ -14,5 +16,5 @@ namespace Authora.Core.Application.Users.Create;
 /// <param name="LastName" example="Doe">Last Name of the User.</param>
 public sealed record CreateUserRequest(
     [Required, EmailAddress, StringLength(254)] string Email,
-    [Required, StringLength(50, MinimumLength = 1)] string FirstName,
-    [Required, StringLength(50, MinimumLength = 1)] string LastName);
+    [Required, StringLength(User.NameMaxLength, MinimumLength = 1)] string FirstName,
+    [Required, StringLength(User.NameMaxLength, MinimumLength = 1)] string LastName);

@@ -3,12 +3,16 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
+using Authora.Infrastructure.Persistence.Interceptors;
 using Authora.Infrastructure.Persistence.Repositories;
+using Authora.Infrastructure.Security;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Authora.Infrastructure;
 
@@ -25,11 +29,26 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddInfrastructure(this IServiceCollection serviceCollection, IConfiguration configuration)
     {
-        serviceCollection.AddDbContext<AuthoraContext>(options =>
+        serviceCollection.TryAddSingleton(TimeProvider.System);
+        serviceCollection.AddSingleton<ModifiedAtInterceptor>();
+
+        serviceCollection.AddDbContext<AuthoraContext>((serviceProvider, options) =>
         {
             options.UseNpgsql(configuration.GetConnectionString("Database"));
+            options.AddInterceptors(serviceProvider.GetRequiredService<ModifiedAtInterceptor>());
         });
 
+        serviceCollection.AddHealthChecks()
+            .AddDbContextCheck<AuthoraContext>("database", tags: [HealthCheckTags.Ready])
+            .AddCheck<MigrationsHealthCheck>("migrations", tags: [HealthCheckTags.Ready]);
+
+        serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
+        serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();
+
+        serviceCollection.AddTransient<IClientRepository, ClientRepository>();
+        serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
+        serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
+        serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();
         serviceCollection.AddTransient<IUserRepository, UserRepository>();
 
         return serviceCollection;
