@@ -25,7 +25,8 @@ public sealed class BootstrapOptions
 
     /// <summary>
     ///     The Client the administrator uses to get an Access Token for the admin API.
-    ///     Only created together with the administrator, and only if it has Redirect URIs.
+    ///     Created if it has Redirect URIs and no enabled Client is allowed the <c>authora.admin</c> Scope yet,
+    ///     even after the administrator exists.
     /// </summary>
     public BootstrapClientOptions Client { get; set; } = new();
 }

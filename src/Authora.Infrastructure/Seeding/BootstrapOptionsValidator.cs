@@ -28,13 +28,6 @@ public sealed class BootstrapOptionsValidator : IValidateOptions<BootstrapOption
             {
                 failures.Add($"'{section}:{nameof(BootstrapAdministratorOptions.Email)}' must be set if a password is set.");
             }
-
-            if (options.Client.RedirectUris.Count > 0)
-            {
-                failures.Add(
-                    $"'{BootstrapOptions.SectionName}:{nameof(BootstrapOptions.Client)}' is only created together with the "
-                    + $"administrator, so '{section}:{nameof(BootstrapAdministratorOptions.Email)}' must be set.");
-            }
         }
         // A missing password is only an error while the administrator still has to be created, which IdentitySeeder
         // checks. Otherwise removing the password once an administrator exists would stop the next start.
