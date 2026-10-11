@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Exceptions;
+using Authora.Core.Domain.Entities;
 
 namespace Authora.Core.Application.Users.Update;
 
@@ -18,42 +20,44 @@ public sealed class UpdateUserService(IUserRepository userRepository)
     /// <param name="id">Id of the User.</param>
     /// <param name="request">The request to update the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns>True if the User was updated, false if the User does not exist.</returns>
+    /// <returns>A Task that completes once the User is updated.</returns>
+    /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
+    /// <exception cref="ConflictException">Thrown when the User is deleted, or the new Email is already used by another User.</exception>
+    /// <exception cref="ArgumentException">Thrown when a value is empty, only whitespace, too long, or the Email is not valid.</exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateUserRequest request,
         CancellationToken cancellationToken = default)
     {
-        var user = await userRepository.GetUserById(id, cancellationToken);
+        var user = await userRepository.GetUserById(id, cancellationToken)
+            ?? throw new NotFoundException($"User '{id}' was not found.");
 
-        if (user is null)
-        {
-            throw new Exception("User not found");
-        }
-
-        var updated = false;
+        DeletedUserGuard.EnsureNotDeleted(user);
 
         if (request.Email is not null)
         {
+            var normalizedEmail = User.Normalize(request.Email);
+
+            if (normalizedEmail != user.NormalizedEmail
+                && await userRepository.EmailExists(normalizedEmail, cancellationToken))
+            {
+                throw new ConflictException("The Email is already used by another User.");
+            }
+
             user.SetEmail(request.Email);
-            updated = true;
         }
 
         if (request.FirstName is not null)
         {
-            user.FirstName = request.FirstName.Trim();
-            updated = true;
+            user.SetFirstName(request.FirstName);
         }
 
         if (request.LastName is not null)
         {
-            user.LastName = request.LastName.Trim();
-            updated = true;
+            user.SetLastName(request.LastName);
         }
 
-        if (updated)
-        {
-            await userRepository.UpdateUser(user, cancellationToken);
-        }
+        // Only changed values are written; ModifiedAt is set when saving.
+        await userRepository.SaveChangesAsync(cancellationToken);
     }
 }

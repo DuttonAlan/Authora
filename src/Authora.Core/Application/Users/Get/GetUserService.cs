@@ -13,7 +13,7 @@ namespace Authora.Core.Application.Users.Get;
 public sealed class GetUserService(IUserRepository userRepository)
 {
     /// <summary>
-    ///     Gets a User based on the Id.
+    ///     Gets a User based on the Id, including its Roles.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -29,6 +29,23 @@ public sealed class GetUserService(IUserRepository userRepository)
             return null;
         }
 
-        return new GetUserResponse(user.Id, user.Email, user.FirstName, user.LastName);
+        var roles = user.Roles
+            .OrderBy(role => role.Name, StringComparer.Ordinal)
+            .Select(role => new UserRoleResponse(role.Id, role.Name, role.DisplayName))
+            .ToList();
+
+        return new GetUserResponse(
+            user.Id,
+            user.Email,
+            user.FirstName,
+            user.LastName,
+            user.State,
+            user.PasswordHash is not null,
+            user.FailedLoginCount,
+            user.LockoutEndAt,
+            user.LastLoginAt,
+            user.CreatedAt,
+            user.ModifiedAt,
+            roles);
     }
 }

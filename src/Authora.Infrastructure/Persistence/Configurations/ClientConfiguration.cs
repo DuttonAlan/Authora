@@ -27,7 +27,7 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
 
         builder.Property(x => x.Name)
             .IsRequired()
-            .HasMaxLength(100);
+            .HasMaxLength(Client.NameMaxLength);
 
         builder.Property(x => x.AccessTokenTTL)
             .IsRequired();

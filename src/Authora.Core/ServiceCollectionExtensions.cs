@@ -2,10 +2,45 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Clients;
+using Authora.Core.Application.Clients.AddRedirectUri;
+using Authora.Core.Application.Clients.AllowScope;
+using Authora.Core.Application.Clients.CreateSecret;
+using Authora.Core.Application.Clients.Delete;
+using Authora.Core.Application.Clients.Disable;
+using Authora.Core.Application.Clients.DisallowScope;
+using Authora.Core.Application.Clients.Enable;
+using Authora.Core.Application.Clients.Get;
+using Authora.Core.Application.Clients.GetAll;
+using Authora.Core.Application.Clients.Register;
+using Authora.Core.Application.Clients.RemoveRedirectUri;
+using Authora.Core.Application.Clients.RevokeSecret;
+using Authora.Core.Application.Clients.Update;
+using Authora.Core.Application.Permissions.GetAll;
+using Authora.Core.Application.Roles.Create;
+using Authora.Core.Application.Roles.Delete;
+using Authora.Core.Application.Roles.Get;
+using Authora.Core.Application.Roles.GetAll;
+using Authora.Core.Application.Roles.GrantPermission;
+using Authora.Core.Application.Roles.RevokePermission;
+using Authora.Core.Application.Roles.Update;
+using Authora.Core.Application.Scopes.Create;
+using Authora.Core.Application.Scopes.Delete;
+using Authora.Core.Application.Scopes.Get;
+using Authora.Core.Application.Scopes.GetAll;
+using Authora.Core.Application.Scopes.Update;
+using Authora.Core.Application.Users.Activate;
+using Authora.Core.Application.Users.AssignRole;
 using Authora.Core.Application.Users.Create;
+using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetPermissions;
+using Authora.Core.Application.Users.GetRoles;
+using Authora.Core.Application.Users.RemoveRole;
+using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -24,10 +59,49 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
+        serviceCollection.AddTransient<ClientSecretIssuer>();
+        serviceCollection.AddTransient<AddRedirectUriService>();
+        serviceCollection.AddTransient<AllowScopeService>();
+        serviceCollection.AddTransient<CreateClientSecretService>();
+        serviceCollection.AddTransient<DeleteClientService>();
+        serviceCollection.AddTransient<DisableClientService>();
+        serviceCollection.AddTransient<DisallowScopeService>();
+        serviceCollection.AddTransient<EnableClientService>();
+        serviceCollection.AddTransient<GetAllClientsService>();
+        serviceCollection.AddTransient<GetClientService>();
+        serviceCollection.AddTransient<RegisterClientService>();
+        serviceCollection.AddTransient<RemoveRedirectUriService>();
+        serviceCollection.AddTransient<RevokeClientSecretService>();
+        serviceCollection.AddTransient<UpdateClientService>();
+
+        serviceCollection.AddTransient<GetAllPermissionsService>();
+
+        serviceCollection.AddTransient<CreateRoleService>();
+        serviceCollection.AddTransient<DeleteRoleService>();
+        serviceCollection.AddTransient<GetAllRolesService>();
+        serviceCollection.AddTransient<GetRoleService>();
+        serviceCollection.AddTransient<GrantPermissionService>();
+        serviceCollection.AddTransient<RevokePermissionService>();
+        serviceCollection.AddTransient<UpdateRoleService>();
+
+        serviceCollection.AddTransient<CreateScopeService>();
+        serviceCollection.AddTransient<DeleteScopeService>();
+        serviceCollection.AddTransient<GetAllScopesService>();
+        serviceCollection.AddTransient<GetScopeService>();
+        serviceCollection.AddTransient<UpdateScopeService>();
+
+        serviceCollection.AddTransient<ActivateUserService>();
+        serviceCollection.AddTransient<AssignRoleService>();
         serviceCollection.AddTransient<CreateUserService>();
+        serviceCollection.AddTransient<DeactivateUserService>();
         serviceCollection.AddTransient<DeleteUserService>();
+        serviceCollection.AddTransient<GetEffectivePermissionsService>();
         serviceCollection.AddTransient<GetUserService>();
+        serviceCollection.AddTransient<GetUserRolesService>();
         serviceCollection.AddTransient<GetAllUsersService>();
+        serviceCollection.AddTransient<RemoveRoleService>();
+        serviceCollection.AddTransient<RevokeUserSessionsService>();
+        serviceCollection.AddTransient<UnlockUserService>();
         serviceCollection.AddTransient<UpdateUserService>();
 
         return serviceCollection;
