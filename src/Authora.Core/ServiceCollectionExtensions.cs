@@ -10,6 +10,11 @@ using Authora.Core.Application.Roles.GetAll;
 using Authora.Core.Application.Roles.GrantPermission;
 using Authora.Core.Application.Roles.RevokePermission;
 using Authora.Core.Application.Roles.Update;
+using Authora.Core.Application.Scopes.Create;
+using Authora.Core.Application.Scopes.Delete;
+using Authora.Core.Application.Scopes.Get;
+using Authora.Core.Application.Scopes.GetAll;
+using Authora.Core.Application.Scopes.Update;
 using Authora.Core.Application.Users.Activate;
 using Authora.Core.Application.Users.AssignRole;
 using Authora.Core.Application.Users.Create;
@@ -49,6 +54,12 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<GrantPermissionService>();
         serviceCollection.AddTransient<RevokePermissionService>();
         serviceCollection.AddTransient<UpdateRoleService>();
+
+        serviceCollection.AddTransient<CreateScopeService>();
+        serviceCollection.AddTransient<DeleteScopeService>();
+        serviceCollection.AddTransient<GetAllScopesService>();
+        serviceCollection.AddTransient<GetScopeService>();
+        serviceCollection.AddTransient<UpdateScopeService>();
 
         serviceCollection.AddTransient<ActivateUserService>();
         serviceCollection.AddTransient<AssignRoleService>();

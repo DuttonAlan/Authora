@@ -26,14 +26,17 @@ public sealed class ScopeConfiguration : IEntityTypeConfiguration<Scope>
 
         builder.Property(x => x.Name)
             .IsRequired()
-            .HasMaxLength(100);
+            .HasMaxLength(Scope.NameMaxLength);
 
         builder.Property(x => x.DisplayName)
             .IsRequired()
-            .HasMaxLength(100);
+            .HasMaxLength(Scope.DisplayNameMaxLength);
 
         builder.Property(x => x.Description)
-            .HasMaxLength(500);
+            .HasMaxLength(Scope.DescriptionMaxLength);
+
+        builder.Property(x => x.IsSystem)
+            .IsRequired();
 
         builder.Property(x => x.CreatedAt)
             .IsRequired();
