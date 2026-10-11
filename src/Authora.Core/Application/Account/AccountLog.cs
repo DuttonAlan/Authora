@@ -28,4 +28,7 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5006, Level = LogLevel.Information, Message = "Session {SessionId} of User {UserId} was revoked, because the User can no longer sign in or signed out everywhere.")]
     public static partial void SessionInvalidated(this ILogger logger, Guid sessionId, Guid userId);
+
+    [LoggerMessage(EventId = 5007, Level = LogLevel.Information, Message = "Sign-in attempt {Attempt} was discarded, because the User was changed by another request at the same time.")]
+    public static partial void SignInRetried(this ILogger logger, int attempt);
 }

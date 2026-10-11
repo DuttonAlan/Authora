@@ -84,9 +84,31 @@ public interface IUserRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Records a failed sign-in attempt in a single atomic update, so concurrent attempts are all counted.
+    ///     Locks the User out once <paramref name="maxFailedAttempts"/> is reached and resets the counter.
+    /// </summary>
+    /// <param name="id">Id of the User.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="maxFailedAttempts">The number of failed attempts in a row that lock the User out.</param>
+    /// <param name="lockoutDuration">How long the User is locked out.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The end of the User's lockout after the update, or null if the User was never locked out.</returns>
+    public Task<DateTime?> RecordFailedSignIn(
+        Guid id,
+        DateTime now,
+        int maxFailedAttempts,
+        TimeSpan lockoutDuration,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Saves all changes made to tracked Users.
     /// </summary>
+    /// <remarks>
+    ///     Fails if another request changed one of the Users since it was loaded. The outdated Users are then no longer
+    ///     tracked, so loading them again returns the current values.
+    /// </remarks>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the changes are saved.</returns>
+    /// <exception cref="Application.Exceptions.ConflictException">Thrown when another request changed a User meanwhile.</exception>
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Paging;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -15,6 +16,11 @@ namespace Authora.Infrastructure.Persistence.Repositories;
 /// <param name="context">The DbContext to access the Users.</param>
 public sealed class UserRepository(AuthoraContext context) : IUserRepository
 {
+    /// <summary>
+    ///     Name of the shadow property that maps the row version (xmin) of a User.
+    /// </summary>
+    internal const string VersionProperty = "Version";
+
     // Npgsql disables escaping in LIKE by default, so the escape character must be passed explicitly.
     private const string LikeEscapeCharacter = @"\";
 
@@ -108,9 +114,52 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
+    public async Task<DateTime?> RecordFailedSignIn(
+        Guid id,
+        DateTime now,
+        int maxFailedAttempts,
+        TimeSpan lockoutDuration,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime? lockoutEndAt = now + lockoutDuration;
+
+        // A single UPDATE: PostgreSQL evaluates every SET expression with the values before the update and locks the
+        // row, so concurrent failed attempts are all counted.
+        await context.Users
+            .Where(user => user.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(
+                        user => user.LockoutEndAt,
+                        user => user.FailedLoginCount + 1 >= maxFailedAttempts ? lockoutEndAt : user.LockoutEndAt)
+                    .SetProperty(
+                        user => user.FailedLoginCount,
+                        user => user.FailedLoginCount + 1 >= maxFailedAttempts ? 0 : user.FailedLoginCount + 1),
+                cancellationToken);
+
+        return await context.Users
+            .Where(user => user.Id == id)
+            .Select(user => user.LockoutEndAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            // Detach the outdated Users, so loading them again returns the current values from the database.
+            foreach (var entry in exception.Entries)
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            throw new ConflictException("The User was changed by another request. Load it again and retry.", exception);
+        }
     }
 
     /// <summary>
