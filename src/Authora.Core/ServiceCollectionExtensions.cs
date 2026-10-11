@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Permissions.GetAll;
 using Authora.Core.Application.Roles.Create;
 using Authora.Core.Application.Roles.Delete;
 using Authora.Core.Application.Roles.Get;
@@ -39,6 +40,8 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
+        serviceCollection.AddTransient<GetAllPermissionsService>();
+
         serviceCollection.AddTransient<CreateRoleService>();
         serviceCollection.AddTransient<DeleteRoleService>();
         serviceCollection.AddTransient<GetAllRolesService>();
