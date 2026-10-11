@@ -2,12 +2,15 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Api.Authorization;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Scopes.Create;
 using Authora.Core.Application.Scopes.Delete;
 using Authora.Core.Application.Scopes.Get;
 using Authora.Core.Application.Scopes.GetAll;
 using Authora.Core.Application.Scopes.Update;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Authora.Api.Controllers;
@@ -21,6 +24,7 @@ namespace Authora.Api.Controllers;
 /// <param name="getScopeService">The Service to get the Scope.</param>
 /// <param name="updateScopeService">The Service to update the Scope.</param>
 [ApiController]
+[Authorize(AuthorizationPolicies.AdminApi)]
 [Route("api/scopes")]
 [Tags("Scopes")]
 public sealed class ScopesController(
@@ -50,6 +54,7 @@ public sealed class ScopesController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Scopes.Create)]
     public async Task<IActionResult> Create(
         CreateScopeRequest request,
         CancellationToken cancellationToken)
@@ -82,6 +87,7 @@ public sealed class ScopesController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Scopes.Delete)]
     public async Task<IActionResult> Delete(
         Guid id,
         CancellationToken cancellationToken,
@@ -102,6 +108,7 @@ public sealed class ScopesController(
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<GetAllScopesResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Scopes.Read)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var scopes = await getAllScopesService.ExecuteAsync(cancellationToken);
@@ -122,6 +129,7 @@ public sealed class ScopesController(
     [ProducesResponseType<GetScopeResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Scopes.Read)]
     public async Task<IActionResult> Get(
         Guid id,
         CancellationToken cancellationToken)
@@ -159,6 +167,7 @@ public sealed class ScopesController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Scopes.Update)]
     public async Task<IActionResult> Update(
         Guid id,
         UpdateScopeRequest request,

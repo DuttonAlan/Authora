@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Api.Authorization;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Roles.Create;
 using Authora.Core.Application.Roles.Delete;
 using Authora.Core.Application.Roles.Get;
@@ -10,6 +12,7 @@ using Authora.Core.Application.Roles.GrantPermission;
 using Authora.Core.Application.Roles.RevokePermission;
 using Authora.Core.Application.Roles.Update;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Authora.Api.Controllers;
@@ -25,6 +28,7 @@ namespace Authora.Api.Controllers;
 /// <param name="revokePermissionService">The Service to revoke a Permission from the Role.</param>
 /// <param name="updateRoleService">The Service to update the Role.</param>
 [ApiController]
+[Authorize(AuthorizationPolicies.AdminApi)]
 [Route("api/roles")]
 [Tags("Roles")]
 public sealed class RolesController(
@@ -56,6 +60,7 @@ public sealed class RolesController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.Create)]
     public async Task<IActionResult> Create(
         CreateRoleRequest request,
         CancellationToken cancellationToken)
@@ -86,6 +91,7 @@ public sealed class RolesController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.Delete)]
     public async Task<IActionResult> Delete(
         Guid id,
         CancellationToken cancellationToken)
@@ -105,6 +111,7 @@ public sealed class RolesController(
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<GetAllRolesResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.Read)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var roles = await getAllRolesService.ExecuteAsync(cancellationToken);
@@ -125,6 +132,7 @@ public sealed class RolesController(
     [ProducesResponseType<GetRoleResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.Read)]
     public async Task<IActionResult> Get(
         Guid id,
         CancellationToken cancellationToken)
@@ -164,6 +172,7 @@ public sealed class RolesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.Update)]
     public async Task<IActionResult> Update(
         Guid id,
         UpdateRoleRequest request,
@@ -194,6 +203,7 @@ public sealed class RolesController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.GrantPermissions)]
     public async Task<IActionResult> GrantPermission(
         Guid id,
         Guid permissionId,
@@ -224,6 +234,7 @@ public sealed class RolesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Roles.GrantPermissions)]
     public async Task<IActionResult> RevokePermission(
         Guid id,
         Guid permissionId,

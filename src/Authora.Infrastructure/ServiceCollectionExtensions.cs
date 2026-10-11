@@ -8,11 +8,13 @@ using Authora.Infrastructure.Persistence;
 using Authora.Infrastructure.Persistence.Interceptors;
 using Authora.Infrastructure.Persistence.Repositories;
 using Authora.Infrastructure.Security;
+using Authora.Infrastructure.Seeding;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Infrastructure;
 
@@ -63,6 +65,9 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<ISessionRepository, SessionRepository>();
         serviceCollection.AddTransient<ITokenRepository, TokenRepository>();
         serviceCollection.AddTransient<IUserRepository, UserRepository>();
+
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<BootstrapOptions>, BootstrapOptionsValidator>());
+        serviceCollection.AddTransient<IdentitySeeder>();
 
         return serviceCollection;
     }

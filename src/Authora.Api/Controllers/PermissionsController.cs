@@ -2,8 +2,11 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Api.Authorization;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Permissions.GetAll;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Authora.Api.Controllers;
@@ -16,6 +19,7 @@ namespace Authora.Api.Controllers;
 /// </remarks>
 /// <param name="getAllPermissionsService">The Service to get all Permissions.</param>
 [ApiController]
+[Authorize(AuthorizationPolicies.AdminApi)]
 [Route("api/permissions")]
 [Tags("Permissions")]
 public sealed class PermissionsController(GetAllPermissionsService getAllPermissionsService) : ControllerBase
@@ -33,6 +37,7 @@ public sealed class PermissionsController(GetAllPermissionsService getAllPermiss
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<GetAllPermissionsResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Permissions.Read)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var permissions = await getAllPermissionsService.ExecuteAsync(cancellationToken);

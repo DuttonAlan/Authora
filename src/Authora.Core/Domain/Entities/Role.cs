@@ -119,6 +119,23 @@ public sealed class Role
     }
 
     /// <summary>
+    ///     Creates a new System Role without Permissions. Only used by seeding.
+    /// </summary>
+    /// <param name="name">The unique technical Name of the Role, see <see cref="NamePattern"/>.</param>
+    /// <param name="displayName">The human-readable Name of the Role.</param>
+    /// <param name="description">The optional Description of the Role.</param>
+    /// <returns>The created System Role.</returns>
+    /// <exception cref="ArgumentException">Thrown when a value is empty, too long or the Name has an invalid format.</exception>
+    public static Role CreateSystem(string name, string displayName, string? description = null)
+    {
+        var role = Create(name, displayName, description);
+
+        role.IsSystem = true;
+
+        return role;
+    }
+
+    /// <summary>
     ///     Checks whether a Name has a valid format: not empty, at most <see cref="NameMaxLength"/> characters
     ///     and only lowercase letters, digits, dots, underscores and hyphens.
     /// </summary>

@@ -120,9 +120,53 @@ Permissions are defined in code, not through CRUD endpoints. A Permission only h
 | `GrantTypes` ↔ `"authorization_code"` mapping | Core | Converts between the enum and the API / OAuth strings. |
 | Log redaction | `Microsoft.Extensions.Compliance.Redaction` or `[LogProperties]` | Keeps passwords and secrets out of logs (US-004). |
 
+## Admin API access
+
+All endpoints under `/api` require an Access Token issued by Authora, sent as `Authorization: Bearer <token>`. The Session cookie is not accepted. Two checks must pass, as described in [Permission vs. Scope](domain-identity.md#permission-vs-scope):
+
+1. **Scope:** the token has the System Scope `authora.admin` (policy `admin-api` on every admin controller). Otherwise `403` with `WWW-Authenticate: Bearer error="insufficient_scope"`.
+2. **Permission:** the User has the Permission of the action through one of their Roles (`[Authorize(PermissionNames.Users.Create)]`). The Permissions are loaded on every request, so removing a Role takes effect immediately. The administrator Role always has all Permissions.
+
+A missing or inactive token returns `401`.
+
+| Permission | Endpoints |
+|---|---|
+| `users.read` | `GET /api/users`, `GET /api/users/{id}`, `GET /api/users/{id}/roles`, `GET /api/users/{id}/permissions` |
+| `users.create` / `users.update` / `users.delete` | `POST /api/users`, `PUT /api/users/{id}`, `DELETE /api/users/{id}` |
+| `users.manage-access` | `POST /api/users/{id}/activate`, `/deactivate`, `/unlock`, `/revoke-sessions` |
+| `users.set-password` | `PUT /api/users/{id}/password` |
+| `users.assign-roles` | `PUT` and `DELETE /api/users/{id}/roles/{roleId}` |
+| `roles.read` / `roles.create` / `roles.update` / `roles.delete` | `GET`, `POST`, `PUT`, `DELETE /api/roles` |
+| `roles.grant-permissions` | `PUT` and `DELETE /api/roles/{id}/permissions/{permissionId}` |
+| `permissions.read` | `GET /api/permissions` |
+| `scopes.read` / `scopes.create` / `scopes.update` / `scopes.delete` | `GET`, `POST`, `PUT`, `DELETE /api/scopes` |
+| `clients.read` / `clients.create` / `clients.delete` | `GET`, `POST`, `DELETE /api/clients` |
+| `clients.update` | `PUT /api/clients/{id}`, `enable`, `disable`, Redirect URIs and allowed Scopes |
+| `clients.manage-secrets` | `POST /api/clients/{id}/secrets`, `POST /api/clients/{id}/secrets/{secretId}/revoke` |
+
+`users.assign-roles` and `roles.grant-permissions` let their holder give themselves any Permission, so only grant them to administrators.
+
+### Seeding and the first administrator
+
+`IdentitySeeder` runs at every start, before requests are served. It creates what is missing: the Permissions of `PermissionNames`, the System Role `admin` with all Permissions, and the System Scope `authora.admin`. If a regular Role or Scope already uses one of these Names, startup fails instead of promoting it.
+
+While no administrator who can sign in exists, it also creates the first administrator from the configuration (US-003). If `Client:RedirectUris` is set and no enabled Client is allowed `authora.admin` yet, it creates a Public Client to get tokens with. This also works after the administrator exists, because registering a Client through the API needs an admin token:
+
+```json
+"Authora": {
+  "Bootstrap": {
+    "Administrator": { "Email": "admin@example.com", "Password": "<12 to 128 characters>" },
+    "Client": { "Name": "Authora Admin", "RedirectUris": [ "https://localhost:7178/callback" ] }
+  }
+}
+```
+
+Set the password through an environment variable (`Authora__Bootstrap__Administrator__Password`), not a file. The log shows the Ids of the created User and Client. Once an administrator exists, the `Administrator` section is ignored and a warning asks to remove the password. If the Email is already used by another User, startup fails instead of taking over that account.
+
+To call the API, use the Authorization Code flow with PKCE against the bootstrapped Client with `scope=authora.admin`, then send the Access Token.
+
 ## Open decisions
 
-- **The admin API is unauthenticated.** All endpoints above should eventually require `[Authorize(Policy = "<permission>")]`, backed by a permission-based `IAuthorizationHandler` (US-032). That needs tokens or sessions, which come later. Until then, either restrict the API to development or add a temporary API key.
 - **The domain is missing some rules.** `Role`, `Scope` and `Permission` have public setters and no validation. `Scope` has no `IsSystem` flag. Groups (US-029, US-030) are not modelled yet.
 - **TD-001.** Decide between an invite flow and a password on creation before building the bootstrap, because the bootstrap needs a way to set a password.
 

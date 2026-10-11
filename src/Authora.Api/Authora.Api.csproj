@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Authora.Api.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Authora.Core\Authora.Core.csproj" />
     <ProjectReference Include="..\Authora.Infrastructure\Authora.Infrastructure.csproj" />
   </ItemGroup>
