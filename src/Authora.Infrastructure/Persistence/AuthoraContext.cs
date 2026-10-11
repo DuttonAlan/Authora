@@ -38,6 +38,31 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     /// </summary>
     public DbSet<Scope> Scopes => Set<Scope>();
 
+    /// <summary>
+    ///     The Sessions Table in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<Session> Sessions => Set<Session>();
+
+    /// <summary>
+    ///     The Authorization Codes Table in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<AuthorizationCode> AuthorizationCodes => Set<AuthorizationCode>();
+
+    /// <summary>
+    ///     The Grants Table in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<Grant> Grants => Set<Grant>();
+
+    /// <summary>
+    ///     The Access Tokens Table in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<AccessToken> AccessTokens => Set<AccessToken>();
+
+    /// <summary>
+    ///     The Refresh Tokens Table in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

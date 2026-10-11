@@ -36,6 +36,13 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
+    public async Task<User?> GetUserByNormalizedEmail(string normalizedEmail, CancellationToken cancellationToken = default)
+    {
+        return await context.Users
+            .FirstOrDefaultAsync(user => user.NormalizedEmail == normalizedEmail, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<User?> GetUserWithPermissionsById(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Users

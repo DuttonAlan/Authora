@@ -1,0 +1,22 @@
+@page "/account/logout"
+@model Authora.Api.Pages.Account.LogoutModel
+@{
+    ViewData["Title"] = "Sign out";
+}
+
+@if (Model.SignedOut)
+{
+    <h1>You are signed out</h1>
+    <p><a href="/account/login">Sign in again</a></p>
+}
+else
+{
+    <h1>Sign out</h1>
+    <p>Do you want to sign out of Authora?</p>
+
+    <form method="post">
+        <div class="actions">
+            <button type="submit" class="primary">Sign out</button>
+        </div>
+    </form>
+}

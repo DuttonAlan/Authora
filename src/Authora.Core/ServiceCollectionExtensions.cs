@@ -2,6 +2,10 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Account;
+using Authora.Core.Application.Account.Sessions;
+using Authora.Core.Application.Account.SignIn;
+using Authora.Core.Application.Account.SignOut;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddRedirectUri;
 using Authora.Core.Application.Clients.AllowScope;
@@ -16,6 +20,12 @@ using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
 using Authora.Core.Application.Clients.Update;
+using Authora.Core.Application.OAuth;
+using Authora.Core.Application.OAuth.Authorize;
+using Authora.Core.Application.OAuth.ClientAuthentication;
+using Authora.Core.Application.OAuth.Introspect;
+using Authora.Core.Application.OAuth.Revoke;
+using Authora.Core.Application.OAuth.Token;
 using Authora.Core.Application.Permissions.GetAll;
 using Authora.Core.Application.Roles.Create;
 using Authora.Core.Application.Roles.Delete;
@@ -40,10 +50,13 @@ using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Core;
 
@@ -59,6 +72,21 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<SignInOptions>, SignInOptionsValidator>());
+        serviceCollection.AddTransient<SignInService>();
+        serviceCollection.AddTransient<SignOutService>();
+        serviceCollection.AddTransient<ValidateSessionService>();
+
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OAuthOptions>, OAuthOptionsValidator>());
+        serviceCollection.AddTransient<AccessTokenValidator>();
+        serviceCollection.AddTransient<ClientAuthenticator>();
+        serviceCollection.AddTransient<IntrospectTokenService>();
+        serviceCollection.AddTransient<IssueAuthorizationCodeService>();
+        serviceCollection.AddTransient<IssueTokenService>();
+        serviceCollection.AddTransient<RevokeTokenService>();
+        serviceCollection.AddTransient<TokenIssuer>();
+        serviceCollection.AddTransient<ValidateAuthorizationRequestService>();
+
         serviceCollection.AddTransient<ClientSecretIssuer>();
         serviceCollection.AddTransient<AddRedirectUriService>();
         serviceCollection.AddTransient<AllowScopeService>();
@@ -101,6 +129,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<GetAllUsersService>();
         serviceCollection.AddTransient<RemoveRoleService>();
         serviceCollection.AddTransient<RevokeUserSessionsService>();
+        serviceCollection.AddTransient<SetPasswordService>();
         serviceCollection.AddTransient<UnlockUserService>();
         serviceCollection.AddTransient<UpdateUserService>();
 

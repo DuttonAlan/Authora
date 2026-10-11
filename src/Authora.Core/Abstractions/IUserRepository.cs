@@ -34,6 +34,14 @@ public interface IUserRepository
     public Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Get a User by its normalized Email, without its Roles.
+    /// </summary>
+    /// <param name="normalizedEmail">The normalized Email, see <see cref="User.Normalize(string)"/>.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The tracked User, or null if no User has this Email.</returns>
+    public Task<User?> GetUserByNormalizedEmail(string normalizedEmail, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Get a User by Id, including its Roles and their Permissions. The User is not tracked.
     /// </summary>
     /// <param name="id">Id of the User.</param>

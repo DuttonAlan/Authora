@@ -1,0 +1,47 @@
+@page "/oauth/authorize"
+@model Authora.Api.Pages.OAuth.AuthorizeModel
+@{
+    ViewData["Title"] = Model.ConsentRequest is null ? "Authorization error" : "Authorize access";
+}
+
+@if (Model.ConsentRequest is null)
+{
+    <h1>The request cannot be processed</h1>
+    <p class="error" role="alert">@Model.ErrorDescription</p>
+    <p class="muted">The application that sent you here is not configured correctly. You can close this page.</p>
+}
+else
+{
+    <h1><strong>@Model.ConsentRequest.Client.Name</strong> wants to access your account</h1>
+
+    <p>Signed in as <strong>@Model.SignedInEmail</strong>. <a href="/account/logout">Not you?</a></p>
+
+    <p>If you allow it, the application can:</p>
+
+    <ul class="scopes">
+        @foreach (var scope in Model.ConsentRequest.Scopes)
+        {
+            <li>
+                <strong>@scope.DisplayName</strong>
+                @if (scope.Description is not null)
+                {
+                    <span class="description">@scope.Description</span>
+                }
+            </li>
+        }
+    </ul>
+
+    <p class="muted">You will be sent back to <strong>@Model.RedirectOrigin</strong>.</p>
+
+    <form method="post">
+        @foreach (var parameter in Model.Parameters)
+        {
+            <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
+        }
+
+        <div class="actions">
+            <button type="submit" name="decision" value="deny">Deny</button>
+            <button type="submit" name="decision" value="@Authora.Api.Pages.OAuth.AuthorizeModel.AllowDecision" class="primary">Allow</button>
+        </div>
+    </form>
+}
