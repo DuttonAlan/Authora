@@ -120,6 +120,23 @@ public sealed class Scope
     }
 
     /// <summary>
+    ///     Creates a new System Scope. Only used by seeding.
+    /// </summary>
+    /// <param name="name">The unique Name of the Scope, see <see cref="NamePattern"/>.</param>
+    /// <param name="displayName">The human-readable Name of the Scope.</param>
+    /// <param name="description">The optional Description of the Scope.</param>
+    /// <returns>The created System Scope.</returns>
+    /// <exception cref="ArgumentException">Thrown when a value is empty, too long or the Name has an invalid format.</exception>
+    public static Scope CreateSystem(string name, string displayName, string? description = null)
+    {
+        var scope = Create(name, displayName, description);
+
+        scope.IsSystem = true;
+
+        return scope;
+    }
+
+    /// <summary>
     ///     Checks whether a Name is a valid scope token (RFC 6749, Section 3.3):
     ///     not empty, at most <see cref="NameMaxLength"/> characters and only <c>%x21 / %x23-5B / %x5D-7E</c>.
     /// </summary>

@@ -5,6 +5,7 @@
 using System.Text.Json.Serialization;
 
 using Authora.Api.Authentication;
+using Authora.Api.Authorization;
 using Authora.Api.ExceptionHandling;
 using Authora.Api.HealthChecks;
 using Authora.Api.OpenApi;
@@ -15,9 +16,12 @@ using Authora.Core.Application.Account;
 using Authora.Core.Application.OAuth;
 using Authora.Infrastructure;
 using Authora.Infrastructure.HealthChecks;
+using Authora.Infrastructure.Seeding;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +37,14 @@ builder.Services.AddSwaggerGen(options =>
     options.SupportNonNullableReferenceTypes();
     options.NonNullableReferenceTypesAsRequired();
     options.SchemaFilter<RecordValidationSchemaFilter>();
+
+    options.AddSecurityDefinition(AuthorizeOperationFilter.SecuritySchemeName, new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        Description = "An Access Token of Authora with the Scope `authora.admin`, from `POST /oauth/token`."
+    });
+    options.OperationFilter<AuthorizeOperationFilter>();
 });
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
@@ -47,17 +59,29 @@ builder.Services.AddOptions<OAuthOptions>()
 builder.Services.AddOptions<SignInOptions>()
     .Bind(builder.Configuration.GetSection(SignInOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<BootstrapOptions>()
+    .Bind(builder.Configuration.GetSection(BootstrapOptions.SectionName))
+    .ValidateOnStart();
 
-// The Session cookie is only used by the sign-in and authorization pages. The admin API does not use it (TD-003).
+// The Session cookie is only used by the sign-in and authorization pages. The admin API only accepts Access Tokens,
+// see AuthorizationPolicies.
 builder.Services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
-    .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, configureOptions: null);
-builder.Services.AddAuthorization();
+    .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, configureOptions: null)
+    .AddScheme<AuthenticationSchemeOptions, AccessTokenAuthenticationHandler>(AccessTokenAuthenticationHandler.SchemeName, configureOptions: null);
+builder.Services.AddAuthorization(options => options.AddAuthoraPolicies());
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddRateLimiter(options => options.AddAuthoraPolicies());
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+// Seeds the Permissions, the administrator Role and the first administrator before any request is served.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().SeedAsync();
+}
 
 app.UseExceptionHandler();
 
@@ -91,4 +115,4 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 
 app.UseHttpsRedirection();
 
-app.Run();
+await app.RunAsync();
