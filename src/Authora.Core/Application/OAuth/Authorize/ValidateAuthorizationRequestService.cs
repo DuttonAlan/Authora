@@ -168,7 +168,7 @@ public sealed class ValidateAuthorizationRequestService(
 
         if (!ScopeList.TryParse(request.Scope, out var scopeNames))
         {
-            return Fail(OAuthErrors.InvalidScope, "The scope parameter is missing or contains an invalid Scope.");
+            return Fail(OAuthErrors.InvalidScope, $"The scope parameter is missing, contains an invalid Scope or is longer than {ScopeList.MaxLength} characters.");
         }
 
         var notAllowed = scopeNames.FirstOrDefault(name => !client.IsScopeAllowed(name));
