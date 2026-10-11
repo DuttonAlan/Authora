@@ -52,6 +52,11 @@ public sealed class DisableClientService(
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 
+        // Revoke again after saving the status: a code exchange that was running in the meantime may have created a
+        // Grant after the first revocation. A Grant saved after this point is revoked by the exchange itself, because
+        // it checks the status after saving.
+        revokedGrants += await tokenRepository.RevokeGrantsOfClient(client.Id, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
         logger.ClientDisabled(client.Id, client.Name);
         logger.ClientGrantsRevoked(client.Id, revokedGrants);
     }
