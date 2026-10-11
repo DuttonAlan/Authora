@@ -6,7 +6,7 @@ This document describes the identity domain of Authora: the entities, value obje
 - EF Core mapping: `src/Authora.Infrastructure/Persistence/Configurations/`
 - Database schema: `identity` (PostgreSQL)
 
-The OAuth 2.1 runtime state (Sessions, Authorization Codes, Refresh Tokens) is not part of this domain yet and will live in the `auth` schema.
+The OAuth 2.1 runtime state (Sessions, Authorization Codes, Grants, Access and Refresh Tokens) is not part of this domain. It lives in the `auth` schema and is described in [oauth-core.md](oauth2/oauth-core.md).
 
 ## Overview
 
@@ -69,11 +69,14 @@ Rules:
 
 - A User can only be created via `User.Create(email, firstName, lastName)`. Created Users are `Active` and have no password.
 - `SetEmail` validates the Email (not empty, at most 254 characters, a single plain address) and always updates `Email` and `NormalizedEmail` together.
-- A User without a `PasswordHash` cannot sign in. The password is set via `SetPasswordHash`, e.g. through the password reset flow (US-010).
+- A User without a `PasswordHash` cannot sign in. The password is set via `SetPasswordHash`, e.g. by an administrator (`PUT /api/users/{id}/password`) or later through the password reset flow (US-010).
+- `CanSignIn` is true for `Active` and `Inactive` Users with a password. It is checked at sign-in, for every Session and for every token. The lockout is checked separately with `IsLockedOut(now)`.
+- `RecordFailedSignIn` locks the User out after too many failed attempts in a row. `RecordSuccessfulSignIn` resets the counter, sets `LastLoginAt` and makes an `Inactive` User `Active` again.
+- `RehashPassword` replaces the hash of the same password with a stronger one and, unlike `SetPasswordHash`, does not rotate the `SecurityStamp`.
 - `SetPasswordHash` also rotates the `SecurityStamp`, so all existing Sessions and Refresh Tokens become invalid.
 - Call `RotateSecurityStamp` on deactivation and "sign out everywhere" as well.
 
-Methods: `Create`, `SetEmail`, `SetPasswordHash`, `RotateSecurityStamp`, `AssignRole`, `RemoveRole`, `Normalize` (static).
+Methods: `Create`, `SetEmail`, `SetPasswordHash`, `RehashPassword`, `RotateSecurityStamp`, `IsLockedOut`, `RecordFailedSignIn`, `RecordSuccessfulSignIn`, `AssignRole`, `RemoveRole`, `Normalize` (static).
 
 ### Client
 
@@ -234,8 +237,7 @@ The composite primary keys of the join tables prevent duplicate assignments.
 
 | Topic | Planned in |
 |---|---|
-| Sessions, Authorization Codes, Refresh Tokens (`auth` schema) | Phases 2 and 4 |
-| Password hashing and the password reset flow | US-007, US-010 |
+| Password reset and invite flow | US-010 |
 | Groups and roles assigned through groups | US-029, US-030 |
 | Scope ↔ Permission mapping | Decided with US-032 |
 | Signing keys | US-024, US-035 |

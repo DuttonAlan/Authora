@@ -19,7 +19,7 @@ public sealed class ClientSecretConfiguration : IEntityTypeConfiguration<ClientS
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<ClientSecret> builder)
     {
-        builder.ToTable("client_secrets", "identity");
+        builder.ToTable("client_secrets", Schemas.Identity);
 
         builder.HasKey(x => x.Id);
 
