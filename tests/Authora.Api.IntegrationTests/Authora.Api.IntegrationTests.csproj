@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+	<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+	<PackageReference Include="Testcontainers.PostgreSql" Version="4.16.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<ProjectReference Include="..\..\src\Authora.Api\Authora.Api.csproj" />
+  </ItemGroup>
+
+</Project>

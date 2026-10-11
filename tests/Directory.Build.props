@@ -1,0 +1,28 @@
+<Project>
+
+  <!-- Shared by all test projects. Each project only adds its own packages and references. -->
+
+  <PropertyGroup>
+	<TargetFramework>net10.0</TargetFramework>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<OutputType>Exe</OutputType>
+	<IsPackable>false</IsPackable>
+	<AnalysisLevel>latest</AnalysisLevel>
+	<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+	<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	<!-- Needed for IDE0005 (unused usings) to be reported on build. -->
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
+	<!-- The test names describe the tests, so they need no XML comments. -->
+	<NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<PackageReference Include="xunit.v3.mtp-v2" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
