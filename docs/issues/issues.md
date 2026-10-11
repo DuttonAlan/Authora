@@ -9,6 +9,7 @@ Unlike [tech debt](../tech-debt/tech-debt.md), which records shortcuts that were
 | [ISS-001](iss-001.md) | Every `InvalidOperationException` is returned as 409 Conflict with its message | Resolved (2026-10-11) |
 | [ISS-002](iss-002.md) | Updating a User accepts blank First and Last Names | Resolved (2026-10-11) |
 | [ISS-003](iss-003.md) | Deleted Users can still be changed, including getting the administrator Role | Resolved (2026-10-11) |
+| [ISS-004](iss-004.md) | `ModifiedAt` is not updated when only a collection of an entity changes | Resolved (2026-10-11) |
 
 ## Adding an entry
 
