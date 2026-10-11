@@ -41,8 +41,8 @@ public sealed class IdentitySeeder(
     /// <param name="cancellationToken">CancellationToken to cancel the seeding.</param>
     /// <returns>A Task that completes once the data is seeded.</returns>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when a regular Role uses the Name of the administrator Role, or the first administrator has to be
-    ///     created but has no password or an Email that is already used by another User.
+    ///     Thrown when a regular Role or Scope uses the Name of the administrator Role or the admin API Scope, or the
+    ///     first administrator has to be created but has no password or an Email that is already used by another User.
     /// </exception>
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
@@ -124,6 +124,13 @@ public sealed class IdentitySeeder(
             context.Scopes.Add(scope);
 
             logger.SystemScopeCreated(scope.Id, scope.Name);
+        }
+        else if (!scope.IsSystem)
+        {
+            // A regular Scope can be deleted through the API, which would remove the admin API Scope from every Client.
+            // Never promote it either: the Clients someone allowed it would silently gain admin API access for good.
+            throw new InvalidOperationException(
+                $"The regular Scope '{scope.Id}' uses the Name '{AdminApiScope.Name}' of the admin API Scope. Rename it.");
         }
 
         return scope;
