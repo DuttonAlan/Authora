@@ -41,8 +41,8 @@ public sealed class IdentitySeeder(
     /// <param name="cancellationToken">CancellationToken to cancel the seeding.</param>
     /// <returns>A Task that completes once the data is seeded.</returns>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when a regular Role uses the Name of the administrator Role, or the Email of the first administrator
-    ///     is already used by another User.
+    ///     Thrown when a regular Role uses the Name of the administrator Role, or the first administrator has to be
+    ///     created but has no password or an Email that is already used by another User.
     /// </exception>
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
@@ -151,6 +151,13 @@ public sealed class IdentitySeeder(
         {
             logger.NoAdministrator();
             return;
+        }
+
+        if (string.IsNullOrEmpty(settings.Administrator.Password))
+        {
+            throw new InvalidOperationException(
+                $"'{BootstrapOptions.SectionName}:{nameof(BootstrapOptions.Administrator)}:"
+                + $"{nameof(BootstrapAdministratorOptions.Password)}' must be set to create the first administrator.");
         }
 
         var user = User.Create(settings.Administrator.Email, settings.Administrator.FirstName, settings.Administrator.LastName);

@@ -36,7 +36,10 @@ public sealed class BootstrapOptionsValidator : IValidateOptions<BootstrapOption
                     + $"administrator, so '{section}:{nameof(BootstrapAdministratorOptions.Email)}' must be set.");
             }
         }
-        else if (administrator.Password is not { Length: >= PasswordPolicy.MinLength and <= PasswordPolicy.MaxLength })
+        // A missing password is only an error while the administrator still has to be created, which IdentitySeeder
+        // checks. Otherwise removing the password once an administrator exists would stop the next start.
+        else if (!string.IsNullOrEmpty(administrator.Password)
+            && administrator.Password is not { Length: >= PasswordPolicy.MinLength and <= PasswordPolicy.MaxLength })
         {
             failures.Add(
                 $"'{section}:{nameof(BootstrapAdministratorOptions.Password)}' must be {PasswordPolicy.MinLength} to "
