@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Domain.Entities;
+using Authora.Core.Domain.ValueObjects;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -26,10 +27,14 @@ public sealed class ClientSecretConfiguration : IEntityTypeConfiguration<ClientS
             .ValueGeneratedNever();
 
         builder.Property(x => x.SecretHash)
+            .HasConversion(hash => hash.Value, value => SecretHash.FromHashedValue(value))
             .IsRequired()
             .HasMaxLength(256);
 
         builder.Property(x => x.CreatedAt)
+            .IsRequired();
+
+        builder.Property(x => x.ExpiresAt)
             .IsRequired();
     }
 }
