@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
 using Authora.Infrastructure.Persistence.Interceptors;
 using Authora.Infrastructure.Persistence.Repositories;
@@ -36,6 +37,10 @@ public static class ServiceCollectionExtensions
             options.UseNpgsql(configuration.GetConnectionString("Database"));
             options.AddInterceptors(serviceProvider.GetRequiredService<ModifiedAtInterceptor>());
         });
+
+        serviceCollection.AddHealthChecks()
+            .AddDbContextCheck<AuthoraContext>("database", tags: [HealthCheckTags.Ready])
+            .AddCheck<MigrationsHealthCheck>("migrations", tags: [HealthCheckTags.Ready]);
 
         serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
         serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();

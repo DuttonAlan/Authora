@@ -5,9 +5,13 @@
 using System.Text.Json.Serialization;
 
 using Authora.Api.ExceptionHandling;
+using Authora.Api.HealthChecks;
 using Authora.Api.OpenApi;
 using Authora.Core;
 using Authora.Infrastructure;
+using Authora.Infrastructure.HealthChecks;
+
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +49,19 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains(HealthCheckTags.Ready),
+    ResponseWriter = HealthReportWriter.WriteAsync
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = HealthReportWriter.WriteAsync
+});
+
 app.UseHttpsRedirection();
 
 app.Run();
