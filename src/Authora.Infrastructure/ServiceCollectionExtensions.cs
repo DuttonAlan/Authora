@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
+        serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();
         serviceCollection.AddTransient<IUserRepository, UserRepository>();
 
         return serviceCollection;
