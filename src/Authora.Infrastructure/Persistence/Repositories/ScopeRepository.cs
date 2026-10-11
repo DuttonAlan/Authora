@@ -30,6 +30,14 @@ public sealed class ScopeRepository(AuthoraContext context) : IScopeRepository
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<Scope>> GetScopesByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        return await context.Scopes
+            .Where(scope => ids.Contains(scope.Id))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Scope>> GetScopes(CancellationToken cancellationToken = default)
     {
         return await context.Scopes

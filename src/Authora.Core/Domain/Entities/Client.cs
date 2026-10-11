@@ -13,14 +13,42 @@ namespace Authora.Core.Domain.Entities;
 /// <remarks>
 ///     The Client is the aggregate root for its <see cref="ClientSecret"/>s and <see cref="RedirectUri"/>s.
 ///     Both can only be changed through the methods of this class.
+///     A Client can only be created via <see cref="Create(string, ClientType)"/>, so an invalid Client can never exist.
 /// </remarks>
 public sealed class Client
 {
+    /// <summary>
+    ///     Maximum length of the Name.
+    /// </summary>
+    public const int NameMaxLength = 100;
+
+    /// <summary>
+    ///     Default lifetime of Access Tokens in seconds (1 hour).
+    /// </summary>
+    public const int DefaultAccessTokenTTL = 3600;
+
+    /// <summary>
+    ///     Default lifetime of Refresh Tokens in seconds (24 hours).
+    /// </summary>
+    public const int DefaultRefreshTokenTTL = 86400;
+
+    /// <summary>
+    ///     Default Grant Types of a new Client.
+    /// </summary>
+    public const GrantTypes DefaultGrantTypes = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken;
+
+    private const GrantTypes AllGrantTypes = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken;
+
     private readonly List<ClientSecret> _secrets = [];
-
     private readonly List<RedirectUri> _redirectUris = [];
-
     private readonly List<Scope> _allowedScopes = [];
+
+    /// <summary>
+    ///     Used by EF Core to materialize a Client from the database.
+    /// </summary>
+    private Client()
+    {
+    }
 
     /// <summary>
     ///     Id of the Client. Also used as the public OAuth <c>client_id</c>.
@@ -31,31 +59,34 @@ public sealed class Client
     public Guid Id { get; private set; } = Guid.CreateVersion7();
 
     /// <summary>
-    ///     Display Name of the Client, e.g. shown to the User on the consent screen.
+    ///     Display Name of the Client, e.g. shown to the User on the consent screen. Set via <see cref="SetName(string)"/>.
     /// </summary>
-    public required string Name { get; set; }
+    public string Name { get; private set; } = null!;
 
     /// <summary>
     ///     Lifetime of issued Access Tokens in seconds. Defaults to 1 hour.
+    ///     Set via <see cref="SetTokenLifetimes(int, int)"/>.
     /// </summary>
-    public int AccessTokenTTL { get; set; } = 3600;
+    public int AccessTokenTTL { get; private set; } = DefaultAccessTokenTTL;
 
     /// <summary>
-    ///     Lifetime of issued Refresh Tokens in seconds. Defaults to 24 hours.
+    ///     Lifetime of issued Refresh Tokens in seconds. Defaults to 24 hours. Always longer than <see cref="AccessTokenTTL"/>.
+    ///     Set via <see cref="SetTokenLifetimes(int, int)"/>.
     /// </summary>
-    public int RefreshTokenTTL { get; set; } = 86400;
+    public int RefreshTokenTTL { get; private set; } = DefaultRefreshTokenTTL;
 
     /// <summary>
     ///     Type of the Client. Decides whether the Client must authenticate at the /token endpoint.
     ///     Cannot be changed after registration.
     /// </summary>
-    public required ClientType Type { get; init; }
+    public ClientType Type { get; private set; }
 
     /// <summary>
     ///     Grant Types the Client is allowed to use at the /token endpoint.
     ///     Combine multiple values with <c>|</c> and check them with <see cref="Enum.HasFlag(Enum)"/>.
+    ///     Set via <see cref="SetAllowedGrantTypes(GrantTypes)"/>.
     /// </summary>
-    public GrantTypes AllowedGrantTypes { get; set; } = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken;
+    public GrantTypes AllowedGrantTypes { get; private set; } = DefaultGrantTypes;
 
     /// <summary>
     ///     Secrets of the Client, including expired and revoked ones. Only Confidential Clients have Secrets.
@@ -86,6 +117,100 @@ public sealed class Client
     ///     Point in time (UTC) when the Client was last modified, or <see langword="null"/> if it was never modified.
     /// </summary>
     public DateTime? ModifiedAt { get; set; }
+
+    /// <summary>
+    ///     Creates a new enabled Client with the default Grant Types and token lifetimes,
+    ///     and without Secrets, Redirect URIs or Scopes.
+    /// </summary>
+    /// <param name="name">The Display Name of the Client.</param>
+    /// <param name="type">The Type of the Client. Cannot be changed later.</param>
+    /// <returns>The created Client.</returns>
+    /// <exception cref="ArgumentException">Thrown when the Name is empty or too long, or the Type is unknown.</exception>
+    public static Client Create(string name, ClientType type)
+    {
+        if (!Enum.IsDefined(type))
+        {
+            throw new ArgumentException($"Client Type '{type}' is unknown.", nameof(type));
+        }
+
+        var client = new Client
+        {
+            Type = type
+        };
+
+        client.SetName(name);
+
+        return client;
+    }
+
+    /// <summary>
+    ///     Sets the Display Name of the Client.
+    /// </summary>
+    /// <param name="name">The new Name of the Client.</param>
+    /// <exception cref="ArgumentException">Thrown when the Name is empty or too long.</exception>
+    public void SetName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        var trimmed = name.Trim();
+
+        if (trimmed.Length > NameMaxLength)
+        {
+            throw new ArgumentException($"Name must not be longer than {NameMaxLength} characters.", nameof(name));
+        }
+
+        Name = trimmed;
+    }
+
+    /// <summary>
+    ///     Sets the lifetimes of the Access and Refresh Tokens issued to the Client.
+    /// </summary>
+    /// <param name="accessTokenTTL">The lifetime of Access Tokens in seconds.</param>
+    /// <param name="refreshTokenTTL">The lifetime of Refresh Tokens in seconds. Must be longer than the Access Token lifetime.</param>
+    /// <exception cref="ArgumentException">Thrown when a lifetime is not positive, or the Refresh Token lifetime is not longer than the Access Token lifetime.</exception>
+    public void SetTokenLifetimes(int accessTokenTTL, int refreshTokenTTL)
+    {
+        if (accessTokenTTL <= 0)
+        {
+            throw new ArgumentException("Access Token TTL must be greater than 0.", nameof(accessTokenTTL));
+        }
+
+        if (refreshTokenTTL <= accessTokenTTL)
+        {
+            throw new ArgumentException("Refresh Token TTL must be greater than the Access Token TTL.", nameof(refreshTokenTTL));
+        }
+
+        AccessTokenTTL = accessTokenTTL;
+        RefreshTokenTTL = refreshTokenTTL;
+    }
+
+    /// <summary>
+    ///     Sets the Grant Types the Client is allowed to use.
+    /// </summary>
+    /// <param name="grantTypes">The allowed Grant Types.</param>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when no or unknown Grant Types are given, or <see cref="GrantTypes.RefreshToken"/> is given
+    ///     without <see cref="GrantTypes.AuthorizationCode"/>, which is the only way to obtain a first Refresh Token.
+    /// </exception>
+    public void SetAllowedGrantTypes(GrantTypes grantTypes)
+    {
+        if (grantTypes == GrantTypes.None)
+        {
+            throw new ArgumentException("At least one Grant Type must be allowed.", nameof(grantTypes));
+        }
+
+        if ((grantTypes & ~AllGrantTypes) != 0)
+        {
+            throw new ArgumentException("Grant Types contain an unknown value.", nameof(grantTypes));
+        }
+
+        if (grantTypes.HasFlag(GrantTypes.RefreshToken) && !grantTypes.HasFlag(GrantTypes.AuthorizationCode))
+        {
+            throw new ArgumentException("The Refresh Token Grant Type requires the Authorization Code Grant Type.", nameof(grantTypes));
+        }
+
+        AllowedGrantTypes = grantTypes;
+    }
 
     /// <summary>
     ///     Enables the Client so it can obtain tokens again.

@@ -6,6 +6,7 @@ using Authora.Core.Abstractions;
 using Authora.Infrastructure.Persistence;
 using Authora.Infrastructure.Persistence.Interceptors;
 using Authora.Infrastructure.Persistence.Repositories;
+using Authora.Infrastructure.Security;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -36,6 +37,10 @@ public static class ServiceCollectionExtensions
             options.AddInterceptors(serviceProvider.GetRequiredService<ModifiedAtInterceptor>());
         });
 
+        serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
+        serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();
+
+        serviceCollection.AddTransient<IClientRepository, ClientRepository>();
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
         serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();
