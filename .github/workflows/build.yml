@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build & test
+    # Ubuntu runners ship with Docker, which Testcontainers needs for the integration tests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Authora.slnx
+
+      # Warnings are errors and code style is enforced on build, so this also lints.
+      - name: Build
+        run: dotnet build Authora.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution Authora.slnx --configuration Release --no-build
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 10.0.12
+
+      # Fails when the EF model has changed without a matching migration.
+      # The connection string is only needed to build the host; no database is contacted.
+      - name: Check for missing migrations
+        env:
+          ConnectionStrings__Database: Host=localhost;Database=ci;Username=ci;Password=ci
+        run: >
+          dotnet ef migrations has-pending-model-changes
+          --project src/Authora.Infrastructure
+          --startup-project src/Authora.Api
+          --configuration Release
