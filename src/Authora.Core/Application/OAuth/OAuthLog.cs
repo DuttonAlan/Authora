@@ -43,4 +43,7 @@ internal static partial class OAuthLog
 
     [LoggerMessage(EventId = 6011, Level = LogLevel.Information, Message = "Authorization request of Client {ClientId} was rejected: {Error}.")]
     public static partial void AuthorizationRequestRejected(this ILogger logger, string clientId, string error);
+
+    [LoggerMessage(EventId = 6012, Level = LogLevel.Information, Message = "Grant {GrantId} was revoked, because Client {ClientId} was disabled while it was created.")]
+    public static partial void GrantRevokedForDisabledClient(this ILogger logger, Guid grantId, Guid clientId);
 }

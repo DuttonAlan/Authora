@@ -17,6 +17,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// </summary>
 /// <param name="clientAuthenticator">The authenticator for the Client.</param>
 /// <param name="authorizationCodeRepository">An Instance of a IAuthorizationCodeRepository to load and consume codes.</param>
+/// <param name="clientRepository">An Instance of a IClientRepository to check whether the Client was disabled meanwhile.</param>
 /// <param name="tokenRepository">An Instance of a ITokenRepository to store, consume and revoke tokens.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to check the User.</param>
 /// <param name="tokenIssuer">The issuer for new tokens.</param>
@@ -26,6 +27,7 @@ namespace Authora.Core.Application.OAuth.Token;
 public sealed class IssueTokenService(
     ClientAuthenticator clientAuthenticator,
     IAuthorizationCodeRepository authorizationCodeRepository,
+    IClientRepository clientRepository,
     ITokenRepository tokenRepository,
     IUserRepository userRepository,
     TokenIssuer tokenIssuer,
@@ -155,6 +157,16 @@ public sealed class IssueTokenService(
             logger.AuthorizationCodeReused(authorizationCode.Id, 1);
 
             throw invalidCode;
+        }
+
+        // The Client may have been disabled after the status check above. Disabling revokes only existing Grants,
+        // so a Grant saved afterwards must be revoked here, or it would become usable when the Client is enabled again.
+        if (await clientRepository.IsClientDisabled(client.Id, cancellationToken))
+        {
+            await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
+            logger.GrantRevokedForDisabledClient(grant.Id, client.Id);
+
+            throw new OAuthException(OAuthErrors.InvalidClient, "The Client is disabled.");
         }
 
         logger.GrantCreated(grant.Id, client.Id, grant.UserId, authorizationCode.Id);
