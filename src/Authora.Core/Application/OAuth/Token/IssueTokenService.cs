@@ -110,6 +110,8 @@ public sealed class IssueTokenService(
         if (!await authorizationCodeRepository.TryConsume(authorizationCode.Id, now, cancellationToken))
         {
             // OAuth 2.1, Section 4.1.3: a code used twice was probably stolen, so revoke the tokens issued from it.
+            // Mark first: the request that consumed the code may not have saved its Grant yet, and checks the mark after saving.
+            await authorizationCodeRepository.MarkReused(authorizationCode.Id, now, cancellationToken);
             var revoked = await tokenRepository.RevokeGrantsOfAuthorizationCode(authorizationCode.Id, now, cancellationToken);
             logger.AuthorizationCodeReused(authorizationCode.Id, revoked);
 
@@ -145,6 +147,15 @@ public sealed class IssueTokenService(
         var tokens = tokenIssuer.Issue(grant.Id, client, scopes, now);
 
         await tokenRepository.CreateGrant(grant, tokens.AccessToken, tokens.RefreshToken, cancellationToken);
+
+        // A reuse detected while this request was running found no Grant to revoke, so revoke it here.
+        if (await authorizationCodeRepository.IsReused(authorizationCode.Id, cancellationToken))
+        {
+            await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
+            logger.AuthorizationCodeReused(authorizationCode.Id, 1);
+
+            throw invalidCode;
+        }
 
         logger.GrantCreated(grant.Id, client.Id, grant.UserId, authorizationCode.Id);
 

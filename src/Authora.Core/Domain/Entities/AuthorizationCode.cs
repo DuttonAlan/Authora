@@ -88,6 +88,13 @@ public sealed class AuthorizationCode
     public DateTime? ConsumedAt { get; private set; }
 
     /// <summary>
+    ///     Point in time (UTC) when the code was used a second time, or <see langword="null"/> if it was not reused.
+    ///     Set atomically in the database. The request that exchanged the code checks it after saving its Grant, so the
+    ///     Grant is revoked even if the reuse was detected before the Grant existed.
+    /// </summary>
+    public DateTime? ReusedAt { get; private set; }
+
+    /// <summary>
     ///     The approved Scope Names.
     /// </summary>
     public IReadOnlyList<string> Scopes => ScopeList.Split(Scope);

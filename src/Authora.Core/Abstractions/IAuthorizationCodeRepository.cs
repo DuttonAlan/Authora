@@ -39,4 +39,21 @@ public interface IAuthorizationCodeRepository
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>True if this call consumed the code, false if it was already consumed.</returns>
     public Task<bool> TryConsume(Guid id, DateTime now, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Marks an Authorization Code as reused in a single atomic update. Does nothing if it is already marked.
+    /// </summary>
+    /// <param name="id">Id of the Authorization Code.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>A Task that completes once the mark is saved.</returns>
+    public Task MarkReused(Guid id, DateTime now, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Checks in the database whether an Authorization Code was marked as reused.
+    /// </summary>
+    /// <param name="id">Id of the Authorization Code.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if the code was marked as reused.</returns>
+    public Task<bool> IsReused(Guid id, CancellationToken cancellationToken = default);
 }
