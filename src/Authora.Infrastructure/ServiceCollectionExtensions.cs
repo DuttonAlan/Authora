@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
 using Authora.Infrastructure.Persistence.Interceptors;
@@ -68,6 +69,10 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<BootstrapOptions>, BootstrapOptionsValidator>());
         serviceCollection.AddTransient<IdentitySeeder>();
+
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<CleanupOptions>, CleanupOptionsValidator>());
+        serviceCollection.AddTransient<ExpiredDataCleaner>();
+        serviceCollection.AddHostedService<ExpiredDataCleanupService>();
 
         return serviceCollection;
     }

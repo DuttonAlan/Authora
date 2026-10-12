@@ -33,6 +33,9 @@ public sealed class AccessTokenConfiguration : IEntityTypeConfiguration<AccessTo
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
 
+        // Used by the cleanup of expired rows, see ExpiredDataCleaner.
+        builder.HasIndex(x => x.ExpiresAt);
+
         builder.Property(x => x.Scope)
             .IsRequired()
             .HasMaxLength(Schemas.ScopeMaxLength);

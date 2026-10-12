@@ -34,6 +34,17 @@ public sealed class Client
     public const int DefaultRefreshTokenTTL = 86400;
 
     /// <summary>
+    ///     Upper limit of the Access Token lifetime in seconds (24 hours). Resource servers may check Access Tokens
+    ///     without calling Authora, so a long lifetime keeps revoked access usable.
+    /// </summary>
+    public const int MaxAccessTokenTTL = 86400;
+
+    /// <summary>
+    ///     Upper limit of the Refresh Token lifetime in seconds (90 days).
+    /// </summary>
+    public const int MaxRefreshTokenTTL = 7776000;
+
+    /// <summary>
     ///     Default Grant Types of a new Client.
     /// </summary>
     public const GrantTypes DefaultGrantTypes = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken;
@@ -43,6 +54,7 @@ public sealed class Client
     private readonly List<ClientSecret> _secrets = [];
     private readonly List<RedirectUri> _redirectUris = [];
     private readonly List<Scope> _allowedScopes = [];
+    private readonly List<Scope> _servedScopes = [];
 
     /// <summary>
     ///     Used by EF Core to materialize a Client from the database.
@@ -106,6 +118,12 @@ public sealed class Client
     public IReadOnlyCollection<Scope> AllowedScopes => _allowedScopes;
 
     /// <summary>
+    ///     Scopes the Client serves as a resource server. It may introspect Access Tokens of other Clients only if they
+    ///     contain one of these Scopes. Only Confidential Clients serve Scopes.
+    /// </summary>
+    public IReadOnlyCollection<Scope> ServedScopes => _servedScopes;
+
+    /// <summary>
     ///     Status of the Client. A disabled Client cannot obtain new tokens.
     /// </summary>
     public ClientStatus Status { get; private set; } = ClientStatus.Enabled;
@@ -167,14 +185,24 @@ public sealed class Client
     /// <summary>
     ///     Sets the lifetimes of the Access and Refresh Tokens issued to the Client.
     /// </summary>
-    /// <param name="accessTokenTTL">The lifetime of Access Tokens in seconds.</param>
-    /// <param name="refreshTokenTTL">The lifetime of Refresh Tokens in seconds. Must be longer than the Access Token lifetime.</param>
-    /// <exception cref="ArgumentException">Thrown when a lifetime is not positive, or the Refresh Token lifetime is not longer than the Access Token lifetime.</exception>
+    /// <param name="accessTokenTTL">The lifetime of Access Tokens in seconds, at most <see cref="MaxAccessTokenTTL"/>.</param>
+    /// <param name="refreshTokenTTL">The lifetime of Refresh Tokens in seconds, at most <see cref="MaxRefreshTokenTTL"/>. Must be longer than the Access Token lifetime.</param>
+    /// <exception cref="ArgumentException">Thrown when a lifetime is not positive or exceeds its limit, or the Refresh Token lifetime is not longer than the Access Token lifetime.</exception>
     public void SetTokenLifetimes(int accessTokenTTL, int refreshTokenTTL)
     {
         if (accessTokenTTL <= 0)
         {
             throw new DomainValidationException("Access Token TTL must be greater than 0.", nameof(accessTokenTTL));
+        }
+
+        if (accessTokenTTL > MaxAccessTokenTTL)
+        {
+            throw new DomainValidationException($"Access Token TTL must be at most {MaxAccessTokenTTL} seconds.", nameof(accessTokenTTL));
+        }
+
+        if (refreshTokenTTL > MaxRefreshTokenTTL)
+        {
+            throw new DomainValidationException($"Refresh Token TTL must be at most {MaxRefreshTokenTTL} seconds.", nameof(refreshTokenTTL));
         }
 
         if (refreshTokenTTL <= accessTokenTTL)
@@ -359,6 +387,39 @@ public sealed class Client
     public void DisallowScope(Guid scopeId)
     {
         _allowedScopes.RemoveAll(x => x.Id == scopeId);
+    }
+
+    /// <summary>
+    ///     Makes the Client serve a Scope as a resource server. Does nothing if the Scope is already served.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ServedScopes"/> must be loaded, otherwise the duplicate check cannot work.
+    /// </remarks>
+    /// <param name="scope">The Scope to serve.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the Client is not a Confidential Client.</exception>
+    public void ServeScope(Scope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        // Only Confidential Clients can authenticate at the introspection endpoint.
+        if (Type != ClientType.Confidential)
+        {
+            throw new InvalidOperationException("Only confidential clients can serve scopes.");
+        }
+
+        if (!_servedScopes.Any(x => x.Id == scope.Id))
+        {
+            _servedScopes.Add(scope);
+        }
+    }
+
+    /// <summary>
+    ///     Stops the Client from serving a Scope. Does nothing if the Scope is not served.
+    /// </summary>
+    /// <param name="scopeId">The Id of the Scope.</param>
+    public void StopServingScope(Guid scopeId)
+    {
+        _servedScopes.RemoveAll(x => x.Id == scopeId);
     }
 
     /// <summary>

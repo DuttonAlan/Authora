@@ -105,7 +105,7 @@ public sealed class SignInService(
             return SignInResult.Failed;
         }
 
-        var verification = passwordHasher.Verify(user.PasswordHash!, password);
+        var verification = passwordHasher.Verify(user.PasswordHash, password);
 
         if (verification == PasswordVerification.Failed)
         {

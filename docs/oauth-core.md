@@ -17,9 +17,11 @@ This document describes the OAuth 2.1 authorization server of Authora (Phase 4, 
 | `POST /oauth/introspect` | Resource server | Introspection endpoint (RFC 7662). |
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/logout` | Browser | Sign-out page. |
-| `PUT /api/users/{id}/password` | Administrator | Sets the password of a User, so the User can sign in. |
+| `PUT /api/users/{id}/password` | Administrator | Replaces the password of a User. `POST /api/users` already requires an initial password. |
 
 `/oauth/token`, `/oauth/revoke` and `/oauth/introspect` take `application/x-www-form-urlencoded` bodies and answer errors as `{"error": "...", "error_description": "..."}`. A failed Client authentication returns `401` with `WWW-Authenticate: Basic`, all other errors `400`. Responses are sent with `Cache-Control: no-store`.
+
+`/oauth/token` and `/oauth/revoke` allow CORS, so browser-based Clients (SPAs) can call them directly. Allowed are the origins (scheme, host and port) of the Redirect URIs of enabled Clients, only `POST`, only the `Content-Type` header and no credentials. All other endpoints, including `/oauth/introspect`, `/oauth/authorize`, `/account/*` and `/api/*`, send no CORS headers.
 
 Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID Connect in Phase 5.
 
@@ -29,12 +31,18 @@ Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID 
 |---|---|---|
 | `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment. Returned as `iss`. Startup fails if it is missing or invalid. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | Lifetime of Authorization Codes, at most 10 minutes. |
-| `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. |
-| `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. |
-| `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. |
-| `Authora:SignIn:LockoutDuration` | `00:15:00` | How long a User is locked out. |
+| `Authora:OAuth:CorsOriginsCacheDuration` | `00:01:00` | How long the CORS origins of `/oauth/token` and `/oauth/revoke` are cached, at most 1 hour. `00:00:00` disables the cache. |
+| `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. At most 24 hours. |
+| `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. At most 7 days. |
+| `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. 1 to 100. |
+| `Authora:SignIn:LockoutDuration` | `00:15:00` | How long a User is locked out. At most 1 hour, because anyone who knows an Email can trigger a lockout. |
+| `Authora:Cleanup:Interval` | `01:00:00` | How often expired Authorization Codes, Grants, tokens and Sessions are deleted. 1 minute to 1 day. The first run is one interval after startup. |
+| `Authora:Cleanup:Retention` | `7.00:00:00` | How long rows are kept after they expired or were revoked, at least 1 day. Reuse of a consumed code or Refresh Token is only detected (and revokes the Grant) while the row exists. |
+| `Authora:Cleanup:BatchSize` | `1000` | Rows deleted per statement, 1 to 10000. |
 
 Environment variables use `__` as separator, e.g. `Authora__OAuth__Issuer`.
+
+Durations use the format `hh:mm:ss`. A plain number is read as days, e.g. `15` is 15 days, not 15 minutes; the upper limits make startup fail on such a mistake.
 
 ## Authorization Code flow
 
@@ -161,8 +169,9 @@ A token is active only if all of these hold:
 
 ### Introspection (RFC 7662)
 
-- Only enabled Confidential Clients can introspect. Register each resource server as a Confidential Client and use its Secret.
-- Access Tokens can be introspected by every such Client. Refresh Tokens only by the Client they were issued to.
+- Only enabled Confidential Clients can introspect. Register each resource server as a Confidential Client, use its Secret, and add the Scopes it serves with `PUT /api/clients/{id}/served-scopes/{scopeId}`.
+- An Access Token is active for the Client it was issued to, with all its Scopes, and for a Client that serves at least one of its Scopes, with only the served Scopes in `scope`. For every other Client it is inactive.
+- Refresh Tokens are only active for the Client they were issued to.
 - Inactive tokens only return `{"active": false}`, without the reason.
 - Active tokens return `active`, `scope`, `client_id`, `sub` (the User Id), `token_type`, `exp`, `iat` and `iss`.
 
@@ -189,7 +198,7 @@ The authorization endpoint needs a signed-in User, so Phase 4 includes a minimal
 - Signing out revokes the Session on the server and deletes the cookie.
 - The pages send a Content Security Policy with `frame-ancestors 'none'` and `X-Frame-Options: DENY` against clickjacking, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. All forms use antiforgery tokens.
 
-A User needs a password to sign in. Until an invite or reset flow exists ([TD-001](../tech-debt/td-001.md)), an administrator sets it with `PUT /api/users/{id}/password`. Passwords must be 12 to 128 characters long.
+`POST /api/users` requires an initial password, and an administrator can replace it with `PUT /api/users/{id}/password`. Users cannot choose their own password until the reset flow (US-010) exists. Passwords must be 12 to 128 characters long.
 
 ## Logging
 
@@ -199,9 +208,10 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 |---|---|
 | 5001 – 5006 | Sign-in, sign-out, lockout, invalidated Sessions |
 | 6001 – 6011 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
+| 8001 – 8002 | Cleanup of expired codes, Grants, tokens and Sessions |
 
 Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings.
 
 ## Known limitations
 
-See [tech-debt.md](../tech-debt/tech-debt.md): no CORS for browser-based Clients yet ([TD-007](../tech-debt/td-007.md)), expired codes, tokens and Sessions are not purged ([TD-008](../tech-debt/td-008.md)), and every Confidential Client can introspect every Access Token ([TD-009](../tech-debt/td-009.md)).
+See [tech-debt.md](tech-debt.md). Access Tokens have no audience (`aud`, RFC 8707) yet. Resource servers are told apart by the Scopes they serve.

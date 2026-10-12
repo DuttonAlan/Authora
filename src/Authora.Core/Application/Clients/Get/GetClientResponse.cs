@@ -18,6 +18,7 @@ namespace Authora.Core.Application.Clients.Get;
 /// <param name="RefreshTokenTTL" example="86400">Lifetime of Refresh Tokens in seconds.</param>
 /// <param name="RedirectUris" example="[&quot;https://shop.example.com/callback&quot;]">Registered Redirect URIs.</param>
 /// <param name="Scopes">Scopes the Client is allowed to request.</param>
+/// <param name="ServedScopes">Scopes the Client serves as a resource server. It can introspect Access Tokens of other Clients only if they contain one of these Scopes.</param>
 /// <param name="Secrets">Secrets of the Client, including expired and revoked ones. Only metadata, never the Secret itself.</param>
 /// <param name="CreatedAt">Point in time (UTC) when the Client was created.</param>
 /// <param name="ModifiedAt">Point in time (UTC) when the Client was last modified, or null if it was never modified.</param>
@@ -31,6 +32,7 @@ public sealed record GetClientResponse(
     int RefreshTokenTTL,
     IReadOnlyList<string> RedirectUris,
     IReadOnlyList<ClientScopeResponse> Scopes,
+    IReadOnlyList<ClientScopeResponse> ServedScopes,
     IReadOnlyList<ClientSecretResponse> Secrets,
     DateTime CreatedAt,
     DateTime? ModifiedAt);

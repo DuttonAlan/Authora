@@ -32,9 +32,6 @@ public sealed class IdentitySeeder(
     IOptions<BootstrapOptions> options,
     ILogger<IdentitySeeder> logger)
 {
-    // Arbitrary key of the PostgreSQL advisory lock that serializes seeding across instances.
-    private const long SeedLockKey = 0x4155_5448_4F52_41; // "AUTHORA"
-
     /// <summary>
     ///     Seeds the missing data.
     /// </summary>
@@ -49,7 +46,7 @@ public sealed class IdentitySeeder(
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
         // Several instances starting at the same time would otherwise all try to create the same rows.
-        await context.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({SeedLockKey})", cancellationToken);
+        await context.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.Seed})", cancellationToken);
 
         var permissions = await SeedPermissionsAsync(cancellationToken);
         var administratorRole = await SeedAdministratorRoleAsync(permissions, cancellationToken);
@@ -142,7 +139,6 @@ public sealed class IdentitySeeder(
 
         var administratorExists = await context.Users
             .Where(user => user.State == UserState.Active || user.State == UserState.Inactive)
-            .Where(user => user.PasswordHash != null)
             .AnyAsync(user => user.Roles.Any(role => role.Id == administratorRole.Id), cancellationToken);
 
         if (administratorExists)
@@ -168,17 +164,22 @@ public sealed class IdentitySeeder(
                 + $"{nameof(BootstrapAdministratorOptions.Password)}' must be set to create the first administrator.");
         }
 
-        var user = User.Create(settings.Administrator.Email, settings.Administrator.FirstName, settings.Administrator.LastName);
+        var normalizedEmail = User.Normalize(settings.Administrator.Email);
 
         // Taking over an existing account would hand it administrator access without its owner noticing.
-        if (await context.Users.AnyAsync(existing => existing.NormalizedEmail == user.NormalizedEmail, cancellationToken))
+        if (await context.Users.AnyAsync(existing => existing.NormalizedEmail == normalizedEmail, cancellationToken))
         {
             throw new InvalidOperationException(
                 $"The Email in '{BootstrapOptions.SectionName}:{nameof(BootstrapOptions.Administrator)}' is already used by "
                 + "another User. Use a new Email for the first administrator.");
         }
 
-        user.SetPasswordHash(passwordHasher.Hash(settings.Administrator.Password!));
+        var user = User.Create(
+            settings.Administrator.Email,
+            settings.Administrator.FirstName,
+            settings.Administrator.LastName,
+            passwordHasher.Hash(settings.Administrator.Password));
+
         user.AssignRole(administratorRole);
         context.Users.Add(user);
 

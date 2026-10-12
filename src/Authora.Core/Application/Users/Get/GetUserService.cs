@@ -40,7 +40,6 @@ public sealed class GetUserService(IUserRepository userRepository)
             user.FirstName,
             user.LastName,
             user.State,
-            user.PasswordHash is not null,
             user.FailedLoginCount,
             user.LockoutEndAt,
             user.LastLoginAt,

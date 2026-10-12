@@ -35,6 +35,8 @@ public sealed class DeactivateUserService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
 
@@ -53,6 +55,7 @@ public sealed class DeactivateUserService(
         user.Deactivate();
 
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.UserDeactivated(user.Id);
     }
