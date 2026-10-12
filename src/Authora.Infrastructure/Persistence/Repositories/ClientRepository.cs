@@ -31,6 +31,7 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
             .AsSplitQuery()
             .Include(client => client.Secrets)
             .Include(client => client.AllowedScopes)
+            .Include(client => client.ServedScopes)
             .FirstOrDefaultAsync(client => client.Id == id, cancellationToken);
     }
 

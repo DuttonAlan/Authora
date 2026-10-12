@@ -87,5 +87,20 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
 
         builder.Navigation(x => x.AllowedScopes)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(x => x.ServedScopes)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "ClientServedScope",
+                right => right.HasOne<Scope>().WithMany().HasForeignKey("ScopeId").OnDelete(DeleteBehavior.Cascade),
+                left => left.HasOne<Client>().WithMany().HasForeignKey("ClientId").OnDelete(DeleteBehavior.Cascade),
+                join =>
+                {
+                    join.ToTable("client_served_scopes", Schemas.Identity);
+                    join.HasKey("ClientId", "ScopeId");
+                });
+
+        builder.Navigation(x => x.ServedScopes)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

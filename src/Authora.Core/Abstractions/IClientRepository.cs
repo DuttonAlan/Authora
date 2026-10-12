@@ -24,7 +24,7 @@ public interface IClientRepository
     public Task<Guid> CreateClient(Client client, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Get a Client by Id, including its Secrets, Redirect URIs and allowed Scopes.
+    ///     Get a Client by Id, including its Secrets, Redirect URIs, allowed Scopes and served Scopes.
     /// </summary>
     /// <param name="id">Id of the Client.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

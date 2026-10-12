@@ -19,6 +19,8 @@ using Authora.Core.Application.Clients.GetAll;
 using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
+using Authora.Core.Application.Clients.ServeScope;
+using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
 
 using Microsoft.AspNetCore.Authorization;
@@ -42,6 +44,8 @@ namespace Authora.Api.Controllers;
 /// <param name="registerClientService">The Service to register the Client.</param>
 /// <param name="removeRedirectUriService">The Service to remove a Redirect URI.</param>
 /// <param name="revokeClientSecretService">The Service to revoke a Secret.</param>
+/// <param name="serveScopeService">The Service to serve a Scope as a resource server.</param>
+/// <param name="stopServingScopeService">The Service to stop serving a Scope.</param>
 /// <param name="updateClientService">The Service to update the Client.</param>
 [ApiController]
 [Authorize(AuthorizationPolicies.AdminApi)]
@@ -60,6 +64,8 @@ public sealed class ClientsController(
     RegisterClientService registerClientService,
     RemoveRedirectUriService removeRedirectUriService,
     RevokeClientSecretService revokeClientSecretService,
+    ServeScopeService serveScopeService,
+    StopServingScopeService stopServingScopeService,
     UpdateClientService updateClientService) : ControllerBase
 {
     /// <summary>
@@ -368,6 +374,66 @@ public sealed class ClientsController(
         CancellationToken cancellationToken)
     {
         await disallowScopeService.ExecuteAsync(id, scopeId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Makes the Client serve a Scope as a resource server.
+    /// </summary>
+    /// <remarks>
+    ///     The Client can then introspect Access Tokens of other Clients that contain this Scope, and sees only the
+    ///     Scopes it serves. Only Confidential Clients can serve Scopes.
+    ///     This operation is idempotent: serving a Scope that is already served also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="scopeId" example="0199d1a2-7c3e-7b4a-9f10-4c963f66afa6">Id of the Scope.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Scope is served.</returns>
+    /// <response code="204">Responds with no content once the Scope is served.</response>
+    /// <response code="404">Responds with problem details if no Client or no Scope with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is a Public Client, which cannot introspect tokens.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpPut("{id:guid}/served-scopes/{scopeId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
+    public async Task<IActionResult> ServeScope(
+        Guid id,
+        Guid scopeId,
+        CancellationToken cancellationToken)
+    {
+        await serveScopeService.ExecuteAsync(id, scopeId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Stops the Client from serving a Scope as a resource server.
+    /// </summary>
+    /// <remarks>
+    ///     This operation is idempotent: stopping a Scope that is not served also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="scopeId" example="0199d1a2-7c3e-7b4a-9f10-4c963f66afa6">Id of the Scope.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Scope is no longer served.</returns>
+    /// <response code="204">Responds with no content once the Scope is no longer served, or if it was not served.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/served-scopes/{scopeId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
+    public async Task<IActionResult> StopServingScope(
+        Guid id,
+        Guid scopeId,
+        CancellationToken cancellationToken)
+    {
+        await stopServingScopeService.ExecuteAsync(id, scopeId, cancellationToken);
 
         return NoContent();
     }

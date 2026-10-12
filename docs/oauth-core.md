@@ -169,8 +169,9 @@ A token is active only if all of these hold:
 
 ### Introspection (RFC 7662)
 
-- Only enabled Confidential Clients can introspect. Register each resource server as a Confidential Client and use its Secret.
-- Access Tokens can be introspected by every such Client. Refresh Tokens only by the Client they were issued to.
+- Only enabled Confidential Clients can introspect. Register each resource server as a Confidential Client, use its Secret, and add the Scopes it serves with `PUT /api/clients/{id}/served-scopes/{scopeId}`.
+- An Access Token is active for the Client it was issued to, with all its Scopes, and for a Client that serves at least one of its Scopes, with only the served Scopes in `scope`. For every other Client it is inactive.
+- Refresh Tokens are only active for the Client they were issued to.
 - Inactive tokens only return `{"active": false}`, without the reason.
 - Active tokens return `active`, `scope`, `client_id`, `sub` (the User Id), `token_type`, `exp`, `iat` and `iss`.
 
@@ -197,7 +198,7 @@ The authorization endpoint needs a signed-in User, so Phase 4 includes a minimal
 - Signing out revokes the Session on the server and deletes the cookie.
 - The pages send a Content Security Policy with `frame-ancestors 'none'` and `X-Frame-Options: DENY` against clickjacking, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. All forms use antiforgery tokens.
 
-A User needs a password to sign in. Until an invite or reset flow exists ([TD-001](../tech-debt.md#td-001-users-can-be-created-without-a-password)), an administrator sets it with `PUT /api/users/{id}/password`. Passwords must be 12 to 128 characters long.
+`POST /api/users` requires an initial password, and an administrator can replace it with `PUT /api/users/{id}/password`. Users cannot choose their own password until the reset flow (US-010) exists. Passwords must be 12 to 128 characters long.
 
 ## Logging
 
@@ -207,9 +208,10 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 |---|---|
 | 5001 – 5006 | Sign-in, sign-out, lockout, invalidated Sessions |
 | 6001 – 6011 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
+| 8001 – 8002 | Cleanup of expired codes, Grants, tokens and Sessions |
 
 Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings.
 
 ## Known limitations
 
-See [tech-debt.md](../tech-debt.md): no CORS for browser-based Clients yet ([TD-007](../tech-debt.md#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors)), expired codes, tokens and Sessions are not purged ([TD-008](../tech-debt.md#td-008-expired-codes-tokens-and-sessions-are-never-deleted)), and every Confidential Client can introspect every Access Token ([TD-009](../tech-debt.md#td-009-every-confidential-client-can-introspect-every-access-token)).
+See [tech-debt.md](tech-debt.md). Access Tokens have no audience (`aud`, RFC 8707) yet. Resource servers are told apart by the Scopes they serve.
