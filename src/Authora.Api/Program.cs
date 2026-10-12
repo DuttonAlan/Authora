@@ -16,6 +16,7 @@ using Authora.Core;
 using Authora.Core.Application.Account;
 using Authora.Core.Application.OAuth;
 using Authora.Infrastructure;
+using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Seeding;
 
@@ -64,6 +65,9 @@ builder.Services.AddOptions<SignInOptions>()
     .ValidateOnStart();
 builder.Services.AddOptions<BootstrapOptions>()
     .Bind(builder.Configuration.GetSection(BootstrapOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<CleanupOptions>()
+    .Bind(builder.Configuration.GetSection(CleanupOptions.SectionName))
     .ValidateOnStart();
 
 // The Session cookie is only used by the sign-in and authorization pages. The admin API only accepts Access Tokens,

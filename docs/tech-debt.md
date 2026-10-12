@@ -13,7 +13,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-005](#td-005-the-email-of-a-deleted-user-can-never-be-used-again) | The Email of a deleted User can never be used again | Resolved (2026-10-12) |
 | [TD-006](#td-006-removing-roles-or-permissions-does-not-rotate-the-securitystamp) | Removing Roles or Permissions does not rotate the SecurityStamp | Resolved (2026-10-12) |
 | [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Resolved (2026-10-12) |
-| [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Open |
+| [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Resolved (2026-10-12) |
 | [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Open |
 | [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Open |
 
@@ -75,11 +75,11 @@ No CORS headers were sent, so SPAs on another origin could not exchange codes. T
 
 ## TD-008: Expired codes, tokens and Sessions are never deleted
 
-**Area:** OAuth (`auth` schema)
+**Status:** Resolved (2026-10-12) · **Area:** OAuth (`auth` schema)
 
-Authorization Codes, Grants, Access and Refresh Tokens and Sessions are marked as consumed, revoked or expired, but never deleted, so the tables grow without limit.
+Authorization Codes, Grants, Access and Refresh Tokens and Sessions were marked as consumed, revoked or expired, but never deleted, so the tables grew without limit.
 
-**To resolve:** add a `BackgroundService` that deletes expired rows in batches after a configurable retention period and logs how many it deleted. Reuse detection needs consumed codes and Refresh Tokens for a while.
+**Resolution:** `ExpiredDataCleanupService` runs `ExpiredDataCleaner` every `Authora:Cleanup:Interval`. It deletes in batches what expired or was revoked more than `Authora:Cleanup:Retention` (7 days by default) ago: codes and tokens by `ExpiresAt`, Sessions by `ExpiresAt` or `RevokedAt`, and Grants that were revoked or have no tokens left. It logs the counts per run. Consumed codes and Refresh Tokens stay until their expiry plus the retention, so reuse detection keeps working meanwhile. The migration `AddExpiresAtIndexes` indexes `ExpiresAt` for the cleanup queries.
 
 ## TD-009: Every Confidential Client can introspect every Access Token
 

@@ -33,6 +33,9 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
 
+        // Used by the cleanup of expired rows, see ExpiredDataCleaner.
+        builder.HasIndex(x => x.ExpiresAt);
+
         builder.HasOne(x => x.Grant)
             .WithMany()
             .HasForeignKey(x => x.GrantId)

@@ -33,6 +33,9 @@ public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
 
+        // Used by the cleanup of expired rows, see ExpiredDataCleaner.
+        builder.HasIndex(x => x.ExpiresAt);
+
         builder.HasIndex(x => x.UserId);
 
         builder.HasOne<User>()
