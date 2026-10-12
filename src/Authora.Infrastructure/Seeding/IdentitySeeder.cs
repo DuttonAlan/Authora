@@ -32,9 +32,6 @@ public sealed class IdentitySeeder(
     IOptions<BootstrapOptions> options,
     ILogger<IdentitySeeder> logger)
 {
-    // Arbitrary key of the PostgreSQL advisory lock that serializes seeding across instances.
-    private const long SeedLockKey = 0x4155_5448_4F52_41; // "AUTHORA"
-
     /// <summary>
     ///     Seeds the missing data.
     /// </summary>
@@ -49,7 +46,7 @@ public sealed class IdentitySeeder(
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
         // Several instances starting at the same time would otherwise all try to create the same rows.
-        await context.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({SeedLockKey})", cancellationToken);
+        await context.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.Seed})", cancellationToken);
 
         var permissions = await SeedPermissionsAsync(cancellationToken);
         var administratorRole = await SeedAdministratorRoleAsync(permissions, cancellationToken);

@@ -18,7 +18,9 @@ internal static class AdministratorGuard
     ///     Throws if the User is the last administrator who can sign in.
     /// </summary>
     /// <remarks>
-    ///     The Roles of the User must be loaded.
+    ///     The Roles of the User must be loaded. The caller must hold the lock of
+    ///     <see cref="IUserRepository.BeginAdministratorChangeAsync"/> from before loading the User until the change
+    ///     is committed, otherwise concurrent requests can remove the last two administrators at the same time.
     /// </remarks>
     /// <param name="userRepository">The repository to count the other administrators.</param>
     /// <param name="user">The User that is about to lose administrator access.</param>
