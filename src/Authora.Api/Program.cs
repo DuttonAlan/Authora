@@ -8,6 +8,7 @@ using Authora.Api.Authentication;
 using Authora.Api.Authorization;
 using Authora.Api.ExceptionHandling;
 using Authora.Api.HealthChecks;
+using Authora.Api.OAuth;
 using Authora.Api.OpenApi;
 using Authora.Api.Pages;
 using Authora.Api.RateLimiting;
@@ -20,7 +21,9 @@ using Authora.Infrastructure.Seeding;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,6 +75,11 @@ builder.Services.AddAuthorization(options => options.AddAuthoraPolicies());
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddRateLimiter(options => options.AddAuthoraPolicies());
 
+// CORS only for the token and revocation endpoints, see OAuthCorsPolicyProvider. Replaces the default provider,
+// which AddControllers already registered.
+builder.Services.AddCors();
+builder.Services.Replace(ServiceDescriptor.Singleton<ICorsPolicyProvider, OAuthCorsPolicyProvider>());
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -86,6 +94,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.UseExceptionHandler();
 
 app.UseStaticFiles();
+app.UseCors();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
