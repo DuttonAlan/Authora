@@ -17,7 +17,7 @@ This document describes the OAuth 2.1 authorization server of Authora (Phase 4, 
 | `POST /oauth/introspect` | Resource server | Introspection endpoint (RFC 7662). |
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/logout` | Browser | Sign-out page. |
-| `PUT /api/users/{id}/password` | Administrator | Sets the password of a User, so the User can sign in. |
+| `PUT /api/users/{id}/password` | Administrator | Replaces the password of a User. `POST /api/users` already requires an initial password. |
 
 `/oauth/token`, `/oauth/revoke` and `/oauth/introspect` take `application/x-www-form-urlencoded` bodies and answer errors as `{"error": "...", "error_description": "..."}`. A failed Client authentication returns `401` with `WWW-Authenticate: Basic`, all other errors `400`. Responses are sent with `Cache-Control: no-store`.
 

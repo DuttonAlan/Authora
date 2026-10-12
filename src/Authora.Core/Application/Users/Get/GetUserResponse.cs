@@ -14,7 +14,6 @@ namespace Authora.Core.Application.Users.Get;
 /// <param name="FirstName" example="Jane">First Name of the User.</param>
 /// <param name="LastName" example="Doe">Last Name of the User.</param>
 /// <param name="State" example="Active">State of the User.</param>
-/// <param name="HasPassword" example="false">Whether the User has set a password. A User without a password cannot sign in.</param>
 /// <param name="FailedLoginCount" example="0">Number of failed login attempts in a row.</param>
 /// <param name="LockoutEndAt">Point in time (UTC) until which the User is locked out, or null if the User is not locked out.</param>
 /// <param name="LastLoginAt">Point in time (UTC) of the last successful login, or null if the User never logged in.</param>
@@ -27,7 +26,6 @@ public sealed record GetUserResponse(
     string FirstName,
     string LastName,
     UserState State,
-    bool HasPassword,
     int FailedLoginCount,
     DateTime? LockoutEndAt,
     DateTime? LastLoginAt,

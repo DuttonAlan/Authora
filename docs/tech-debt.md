@@ -6,7 +6,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 
 | ID | Title | Status |
 |---|---|---|
-| [TD-001](#td-001-users-can-be-created-without-a-password) | Users can be created without a password | Open |
+| [TD-001](#td-001-users-can-be-created-without-a-password) | Users can be created without a password | Resolved (2026-10-12) |
 | [TD-002](#td-002-disabling-a-client-does-not-revoke-its-refresh-tokens) | Disabling a Client does not revoke its Refresh Tokens | Resolved (2026-10-11) |
 | [TD-003](#td-003-the-admin-api-has-no-authentication-or-authorization) | The admin API has no authentication or authorization | Resolved (2026-10-11) |
 | [TD-004](#td-004-the-last-administrator-check-is-not-safe-against-concurrent-requests) | The last-administrator check is not safe against concurrent requests | Open |
@@ -19,11 +19,11 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 
 ## TD-001: Users can be created without a password
 
-**Area:** Users (`User`, `CreateUserService`)
+**Status:** Resolved (2026-10-12) · **Area:** Users (`User`, `CreateUserService`)
 
-`User.PasswordHash` is nullable and `POST /api/users` takes no password, so a new User cannot sign in until an administrator calls `PUT /api/users/{id}/password`. Users cannot choose their own password yet.
+`User.PasswordHash` was nullable and `POST /api/users` took no password, so a new User could not sign in until an administrator called `PUT /api/users/{id}/password`.
 
-**To resolve:** either build an invite flow with a single-use link and the reset flow (US-010), which keeps `PasswordHash` nullable by design, or add a password to `CreateUserRequest` and make `PasswordHash` required, which needs a migration.
+**Resolution:** `CreateUserRequest` requires a `Password` that follows `PasswordPolicy`, `User.Create` takes its hash, and `PasswordHash` is `NOT NULL` (migration `RequireUserPassword`). The migration fills the column for deleted Users and fails if any other User has no password. `GetUserResponse.HasPassword` was removed because it was always `true`. Users still cannot choose their own password, which is part of US-010.
 
 ## TD-002: Disabling a Client does not revoke its Refresh Tokens
 
