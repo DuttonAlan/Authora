@@ -15,7 +15,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Resolved (2026-10-12) |
 | [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Resolved (2026-10-12) |
 | [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Resolved (2026-10-12) |
-| [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Open |
+| [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Resolved (2026-10-12) |
 
 ## TD-001: Users can be created without a password
 
@@ -91,8 +91,8 @@ Access Tokens have no audience, so any enabled Confidential Client could learn t
 
 ## TD-010: The health endpoint reveals the schema version
 
-**Area:** API (`/health`)
+**Status:** Resolved (2026-10-12) · **Area:** API (`/health`)
 
-`GET /health` lists the applied and pending migrations to anyone, which reveals the exact version that is running.
+`GET /health` listed the applied and pending migrations to anyone, which revealed the exact version that is running.
 
-**To resolve:** return only the overall status to anonymous callers, and the details only to authorized callers or internal networks. `/health/live` can stay public.
+**Resolution:** `/health` and `/health/live` only return `{"status": "..."}` with the usual status codes (503 when unhealthy), which is enough for load balancers and orchestrators. The full report moved to `GET /health/details`, which needs an admin Access Token and the new Permission `health.read`. The seeder adds the Permission and grants it to the administrator Role. Access by internal network was not added, because it needs trusted proxy and IP range configuration, and probes do not need the details.

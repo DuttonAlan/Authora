@@ -14,6 +14,7 @@ using Authora.Api.Pages;
 using Authora.Api.RateLimiting;
 using Authora.Core;
 using Authora.Core.Application.Account;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.OAuth;
 using Authora.Infrastructure;
 using Authora.Infrastructure.Cleanup;
@@ -114,16 +115,24 @@ if (app.Environment.IsDevelopment())
 app.MapControllers();
 app.MapRazorPages();
 
+// Public, for load balancers and orchestrators: only the overall status (200 or 503).
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = registration => registration.Tags.Contains(HealthCheckTags.Ready),
-    ResponseWriter = HealthReportWriter.WriteAsync
+    ResponseWriter = HealthReportWriter.WriteStatusAsync
 });
+
+// The details reveal the schema version, so they need an admin Access Token with the Permission.
+app.MapHealthChecks("/health/details", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains(HealthCheckTags.Ready),
+    ResponseWriter = HealthReportWriter.WriteAsync
+}).RequireAuthorization(AuthorizationPolicies.AdminApi, PermissionNames.Health.Read);
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = _ => false,
-    ResponseWriter = HealthReportWriter.WriteAsync
+    ResponseWriter = HealthReportWriter.WriteStatusAsync
 });
 
 app.UseHttpsRedirection();
