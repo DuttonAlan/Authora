@@ -29,12 +29,14 @@ Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID 
 |---|---|---|
 | `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment. Returned as `iss`. Startup fails if it is missing or invalid. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | Lifetime of Authorization Codes, at most 10 minutes. |
-| `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. |
-| `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. |
-| `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. |
-| `Authora:SignIn:LockoutDuration` | `00:15:00` | How long a User is locked out. |
+| `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. At most 24 hours. |
+| `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. At most 7 days. |
+| `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. 1 to 100. |
+| `Authora:SignIn:LockoutDuration` | `00:15:00` | How long a User is locked out. At most 1 hour, because anyone who knows an Email can trigger a lockout. |
 
 Environment variables use `__` as separator, e.g. `Authora__OAuth__Issuer`.
+
+Durations use the format `hh:mm:ss`. A plain number is read as days, e.g. `15` is 15 days, not 15 minutes; the upper limits make startup fail on such a mistake.
 
 ## Authorization Code flow
 
@@ -189,7 +191,7 @@ The authorization endpoint needs a signed-in User, so Phase 4 includes a minimal
 - Signing out revokes the Session on the server and deletes the cookie.
 - The pages send a Content Security Policy with `frame-ancestors 'none'` and `X-Frame-Options: DENY` against clickjacking, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. All forms use antiforgery tokens.
 
-A User needs a password to sign in. Until an invite or reset flow exists ([TD-001](../tech-debt/td-001.md)), an administrator sets it with `PUT /api/users/{id}/password`. Passwords must be 12 to 128 characters long.
+A User needs a password to sign in. Until an invite or reset flow exists ([TD-001](../tech-debt.md#td-001-users-can-be-created-without-a-password)), an administrator sets it with `PUT /api/users/{id}/password`. Passwords must be 12 to 128 characters long.
 
 ## Logging
 
@@ -204,4 +206,4 @@ Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Cl
 
 ## Known limitations
 
-See [tech-debt.md](../tech-debt/tech-debt.md): no CORS for browser-based Clients yet ([TD-007](../tech-debt/td-007.md)), expired codes, tokens and Sessions are not purged ([TD-008](../tech-debt/td-008.md)), and every Confidential Client can introspect every Access Token ([TD-009](../tech-debt/td-009.md)).
+See [tech-debt.md](../tech-debt.md): no CORS for browser-based Clients yet ([TD-007](../tech-debt.md#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors)), expired codes, tokens and Sessions are not purged ([TD-008](../tech-debt.md#td-008-expired-codes-tokens-and-sessions-are-never-deleted)), and every Confidential Client can introspect every Access Token ([TD-009](../tech-debt.md#td-009-every-confidential-client-can-introspect-every-access-token)).
