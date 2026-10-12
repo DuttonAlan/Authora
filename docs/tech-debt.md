@@ -14,7 +14,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-006](#td-006-removing-roles-or-permissions-does-not-rotate-the-securitystamp) | Removing Roles or Permissions does not rotate the SecurityStamp | Resolved (2026-10-12) |
 | [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Resolved (2026-10-12) |
 | [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Resolved (2026-10-12) |
-| [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Open |
+| [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Resolved (2026-10-12) |
 | [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Open |
 
 ## TD-001: Users can be created without a password
@@ -83,11 +83,11 @@ Authorization Codes, Grants, Access and Refresh Tokens and Sessions were marked 
 
 ## TD-009: Every Confidential Client can introspect every Access Token
 
-**Area:** OAuth (`IntrospectTokenService`, `/oauth/introspect`)
+**Status:** Resolved (2026-10-12) · **Area:** OAuth (`IntrospectTokenService`, `/oauth/introspect`)
 
-Access Tokens have no audience, so any enabled Confidential Client can learn the User, Client and Scopes of any token it has.
+Access Tokens have no audience, so any enabled Confidential Client could learn the User, Client and Scopes of any token it had.
 
-**To resolve:** model resource servers and the Scopes they serve. Let a resource server introspect only tokens that contain one of its Scopes, and return only those Scopes. Optionally support RFC 8707 (`aud`).
+**Resolution:** a resource server is a Confidential Client with served Scopes (`Client.ServedScopes`, table `client_served_scopes`, `PUT`/`DELETE /api/clients/{id}/served-scopes/{scopeId}`). It can introspect an Access Token only if the token contains one of its served Scopes, and `scope` then lists only those. The Client a token was issued to still sees all its Scopes. For every other Client the token is inactive. RFC 8707 (`aud`) was not added.
 
 ## TD-010: The health endpoint reveals the schema version
 

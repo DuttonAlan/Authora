@@ -54,6 +54,7 @@ public sealed class Client
     private readonly List<ClientSecret> _secrets = [];
     private readonly List<RedirectUri> _redirectUris = [];
     private readonly List<Scope> _allowedScopes = [];
+    private readonly List<Scope> _servedScopes = [];
 
     /// <summary>
     ///     Used by EF Core to materialize a Client from the database.
@@ -115,6 +116,12 @@ public sealed class Client
     ///     Scopes the Client is allowed to request. Requested Scopes that are not in this list are rejected.
     /// </summary>
     public IReadOnlyCollection<Scope> AllowedScopes => _allowedScopes;
+
+    /// <summary>
+    ///     Scopes the Client serves as a resource server. It may introspect Access Tokens of other Clients only if they
+    ///     contain one of these Scopes. Only Confidential Clients serve Scopes.
+    /// </summary>
+    public IReadOnlyCollection<Scope> ServedScopes => _servedScopes;
 
     /// <summary>
     ///     Status of the Client. A disabled Client cannot obtain new tokens.
@@ -380,6 +387,39 @@ public sealed class Client
     public void DisallowScope(Guid scopeId)
     {
         _allowedScopes.RemoveAll(x => x.Id == scopeId);
+    }
+
+    /// <summary>
+    ///     Makes the Client serve a Scope as a resource server. Does nothing if the Scope is already served.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ServedScopes"/> must be loaded, otherwise the duplicate check cannot work.
+    /// </remarks>
+    /// <param name="scope">The Scope to serve.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the Client is not a Confidential Client.</exception>
+    public void ServeScope(Scope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        // Only Confidential Clients can authenticate at the introspection endpoint.
+        if (Type != ClientType.Confidential)
+        {
+            throw new InvalidOperationException("Only confidential clients can serve scopes.");
+        }
+
+        if (!_servedScopes.Any(x => x.Id == scope.Id))
+        {
+            _servedScopes.Add(scope);
+        }
+    }
+
+    /// <summary>
+    ///     Stops the Client from serving a Scope. Does nothing if the Scope is not served.
+    /// </summary>
+    /// <param name="scopeId">The Id of the Scope.</param>
+    public void StopServingScope(Guid scopeId)
+    {
+        _servedScopes.RemoveAll(x => x.Id == scopeId);
     }
 
     /// <summary>

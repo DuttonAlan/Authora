@@ -474,6 +474,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.ToTable("client_scopes", "identity");
                 });
 
+            modelBuilder.Entity("ClientServedScope", b =>
+                {
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ClientId", "ScopeId");
+
+                    b.HasIndex("ScopeId");
+
+                    b.ToTable("client_served_scopes", "identity");
+                });
+
             modelBuilder.Entity("RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -598,6 +613,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("ClientScope", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Authora.Core.Domain.Entities.Scope", null)
+                        .WithMany()
+                        .HasForeignKey("ScopeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ClientServedScope", b =>
                 {
                     b.HasOne("Authora.Core.Domain.Entities.Client", null)
                         .WithMany()

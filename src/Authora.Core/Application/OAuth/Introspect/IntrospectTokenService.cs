@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.OAuth.ClientAuthentication;
+using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 
 using Microsoft.Extensions.Options;
@@ -14,9 +15,12 @@ namespace Authora.Core.Application.OAuth.Introspect;
 ///     The Service behind the introspection endpoint (RFC 7662), which resource servers use to validate tokens.
 /// </summary>
 /// <remarks>
-///     Only enabled Confidential Clients may introspect, so a resource server is registered as a Confidential Client.
-///     Access Tokens can be introspected by every such Client. Refresh Tokens only by the Client they were issued
-///     to, because they are never sent to resource servers.
+///     Only enabled Confidential Clients may introspect, so a resource server is registered as a Confidential Client
+///     with the Scopes it serves (<see cref="Domain.Entities.Client.ServedScopes"/>). An Access Token is active for
+///     the Client it was issued to (with all its Scopes), and for a Client that serves at least one of its Scopes
+///     (with only the served Scopes). For every other Client it is inactive, so a Client cannot learn the User and
+///     Scopes of tokens that are not meant for it. Refresh Tokens are only active for the Client they were issued to,
+///     because they are never sent to resource servers.
 /// </remarks>
 /// <param name="clientAuthenticator">The authenticator for the calling Client.</param>
 /// <param name="accessTokenValidator">The validator for Access Tokens.</param>
@@ -65,16 +69,16 @@ public sealed class IntrospectTokenService(
         if (tokenTypeHint == TokenTypeHints.RefreshToken)
         {
             return await IntrospectRefreshTokenAsync(client.Id, token, cancellationToken)
-                ?? await IntrospectAccessTokenAsync(token, cancellationToken)
+                ?? await IntrospectAccessTokenAsync(client, token, cancellationToken)
                 ?? IntrospectionResponse.Inactive;
         }
 
-        return await IntrospectAccessTokenAsync(token, cancellationToken)
+        return await IntrospectAccessTokenAsync(client, token, cancellationToken)
             ?? await IntrospectRefreshTokenAsync(client.Id, token, cancellationToken)
             ?? IntrospectionResponse.Inactive;
     }
 
-    private async Task<IntrospectionResponse?> IntrospectAccessTokenAsync(string token, CancellationToken cancellationToken)
+    private async Task<IntrospectionResponse?> IntrospectAccessTokenAsync(Client caller, string token, CancellationToken cancellationToken)
     {
         var accessToken = await accessTokenValidator.ValidateAsync(token, cancellationToken);
 
@@ -83,9 +87,21 @@ public sealed class IntrospectTokenService(
             return null;
         }
 
+        // The Client the token was issued to already knows everything in it. A resource server only sees its own Scopes.
+        var isOwnToken = accessToken.ClientId == caller.Id;
+        var visibleScopes = isOwnToken
+            ? accessToken.Scopes
+            : accessToken.Scopes.Where(scope => caller.ServedScopes.Any(served => served.Name == scope)).ToList();
+
+        // Inactive instead of an error, so the caller cannot tell a foreign token from an invalid one.
+        if (!isOwnToken && visibleScopes.Count == 0)
+        {
+            return null;
+        }
+
         return new IntrospectionResponse(
             Active: true,
-            Scope: string.Join(' ', accessToken.Scopes),
+            Scope: string.Join(' ', visibleScopes),
             ClientId: accessToken.ClientId.ToString(),
             Subject: accessToken.UserId.ToString(),
             TokenType: Token.TokenResponse.BearerTokenType,
