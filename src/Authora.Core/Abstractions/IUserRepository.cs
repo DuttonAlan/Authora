@@ -64,7 +64,8 @@ public interface IUserRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Checks whether a User with the given normalized Email exists, including deleted Users.
+    ///     Checks whether a User with the given normalized Email exists. Deleted Users have a placeholder Email,
+    ///     see <see cref="User.MarkDeleted"/>, so their former Email is free again.
     /// </summary>
     /// <param name="normalizedEmail">The normalized Email, see <see cref="User.Normalize(string)"/>.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

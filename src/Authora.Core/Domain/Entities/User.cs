@@ -28,6 +28,17 @@ public sealed class User
     /// </summary>
     public const int NameMaxLength = 50;
 
+    /// <summary>
+    ///     Domain of the placeholder Email of a deleted User. <c>.invalid</c> is reserved (RFC 2606), so no real
+    ///     User can have such an Email.
+    /// </summary>
+    public const string DeletedEmailDomain = "deleted.invalid";
+
+    /// <summary>
+    ///     Replaces the password hash of a deleted User. It is no valid hash, so it can never be verified.
+    /// </summary>
+    public const string DeletedPasswordHash = "deleted";
+
     private readonly List<Role> _roles = [];
 
     /// <summary>
@@ -287,14 +298,27 @@ public sealed class User
 
     /// <summary>
     ///     Makes the User <see cref="UserState.Deleted"/>, which is final, and rotates the <see cref="SecurityStamp"/>,
-    ///     which invalidates all existing Sessions and Refresh Tokens. The record is kept for history.
+    ///     which invalidates all existing Sessions and Refresh Tokens. The record and its Id are kept for history.
     /// </summary>
     /// <remarks>
-    ///     Does not check whether the User is the last administrator. Callers must check this first.
+    ///     <para>
+    ///         Erases the personal data (GDPR Art. 17): the Email becomes a placeholder, which frees the Email for a new
+    ///         User, the Name becomes "Deleted User" and the password hash is removed.
+    ///     </para>
+    ///     <para>
+    ///         Does not check whether the User is the last administrator. Callers must check this first.
+    ///     </para>
     /// </remarks>
     public void MarkDeleted()
     {
         State = UserState.Deleted;
+
+        Email = $"deleted-{Id:N}@{DeletedEmailDomain}";
+        NormalizedEmail = Email;
+        FirstName = "Deleted";
+        LastName = "User";
+        PasswordHash = DeletedPasswordHash;
+
         RotateSecurityStamp();
     }
 
