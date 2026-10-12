@@ -167,6 +167,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Database", _database.GetConnectionString());
         builder.UseSetting("Authora:OAuth:Issuer", "https://localhost");
+
+        // Clients created by a test must be allowed for CORS right away.
+        builder.UseSetting("Authora:OAuth:CorsOriginsCacheDuration", "00:00:00");
     }
 
     private static User CreateUser()

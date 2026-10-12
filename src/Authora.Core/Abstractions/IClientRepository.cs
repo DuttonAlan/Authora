@@ -39,6 +39,13 @@ public interface IClientRepository
     public Task<IReadOnlyList<Client>> GetClients(CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Get the Redirect URIs of all enabled Clients.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The Redirect URIs, without duplicates.</returns>
+    public Task<IReadOnlyList<string>> GetRedirectUrisOfEnabledClients(CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Checks in the database whether a Client is disabled, ignoring any tracked (possibly outdated) instance.
     /// </summary>
     /// <param name="id">Id of the Client.</param>

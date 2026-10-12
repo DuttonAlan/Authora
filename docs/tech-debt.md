@@ -11,8 +11,8 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-003](#td-003-the-admin-api-has-no-authentication-or-authorization) | The admin API has no authentication or authorization | Resolved (2026-10-11) |
 | [TD-004](#td-004-the-last-administrator-check-is-not-safe-against-concurrent-requests) | The last-administrator check is not safe against concurrent requests | Resolved (2026-10-12) |
 | [TD-005](#td-005-the-email-of-a-deleted-user-can-never-be-used-again) | The Email of a deleted User can never be used again | Resolved (2026-10-12) |
-| [TD-006](#td-006-removing-roles-or-permissions-does-not-rotate-the-securitystamp) | Removing Roles or Permissions does not rotate the SecurityStamp | Open |
-| [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Open |
+| [TD-006](#td-006-removing-roles-or-permissions-does-not-rotate-the-securitystamp) | Removing Roles or Permissions does not rotate the SecurityStamp | Resolved (2026-10-12) |
+| [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Resolved (2026-10-12) |
 | [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Open |
 | [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Open |
 | [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Open |
@@ -59,19 +59,19 @@ A soft-deleted User kept its Email, and the unique index includes deleted Users,
 
 ## TD-006: Removing Roles or Permissions does not rotate the SecurityStamp
 
-**Area:** Users and Roles (`RemoveRoleService`, `DeleteRoleService`, `RevokePermissionService`)
+**Status:** Resolved (2026-10-12) · **Area:** Users and Roles (`RemoveRoleService`, `DeleteRoleService`, `RevokePermissionService`)
 
-These operations reduce a User's Permissions but do not rotate the `SecurityStamp`, so Sessions and tokens stay valid. The admin API loads Permissions on every request (`PermissionEvaluator`), so the admin API is not affected.
+These operations reduce a User's Permissions but do not rotate the `SecurityStamp`, so Sessions and tokens stay valid.
 
-**To resolve:** decide whether anything else caches Permissions. If something does, rotate the stamp of the affected Users in the same transaction, with a bulk update for Role-wide changes. If nothing does, close this entry.
+**Resolution:** closed without a code change, because nothing caches Permissions. Access Tokens, Refresh Tokens, Sessions and introspection responses only carry the User Id, the Client and the Scopes, never Roles or Permissions. Granting a Scope, including `authora.admin`, does not depend on Permissions. The admin API loads the Permissions on every request (`PermissionEvaluator`), which `AdminApiAccessTests.RoleRemovedBetweenRequests_TakesEffectOnNextRequest` covers. Reopen this entry if Roles or Permissions are ever put into tokens (e.g. ID Token claims in Phase 5) or cached.
 
 ## TD-007: Browser-based Clients cannot call the token endpoint (no CORS)
 
-**Area:** OAuth (`/oauth/token`, `/oauth/revoke`)
+**Status:** Resolved (2026-10-12) · **Area:** OAuth (`/oauth/token`, `/oauth/revoke`)
 
-No CORS headers are sent, so SPAs on another origin cannot exchange codes. They need a backend for frontend instead.
+No CORS headers were sent, so SPAs on another origin could not exchange codes. They needed a backend for frontend instead.
 
-**To resolve:** add an `ICorsPolicyProvider` for these two endpoints only. It allows the origins of the Redirect URIs of enabled Clients (cached), only `POST`, and no credentials. Never enable CORS for `/oauth/authorize`, `/account/*` or `/api/*`.
+**Resolution:** `OAuthCorsPolicyProvider` replaces the default `ICorsPolicyProvider` and only knows the policy `oauth-clients`, which `[EnableCors]` applies to the token and revocation actions. It allows the origins of the Redirect URIs of enabled Clients, only `POST`, only `Content-Type` and no credentials. The origins are cached for `Authora:OAuth:CorsOriginsCacheDuration` (1 minute by default), so a new or disabled Client takes effect after at most that time. All other endpoints have no policy.
 
 ## TD-008: Expired codes, tokens and Sessions are never deleted
 

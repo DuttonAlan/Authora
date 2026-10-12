@@ -21,6 +21,8 @@ This document describes the OAuth 2.1 authorization server of Authora (Phase 4, 
 
 `/oauth/token`, `/oauth/revoke` and `/oauth/introspect` take `application/x-www-form-urlencoded` bodies and answer errors as `{"error": "...", "error_description": "..."}`. A failed Client authentication returns `401` with `WWW-Authenticate: Basic`, all other errors `400`. Responses are sent with `Cache-Control: no-store`.
 
+`/oauth/token` and `/oauth/revoke` allow CORS, so browser-based Clients (SPAs) can call them directly. Allowed are the origins (scheme, host and port) of the Redirect URIs of enabled Clients, only `POST`, only the `Content-Type` header and no credentials. All other endpoints, including `/oauth/introspect`, `/oauth/authorize`, `/account/*` and `/api/*`, send no CORS headers.
+
 Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID Connect in Phase 5.
 
 ## Configuration
@@ -29,6 +31,7 @@ Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID 
 |---|---|---|
 | `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment. Returned as `iss`. Startup fails if it is missing or invalid. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | Lifetime of Authorization Codes, at most 10 minutes. |
+| `Authora:OAuth:CorsOriginsCacheDuration` | `00:01:00` | How long the CORS origins of `/oauth/token` and `/oauth/revoke` are cached, at most 1 hour. `00:00:00` disables the cache. |
 | `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. At most 24 hours. |
 | `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. At most 7 days. |
 | `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. 1 to 100. |
