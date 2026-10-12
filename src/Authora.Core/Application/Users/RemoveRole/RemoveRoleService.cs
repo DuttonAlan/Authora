@@ -32,12 +32,14 @@ public sealed class RemoveRoleService(
         Guid roleId,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+
         var user = await userRepository.GetUserById(userId, cancellationToken)
             ?? throw new NotFoundException($"User '{userId}' was not found.");
 
         DeletedUserGuard.EnsureNotDeleted(user);
 
-        var role =user.Roles.FirstOrDefault(role => role.Id == roleId);
+        var role = user.Roles.FirstOrDefault(role => role.Id == roleId);
 
         if (role is null)
         {
@@ -52,6 +54,7 @@ public sealed class RemoveRoleService(
         user.RemoveRole(role.Id);
 
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.RoleRemoved(user.Id, role.Id, role.Name);
     }

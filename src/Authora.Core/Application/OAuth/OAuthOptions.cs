@@ -28,4 +28,16 @@ public sealed class OAuthOptions
     ///     <see cref="AuthorizationCode.MaxLifetime"/>.
     /// </summary>
     public TimeSpan AuthorizationCodeLifetime { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    ///     How long the origins that may call the token and revocation endpoints from a browser (CORS) are cached.
+    ///     A changed Redirect URI or Client status takes effect after at most this time. Defaults to 1 minute,
+    ///     at most <see cref="MaxCorsOriginsCacheDuration"/>. 0 disables the cache.
+    /// </summary>
+    public TimeSpan CorsOriginsCacheDuration { get; set; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    ///     Maximum of <see cref="CorsOriginsCacheDuration"/>.
+    /// </summary>
+    public static readonly TimeSpan MaxCorsOriginsCacheDuration = TimeSpan.FromHours(1);
 }

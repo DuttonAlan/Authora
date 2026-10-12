@@ -104,7 +104,8 @@ public sealed class UsersController(
     ///     Deletes the User based on the given Id.
     /// </summary>
     /// <remarks>
-    ///     The User is not removed but set to the deleted state and kept for history.
+    ///     The User is not removed but set to the deleted state and kept for history. The Email and Name are
+    ///     anonymized, so the Email can be used by a new User.
     ///     All Sessions and Refresh Tokens of the User become invalid.
     ///     This operation is idempotent: deleting a User that does not exist or is already deleted also succeeds.
     /// </remarks>

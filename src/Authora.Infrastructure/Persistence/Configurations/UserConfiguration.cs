@@ -42,6 +42,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(User.NameMaxLength);
 
         builder.Property(x => x.PasswordHash)
+            .IsRequired()
             .HasMaxLength(256);
 
         builder.Property(x => x.State)

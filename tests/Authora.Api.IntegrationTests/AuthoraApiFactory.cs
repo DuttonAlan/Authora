@@ -112,8 +112,13 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// <param name="userId">The Id of the User.</param>
     /// <param name="scopes">The Scope Names of the token.</param>
     /// <param name="issuedAt">When the token was issued, now by default. The token is valid for one hour.</param>
+    /// <param name="clientId">The Client the token is issued to, or null for a new Public Client.</param>
     /// <returns>The plain-text Access Token.</returns>
-    public async Task<string> IssueAccessTokenAsync(Guid userId, IReadOnlyList<string> scopes, DateTime? issuedAt = null)
+    public async Task<string> IssueAccessTokenAsync(
+        Guid userId,
+        IReadOnlyList<string> scopes,
+        DateTime? issuedAt = null,
+        Guid? clientId = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
@@ -122,7 +127,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         var now = issuedAt ?? DateTime.UtcNow;
         var user = await context.Users.SingleAsync(user => user.Id == userId);
-        var client = Client.Create("Test Client", ClientType.Public);
+        var client = clientId is null
+            ? Client.Create("Test Client", ClientType.Public)
+            : await context.Clients.SingleAsync(client => client.Id == clientId);
 
         var authorizationCode = AuthorizationCode.Create(
             secretHasher.Hash(secretGenerator.Generate()), client, user, null, scopes, "test-challenge", now, TimeSpan.FromMinutes(1));
@@ -131,7 +138,13 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         var token = secretGenerator.Generate();
         var accessToken = AccessToken.Create(grant.Id, secretHasher.Hash(token), scopes, now, TimeSpan.FromHours(1));
 
-        context.AddRange(client, authorizationCode, grant, accessToken);
+        context.AddRange(authorizationCode, grant, accessToken);
+
+        if (clientId is null)
+        {
+            context.Add(client);
+        }
+
         await context.SaveChangesAsync();
 
         return token;
@@ -167,15 +180,14 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Database", _database.GetConnectionString());
         builder.UseSetting("Authora:OAuth:Issuer", "https://localhost");
+
+        // Clients created by a test must be allowed for CORS right away.
+        builder.UseSetting("Authora:OAuth:CorsOriginsCacheDuration", "00:00:00");
     }
 
     private static User CreateUser()
     {
-        var user = User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User");
-
-        // Only a User with a password can sign in. The tests never sign in with it.
-        user.SetPasswordHash("not-a-password-hash");
-
-        return user;
+        // The tests never sign in with the password.
+        return User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", "not-a-password-hash");
     }
 }

@@ -48,4 +48,10 @@ internal static partial class ClientLog
 
     [LoggerMessage(EventId = 4012, Level = LogLevel.Warning, Message = "{RevokedGrants} Grant(s) of Client {ClientId} were revoked, including their Access and Refresh Tokens.")]
     public static partial void ClientGrantsRevoked(this ILogger logger, Guid clientId, int revokedGrants);
+
+    [LoggerMessage(EventId = 4013, Level = LogLevel.Information, Message = "Client {ClientId} now serves Scope {ScopeId} ({ScopeName}) as a resource server.")]
+    public static partial void ScopeServed(this ILogger logger, Guid clientId, Guid scopeId, string scopeName);
+
+    [LoggerMessage(EventId = 4014, Level = LogLevel.Information, Message = "Client {ClientId} no longer serves Scope {ScopeId} ({ScopeName}).")]
+    public static partial void ScopeNoLongerServed(this ILogger logger, Guid clientId, Guid scopeId, string scopeName);
 }

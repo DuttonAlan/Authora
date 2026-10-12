@@ -57,13 +57,16 @@ public sealed class ScopeRepository(AuthoraContext context) : IScopeRepository
     public async Task<int> CountClientsWithScope(Guid scopeId, CancellationToken cancellationToken = default)
     {
         return await context.Clients
-            .CountAsync(client => client.AllowedScopes.Any(scope => scope.Id == scopeId), cancellationToken);
+            .CountAsync(
+                client => client.AllowedScopes.Any(scope => scope.Id == scopeId)
+                    || client.ServedScopes.Any(scope => scope.Id == scopeId),
+                cancellationToken);
     }
 
     /// <inheritdoc/>
     public async Task DeleteScope(Scope scope, CancellationToken cancellationToken = default)
     {
-        // client_scopes are removed by the database (cascade delete).
+        // client_scopes and client_served_scopes are removed by the database (cascade delete).
         context.Scopes.Remove(scope);
         await context.SaveChangesAsync(cancellationToken);
     }

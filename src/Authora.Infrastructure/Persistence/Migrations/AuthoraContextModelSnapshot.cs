@@ -51,6 +51,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("GrantId");
 
                     b.HasIndex("TokenHash")
@@ -110,6 +112,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CodeHash")
                         .IsUnique();
+
+                    b.HasIndex("ExpiresAt");
 
                     b.HasIndex("UserId");
 
@@ -268,6 +272,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("GrantId");
 
                     b.HasIndex("TokenHash")
@@ -378,6 +384,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
@@ -427,6 +435,7 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)");
 
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
@@ -463,6 +472,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasIndex("ScopeId");
 
                     b.ToTable("client_scopes", "identity");
+                });
+
+            modelBuilder.Entity("ClientServedScope", b =>
+                {
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ClientId", "ScopeId");
+
+                    b.HasIndex("ScopeId");
+
+                    b.ToTable("client_served_scopes", "identity");
                 });
 
             modelBuilder.Entity("RolePermission", b =>
@@ -589,6 +613,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("ClientScope", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Authora.Core.Domain.Entities.Scope", null)
+                        .WithMany()
+                        .HasForeignKey("ScopeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ClientServedScope", b =>
                 {
                     b.HasOne("Authora.Core.Domain.Entities.Client", null)
                         .WithMany()

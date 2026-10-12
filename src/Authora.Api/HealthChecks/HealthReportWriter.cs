@@ -10,7 +10,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Authora.Api.HealthChecks;
 
 /// <summary>
-///     Writes a <see cref="HealthReport"/> as JSON, including the status, description and data of each check.
+///     Writes a <see cref="HealthReport"/> as JSON: only the overall status for public endpoints, or the status,
+///     description and data of each check for authorized callers.
 /// </summary>
 internal static class HealthReportWriter
 {
@@ -22,7 +23,25 @@ internal static class HealthReportWriter
     };
 
     /// <summary>
-    ///     Writes the report to the response.
+    ///     Writes only the overall status, e.g. <c>{"status":"Healthy"}</c>. The data of the checks, e.g. the applied
+    ///     migrations, would reveal the exact version that is running.
+    /// </summary>
+    /// <param name="httpContext">The HttpContext of the request.</param>
+    /// <param name="report">The report to write.</param>
+    /// <returns>A Task that completes once the status is written.</returns>
+    public static Task WriteStatusAsync(HttpContext httpContext, HealthReport report)
+    {
+        httpContext.Response.ContentType = "application/json";
+
+        return JsonSerializer.SerializeAsync(
+            httpContext.Response.Body,
+            new HealthStatusResponse(report.Status),
+            SerializerOptions,
+            httpContext.RequestAborted);
+    }
+
+    /// <summary>
+    ///     Writes the full report to the response. Only for authorized callers.
     /// </summary>
     /// <remarks>
     ///     Exception messages are not written, as they can contain details about the infrastructure.

@@ -13,8 +13,8 @@ namespace Authora.Core.Domain.Entities;
 ///     Represents a User, the identity that signs in to Authora.
 /// </summary>
 /// <remarks>
-///     A User can only be created via <see cref="Create(string, string, string)"/>,
-///     so a User without a valid Email can never exist.
+///     A User can only be created via <see cref="Create(string, string, string, string)"/>,
+///     so a User without a valid Email or without a password can never exist.
 /// </remarks>
 public sealed class User
 {
@@ -27,6 +27,17 @@ public sealed class User
     ///     Maximum length of the First Name and of the Last Name.
     /// </summary>
     public const int NameMaxLength = 50;
+
+    /// <summary>
+    ///     Domain of the placeholder Email of a deleted User. <c>.invalid</c> is reserved (RFC 2606), and
+    ///     <see cref="SetEmail(string)"/> rejects this domain, so no other User can take a placeholder.
+    /// </summary>
+    public const string DeletedEmailDomain = "deleted.invalid";
+
+    /// <summary>
+    ///     Replaces the password hash of a deleted User. It is no valid hash, so it can never be verified.
+    /// </summary>
+    public const string DeletedPasswordHash = "deleted";
 
     private readonly List<Role> _roles = [];
 
@@ -65,11 +76,10 @@ public sealed class User
     public string LastName { get; private set; } = null!;
 
     /// <summary>
-    ///     Hash of the password of the User, or <see langword="null"/> if the User has not set a password yet.
-    ///     A User without a password cannot sign in. The plain-text password is never stored.
+    ///     Hash of the password of the User. The plain-text password is never stored.
     ///     Set via <see cref="SetPasswordHash(string)"/>.
     /// </summary>
-    public string? PasswordHash { get; private set; }
+    public string PasswordHash { get; private set; } = null!;
 
     /// <summary>
     ///     Number of failed login attempts in a row. Reset after a successful login or via <see cref="Unlock"/>.
@@ -116,29 +126,29 @@ public sealed class User
 
     /// <summary>
     ///     Whether the User may sign in and use tokens: the User is <see cref="UserState.Active"/> or
-    ///     <see cref="UserState.Inactive"/> and has a password. Does not check the lockout, see <see cref="IsLockedOut(DateTime)"/>.
+    ///     <see cref="UserState.Inactive"/>. Does not check the lockout, see <see cref="IsLockedOut(DateTime)"/>.
     /// </summary>
-    public bool CanSignIn => (State is UserState.Active or UserState.Inactive) && PasswordHash is not null;
+    public bool CanSignIn => State is UserState.Active or UserState.Inactive;
 
     /// <summary>
-    ///     Creates a new <see cref="UserState.Active"/> User without a password.
+    ///     Creates a new <see cref="UserState.Active"/> User.
     /// </summary>
-    /// <remarks>
-    ///     The User cannot sign in until a password is set via <see cref="SetPasswordHash(string)"/>,
-    ///     e.g. through the password reset flow.
-    /// </remarks>
     /// <param name="email">The Email of the User.</param>
     /// <param name="firstName">The First Name of the User.</param>
     /// <param name="lastName">The Last Name of the User.</param>
+    /// <param name="passwordHash">The hash of the initial password. The plain-text password must never be passed to the domain.</param>
     /// <returns>The created User.</returns>
     /// <exception cref="ArgumentException">Thrown when a value is empty or too long, or the Email is not valid.</exception>
-    public static User Create(string email, string firstName, string lastName)
+    public static User Create(string email, string firstName, string lastName, string passwordHash)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+
         var user = new User();
 
         user.SetFirstName(firstName);
         user.SetLastName(lastName);
         user.SetEmail(email);
+        user.PasswordHash = passwordHash;
 
         return user;
     }
@@ -288,14 +298,27 @@ public sealed class User
 
     /// <summary>
     ///     Makes the User <see cref="UserState.Deleted"/>, which is final, and rotates the <see cref="SecurityStamp"/>,
-    ///     which invalidates all existing Sessions and Refresh Tokens. The record is kept for history.
+    ///     which invalidates all existing Sessions and Refresh Tokens. The record and its Id are kept for history.
     /// </summary>
     /// <remarks>
-    ///     Does not check whether the User is the last administrator. Callers must check this first.
+    ///     <para>
+    ///         Erases the personal data (GDPR Art. 17): the Email becomes a placeholder, which frees the Email for a new
+    ///         User, the Name becomes "Deleted User" and the password hash is removed.
+    ///     </para>
+    ///     <para>
+    ///         Does not check whether the User is the last administrator. Callers must check this first.
+    ///     </para>
     /// </remarks>
     public void MarkDeleted()
     {
         State = UserState.Deleted;
+
+        Email = $"deleted-{Id:N}@{DeletedEmailDomain}";
+        NormalizedEmail = Email;
+        FirstName = "Deleted";
+        LastName = "User";
+        PasswordHash = DeletedPasswordHash;
+
         RotateSecurityStamp();
     }
 
@@ -324,7 +347,7 @@ public sealed class User
     ///     Sets the <see cref="Email"/> and the <see cref="NormalizedEmail"/> of the User.
     /// </summary>
     /// <param name="email">The new Email of the User.</param>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="email"/> is empty, too long or not a valid Email.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="email"/> is empty, too long, not a valid Email or uses the <see cref="DeletedEmailDomain"/>.</exception>
     public void SetEmail(string email)
     {
         DomainValidationException.ThrowIfNullOrWhiteSpace(email);
@@ -340,6 +363,12 @@ public sealed class User
         if (!MailAddress.TryCreate(trimmed, out var address) || address.Address != trimmed)
         {
             throw new DomainValidationException("Email is not valid.", nameof(email));
+        }
+
+        // Otherwise a User could take the placeholder of another User, whose deletion would then fail on the unique index.
+        if (string.Equals(address.Host, DeletedEmailDomain, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainValidationException($"Emails of the domain {DeletedEmailDomain} are reserved.", nameof(email));
         }
 
         Email = trimmed;

@@ -23,7 +23,8 @@ public sealed class DeleteUserService(
     ///     Deletes a User based on the Id.
     /// </summary>
     /// <remarks>
-    ///     This is a soft delete: the User is set to <see cref="UserState.Deleted"/> and kept for history.
+    ///     This is a soft delete: the User is set to <see cref="UserState.Deleted"/> and kept for history, with the
+    ///     Email and Name anonymized, so the Email can be used by a new User.
     ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid.
     ///     Does nothing if the User does not exist or is already deleted.
     /// </remarks>
@@ -35,6 +36,8 @@ public sealed class DeleteUserService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+
         var user = await userRepository.GetUserById(id, cancellationToken);
 
         if (user is null || user.State == UserState.Deleted)
@@ -47,6 +50,7 @@ public sealed class DeleteUserService(
         user.MarkDeleted();
 
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.UserDeleted(user.Id);
     }

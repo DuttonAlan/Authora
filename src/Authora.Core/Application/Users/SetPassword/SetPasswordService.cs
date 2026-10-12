@@ -39,12 +39,7 @@ public sealed class SetPasswordService(
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Password is not { Length: >= PasswordPolicy.MinLength and <= PasswordPolicy.MaxLength })
-        {
-            throw new DomainValidationException(
-                $"The password must be {PasswordPolicy.MinLength} to {PasswordPolicy.MaxLength} characters long.",
-                nameof(request));
-        }
+        PasswordPolicy.ThrowIfInvalid(request.Password, nameof(request));
 
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");

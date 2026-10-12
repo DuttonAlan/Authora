@@ -20,6 +20,8 @@ using Authora.Core.Application.Clients.GetAll;
 using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
+using Authora.Core.Application.Clients.ServeScope;
+using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
@@ -97,6 +99,8 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<DeleteClientService>();
         serviceCollection.AddTransient<DisableClientService>();
         serviceCollection.AddTransient<DisallowScopeService>();
+        serviceCollection.AddTransient<ServeScopeService>();
+        serviceCollection.AddTransient<StopServingScopeService>();
         serviceCollection.AddTransient<EnableClientService>();
         serviceCollection.AddTransient<GetAllClientsService>();
         serviceCollection.AddTransient<GetClientService>();

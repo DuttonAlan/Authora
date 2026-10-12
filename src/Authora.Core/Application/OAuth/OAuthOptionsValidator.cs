@@ -46,6 +46,13 @@ public sealed class OAuthOptionsValidator : IValidateOptions<OAuthOptions>
                 + $"and at most {AuthorizationCode.MaxLifetime}.");
         }
 
+        if (options.CorsOriginsCacheDuration < TimeSpan.Zero || options.CorsOriginsCacheDuration > OAuthOptions.MaxCorsOriginsCacheDuration)
+        {
+            failures.Add(
+                $"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.CorsOriginsCacheDuration)}' must be at least 0 "
+                + $"and at most {OAuthOptions.MaxCorsOriginsCacheDuration}.");
+        }
+
         return failures.Count > 0 ? ValidateOptionsResult.Fail(failures) : ValidateOptionsResult.Success;
     }
 }

@@ -31,6 +31,7 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
             .AsSplitQuery()
             .Include(client => client.Secrets)
             .Include(client => client.AllowedScopes)
+            .Include(client => client.ServedScopes)
             .FirstOrDefaultAsync(client => client.Id == id, cancellationToken);
     }
 
@@ -41,6 +42,18 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
             .AsNoTracking()
             .OrderBy(client => client.Name)
             .ThenBy(client => client.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<string>> GetRedirectUrisOfEnabledClients(CancellationToken cancellationToken = default)
+    {
+        return await context.Clients
+            .AsNoTracking()
+            .Where(client => client.Status == ClientStatus.Enabled)
+            .SelectMany(client => client.RedirectUris)
+            .Select(redirectUri => redirectUri.Value)
+            .Distinct()
             .ToListAsync(cancellationToken);
     }
 

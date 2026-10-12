@@ -40,6 +40,11 @@ public sealed class GetClientService(
             .Select(scope => new ClientScopeResponse(scope.Id, scope.Name))
             .ToList();
 
+        var servedScopes = client.ServedScopes
+            .OrderBy(scope => scope.Name, StringComparer.Ordinal)
+            .Select(scope => new ClientScopeResponse(scope.Id, scope.Name))
+            .ToList();
+
         var secrets = client.Secrets
             .OrderBy(secret => secret.CreatedAt)
             .Select(secret => new ClientSecretResponse(
@@ -60,6 +65,7 @@ public sealed class GetClientService(
             client.RefreshTokenTTL,
             client.RedirectUris.Select(redirectUri => redirectUri.Value).Order(StringComparer.Ordinal).ToList(),
             scopes,
+            servedScopes,
             secrets,
             client.CreatedAt,
             client.ModifiedAt);
