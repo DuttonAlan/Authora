@@ -29,8 +29,8 @@ public sealed class User
     public const int NameMaxLength = 50;
 
     /// <summary>
-    ///     Domain of the placeholder Email of a deleted User. <c>.invalid</c> is reserved (RFC 2606), so no real
-    ///     User can have such an Email.
+    ///     Domain of the placeholder Email of a deleted User. <c>.invalid</c> is reserved (RFC 2606), and
+    ///     <see cref="SetEmail(string)"/> rejects this domain, so no other User can take a placeholder.
     /// </summary>
     public const string DeletedEmailDomain = "deleted.invalid";
 
@@ -347,7 +347,7 @@ public sealed class User
     ///     Sets the <see cref="Email"/> and the <see cref="NormalizedEmail"/> of the User.
     /// </summary>
     /// <param name="email">The new Email of the User.</param>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="email"/> is empty, too long or not a valid Email.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="email"/> is empty, too long, not a valid Email or uses the <see cref="DeletedEmailDomain"/>.</exception>
     public void SetEmail(string email)
     {
         DomainValidationException.ThrowIfNullOrWhiteSpace(email);
@@ -363,6 +363,12 @@ public sealed class User
         if (!MailAddress.TryCreate(trimmed, out var address) || address.Address != trimmed)
         {
             throw new DomainValidationException("Email is not valid.", nameof(email));
+        }
+
+        // Otherwise a User could take the placeholder of another User, whose deletion would then fail on the unique index.
+        if (string.Equals(address.Host, DeletedEmailDomain, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainValidationException($"Emails of the domain {DeletedEmailDomain} are reserved.", nameof(email));
         }
 
         Email = trimmed;

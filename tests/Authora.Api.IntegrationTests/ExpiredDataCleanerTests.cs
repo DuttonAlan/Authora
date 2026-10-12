@@ -68,4 +68,35 @@ public sealed class ExpiredDataCleanerTests(AuthoraApiFactory factory) : IClassF
             Assert.Single(await context.Sessions.Where(session => session.UserId == userId).ToListAsync(cancellationToken));
         }
     }
+
+    [Fact]
+    public async Task Clean_DeletesRevokedGrantWithItsUnexpiredTokens()
+    {
+        var now = DateTime.UtcNow;
+        var userId = await factory.CreateUserAsync();
+
+        // Issued now, so its Access Token has not expired, but the Grant was revoked beyond the retention.
+        await factory.IssueAccessTokenAsync(userId, ["openid"], now);
+
+        Guid grantId;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var grants = scope.ServiceProvider.GetRequiredService<AuthoraContext>().Grants.Where(grant => grant.UserId == userId);
+
+            grantId = await grants.Select(grant => grant.Id).SingleAsync(TestContext.Current.CancellationToken);
+            await grants.ExecuteUpdateAsync(setters => setters.SetProperty(grant => grant.RevokedAt, now.AddDays(-30)), TestContext.Current.CancellationToken);
+
+            await scope.ServiceProvider.GetRequiredService<ExpiredDataCleaner>().CleanAsync(now, TestContext.Current.CancellationToken);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var cancellationToken = TestContext.Current.CancellationToken;
+
+            Assert.False(await context.Grants.AnyAsync(grant => grant.Id == grantId, cancellationToken));
+            Assert.False(await context.AccessTokens.AnyAsync(token => token.GrantId == grantId, cancellationToken));
+        }
+    }
 }

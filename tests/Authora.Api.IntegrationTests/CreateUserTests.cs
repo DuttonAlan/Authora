@@ -9,6 +9,7 @@ using System.Net.Http.Json;
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Users.Create;
+using Authora.Core.Domain.Entities;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,20 @@ public sealed class CreateUserTests(AuthoraApiFactory factory) : IClassFixture<A
             FirstName = "Jane",
             LastName = "Doe",
             Password = "too-short",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateWithPlaceholderEmailOfDeletedUser_IsBadRequest()
+    {
+        using var response = await PostAsync(new
+        {
+            Email = $"deleted-{Guid.NewGuid():N}@{User.DeletedEmailDomain}",
+            FirstName = "Jane",
+            LastName = "Doe",
+            Password,
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

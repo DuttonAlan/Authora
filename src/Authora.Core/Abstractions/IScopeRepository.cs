@@ -55,7 +55,7 @@ public interface IScopeRepository
     public Task<bool> NameExists(string name, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Counts the Clients that are allowed to request the given Scope.
+    ///     Counts the Clients that are allowed to request the given Scope or serve it as a resource server.
     /// </summary>
     /// <param name="scopeId">Id of the Scope.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -63,7 +63,7 @@ public interface IScopeRepository
     public Task<int> CountClientsWithScope(Guid scopeId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Deletes a Scope. It is also removed from the allowed Scopes of all Clients.
+    ///     Deletes a Scope. It is also removed from the allowed and served Scopes of all Clients.
     /// </summary>
     /// <param name="scope">The tracked Scope to delete.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
