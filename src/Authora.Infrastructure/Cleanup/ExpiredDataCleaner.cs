@@ -52,8 +52,21 @@ public sealed class ExpiredDataCleaner(
             ids => context.RefreshTokens.Where(token => ids.Contains(token.Id)),
             cancellationToken);
 
-        // After the tokens: a Grant without tokens can no longer be used. Deleting a revoked Grant also deletes its
-        // remaining tokens (cascade), which are invalid anyway.
+        // The remaining tokens of a revoked Grant are invalid anyway. They are deleted here in batches, because the
+        // cascade below would delete all tokens of a Grant in one statement, and a long-running Grant can have many.
+        var revokedGrantIds = context.Grants.Where(grant => grant.RevokedAt < cutoff).Select(grant => grant.Id);
+
+        accessTokens += await DeleteInBatchesAsync(
+            context.AccessTokens.Where(token => revokedGrantIds.Contains(token.GrantId)).Select(token => token.Id),
+            ids => context.AccessTokens.Where(token => ids.Contains(token.Id)),
+            cancellationToken);
+
+        refreshTokens += await DeleteInBatchesAsync(
+            context.RefreshTokens.Where(token => revokedGrantIds.Contains(token.GrantId)).Select(token => token.Id),
+            ids => context.RefreshTokens.Where(token => ids.Contains(token.Id)),
+            cancellationToken);
+
+        // After the tokens: a Grant without tokens can no longer be used, and a revoked Grant has none left.
         var grants = await DeleteInBatchesAsync(
             context.Grants
                 .Where(grant => grant.RevokedAt < cutoff

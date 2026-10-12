@@ -72,7 +72,7 @@ public sealed class ScopesController(
     ///     Deletes the Scope based on the given Id.
     /// </summary>
     /// <remarks>
-    ///     A Scope that Clients are allowed to request can only be deleted with <c>force=true</c>,
+    ///     A Scope that Clients are allowed to request or serve can only be deleted with <c>force=true</c>,
     ///     which also removes it from these Clients.
     ///     This operation is idempotent: deleting a Scope that does not exist also succeeds.
     /// </remarks>
