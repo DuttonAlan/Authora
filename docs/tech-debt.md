@@ -10,7 +10,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-002](#td-002-disabling-a-client-does-not-revoke-its-refresh-tokens) | Disabling a Client does not revoke its Refresh Tokens | Resolved (2026-10-11) |
 | [TD-003](#td-003-the-admin-api-has-no-authentication-or-authorization) | The admin API has no authentication or authorization | Resolved (2026-10-11) |
 | [TD-004](#td-004-the-last-administrator-check-is-not-safe-against-concurrent-requests) | The last-administrator check is not safe against concurrent requests | Resolved (2026-10-12) |
-| [TD-005](#td-005-the-email-of-a-deleted-user-can-never-be-used-again) | The Email of a deleted User can never be used again | Open |
+| [TD-005](#td-005-the-email-of-a-deleted-user-can-never-be-used-again) | The Email of a deleted User can never be used again | Resolved (2026-10-12) |
 | [TD-006](#td-006-removing-roles-or-permissions-does-not-rotate-the-securitystamp) | Removing Roles or Permissions does not rotate the SecurityStamp | Open |
 | [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Open |
 | [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Open |
@@ -51,11 +51,11 @@ Anyone who could reach Authora could call every admin endpoint, e.g. to grant th
 
 ## TD-005: The Email of a deleted User can never be used again
 
-**Area:** Users (`DeleteUserService`, `UserRepository.EmailExists`, `UserConfiguration`)
+**Status:** Resolved (2026-10-12) · **Area:** Users (`DeleteUserService`, `UserRepository.EmailExists`, `UserConfiguration`)
 
-A soft-deleted User keeps its Email, and the unique index includes deleted Users, so the Email returns 409 forever. Keeping it may also conflict with GDPR Art. 17.
+A soft-deleted User kept its Email, and the unique index includes deleted Users, so the Email returned 409 forever. Keeping it could also conflict with GDPR Art. 17.
 
-**To resolve:** this is a product decision. Either use a filtered unique index and exclude deleted Users from every Email lookup, or anonymize the Email and Name on delete, or keep the Email blocked and only improve the error message.
+**Resolution:** `User.MarkDeleted` anonymizes the User: the Email becomes `deleted-<id>@deleted.invalid`, the Name "Deleted User", and the password hash is removed. The row and its Id stay for history, so the unique index is unchanged. The migration `AnonymizeDeletedUsers` does the same for Users that were already deleted. Administrators can no longer see who a deleted User was.
 
 ## TD-006: Removing Roles or Permissions does not rotate the SecurityStamp
 
