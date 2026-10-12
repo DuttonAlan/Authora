@@ -102,6 +102,27 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
+    public async Task<ITransaction> BeginAdministratorChangeAsync(CancellationToken cancellationToken = default)
+    {
+        var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            // Released on commit or rollback, so a failed request cannot keep it.
+            await context.Database.ExecuteSqlAsync(
+                $"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.Administrators})",
+                cancellationToken);
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+
+        return new EfTransaction(transaction);
+    }
+
+    /// <inheritdoc/>
     public async Task<int> CountUsersWithRoleWhoCanSignIn(
         Guid roleId,
         Guid excludedUserId,

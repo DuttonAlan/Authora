@@ -9,7 +9,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-001](#td-001-users-can-be-created-without-a-password) | Users can be created without a password | Resolved (2026-10-12) |
 | [TD-002](#td-002-disabling-a-client-does-not-revoke-its-refresh-tokens) | Disabling a Client does not revoke its Refresh Tokens | Resolved (2026-10-11) |
 | [TD-003](#td-003-the-admin-api-has-no-authentication-or-authorization) | The admin API has no authentication or authorization | Resolved (2026-10-11) |
-| [TD-004](#td-004-the-last-administrator-check-is-not-safe-against-concurrent-requests) | The last-administrator check is not safe against concurrent requests | Open |
+| [TD-004](#td-004-the-last-administrator-check-is-not-safe-against-concurrent-requests) | The last-administrator check is not safe against concurrent requests | Resolved (2026-10-12) |
 | [TD-005](#td-005-the-email-of-a-deleted-user-can-never-be-used-again) | The Email of a deleted User can never be used again | Open |
 | [TD-006](#td-006-removing-roles-or-permissions-does-not-rotate-the-securitystamp) | Removing Roles or Permissions does not rotate the SecurityStamp | Open |
 | [TD-007](#td-007-browser-based-clients-cannot-call-the-token-endpoint-no-cors) | Browser-based Clients cannot call the token endpoint (no CORS) | Open |
@@ -43,11 +43,11 @@ Anyone who could reach Authora could call every admin endpoint, e.g. to grant th
 
 ## TD-004: The last-administrator check is not safe against concurrent requests
 
-**Area:** Users (`AdministratorGuard`, `DeactivateUserService`, `DeleteUserService`, `RemoveRoleService`)
+**Status:** Resolved (2026-10-12) · **Area:** Users (`AdministratorGuard`, `DeactivateUserService`, `DeleteUserService`, `RemoveRoleService`)
 
-`AdministratorGuard` counts the remaining administrators and then saves, without a lock (check-then-act). Two requests at the same time against the last two administrators can both pass the check, and then no administrator is left.
+`AdministratorGuard` counted the remaining administrators and then saved, without a lock (check-then-act). Two requests at the same time against the last two administrators could both pass the check, and then no administrator was left.
 
-**To resolve:** run the check and the save in one transaction that holds `pg_advisory_xact_lock(<constant key>)`. This needs a unit of work or a shared transaction across repositories.
+**Resolution:** `IUserRepository.BeginAdministratorChangeAsync` starts a transaction that holds `pg_advisory_xact_lock(AdvisoryLockKeys.Administrators)`. The three services take it before loading the User and commit after saving, so these changes run one after another. No unit of work was needed, because all three only use `IUserRepository`.
 
 ## TD-005: The Email of a deleted User can never be used again
 

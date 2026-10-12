@@ -35,6 +35,8 @@ public sealed class DeleteUserService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+
         var user = await userRepository.GetUserById(id, cancellationToken);
 
         if (user is null || user.State == UserState.Deleted)
@@ -47,6 +49,7 @@ public sealed class DeleteUserService(
         user.MarkDeleted();
 
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.UserDeleted(user.Id);
     }

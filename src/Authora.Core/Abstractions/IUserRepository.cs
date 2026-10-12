@@ -72,6 +72,19 @@ public interface IUserRepository
     public Task<bool> EmailExists(string normalizedEmail, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Starts a transaction that holds the administrator lock until it is committed or disposed. Only one
+    ///     such transaction runs at a time, so a check of the remaining administrators stays valid until the change
+    ///     is saved and committed.
+    /// </summary>
+    /// <remarks>
+    ///     Load the User after this call, call <see cref="SaveChangesAsync"/> and then
+    ///     <see cref="ITransaction.CommitAsync"/>.
+    /// </remarks>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The transaction, which holds the lock.</returns>
+    public Task<ITransaction> BeginAdministratorChangeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Counts the Users that have the given Role and can sign in, excluding one User.
     /// </summary>
     /// <param name="roleId">Id of the Role.</param>
