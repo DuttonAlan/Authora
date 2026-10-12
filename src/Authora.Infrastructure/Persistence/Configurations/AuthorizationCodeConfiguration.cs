@@ -34,6 +34,9 @@ public sealed class AuthorizationCodeConfiguration : IEntityTypeConfiguration<Au
         builder.HasIndex(x => x.CodeHash)
             .IsUnique();
 
+        // Used by the cleanup of expired rows, see ExpiredDataCleaner.
+        builder.HasIndex(x => x.ExpiresAt);
+
         builder.Property(x => x.RedirectUri)
             .HasMaxLength(2048);
 

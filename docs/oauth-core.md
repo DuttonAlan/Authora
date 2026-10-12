@@ -36,6 +36,9 @@ Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID 
 | `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. At most 7 days. |
 | `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. 1 to 100. |
 | `Authora:SignIn:LockoutDuration` | `00:15:00` | How long a User is locked out. At most 1 hour, because anyone who knows an Email can trigger a lockout. |
+| `Authora:Cleanup:Interval` | `01:00:00` | How often expired Authorization Codes, Grants, tokens and Sessions are deleted. 1 minute to 1 day. The first run is one interval after startup. |
+| `Authora:Cleanup:Retention` | `7.00:00:00` | How long rows are kept after they expired or were revoked, at least 1 day. Reuse of a consumed code or Refresh Token is only detected (and revokes the Grant) while the row exists. |
+| `Authora:Cleanup:BatchSize` | `1000` | Rows deleted per statement, 1 to 10000. |
 
 Environment variables use `__` as separator, e.g. `Authora__OAuth__Issuer`.
 

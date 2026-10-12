@@ -51,6 +51,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("GrantId");
 
                     b.HasIndex("TokenHash")
@@ -110,6 +112,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CodeHash")
                         .IsUnique();
+
+                    b.HasIndex("ExpiresAt");
 
                     b.HasIndex("UserId");
 
@@ -268,6 +272,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("GrantId");
 
                     b.HasIndex("TokenHash")
@@ -377,6 +383,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
