@@ -427,6 +427,7 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)");
 
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 

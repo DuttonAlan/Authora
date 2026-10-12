@@ -142,7 +142,6 @@ public sealed class IdentitySeeder(
 
         var administratorExists = await context.Users
             .Where(user => user.State == UserState.Active || user.State == UserState.Inactive)
-            .Where(user => user.PasswordHash != null)
             .AnyAsync(user => user.Roles.Any(role => role.Id == administratorRole.Id), cancellationToken);
 
         if (administratorExists)
@@ -168,17 +167,22 @@ public sealed class IdentitySeeder(
                 + $"{nameof(BootstrapAdministratorOptions.Password)}' must be set to create the first administrator.");
         }
 
-        var user = User.Create(settings.Administrator.Email, settings.Administrator.FirstName, settings.Administrator.LastName);
+        var normalizedEmail = User.Normalize(settings.Administrator.Email);
 
         // Taking over an existing account would hand it administrator access without its owner noticing.
-        if (await context.Users.AnyAsync(existing => existing.NormalizedEmail == user.NormalizedEmail, cancellationToken))
+        if (await context.Users.AnyAsync(existing => existing.NormalizedEmail == normalizedEmail, cancellationToken))
         {
             throw new InvalidOperationException(
                 $"The Email in '{BootstrapOptions.SectionName}:{nameof(BootstrapOptions.Administrator)}' is already used by "
                 + "another User. Use a new Email for the first administrator.");
         }
 
-        user.SetPasswordHash(passwordHasher.Hash(settings.Administrator.Password!));
+        var user = User.Create(
+            settings.Administrator.Email,
+            settings.Administrator.FirstName,
+            settings.Administrator.LastName,
+            passwordHasher.Hash(settings.Administrator.Password));
+
         user.AssignRole(administratorRole);
         context.Users.Add(user);
 

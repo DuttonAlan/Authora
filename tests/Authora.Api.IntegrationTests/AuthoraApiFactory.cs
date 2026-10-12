@@ -171,11 +171,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     private static User CreateUser()
     {
-        var user = User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User");
-
-        // Only a User with a password can sign in. The tests never sign in with it.
-        user.SetPasswordHash("not-a-password-hash");
-
-        return user;
+        // The tests never sign in with the password.
+        return User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", "not-a-password-hash");
     }
 }
