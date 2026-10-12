@@ -139,7 +139,7 @@ public static class PermissionNames
         public const string Create = "clients.create";
 
         /// <summary>
-        ///     Change Clients, their Redirect URIs and allowed Scopes, and enable or disable them.
+        ///     Change Clients, their Redirect URIs, allowed Scopes and served Scopes, and enable or disable them.
         /// </summary>
         public const string Update = "clients.update";
 
@@ -152,6 +152,17 @@ public static class PermissionNames
         ///     Create and revoke Client Secrets.
         /// </summary>
         public const string ManageSecrets = "clients.manage-secrets";
+    }
+
+    /// <summary>
+    ///     Permissions to monitor Authora.
+    /// </summary>
+    public static class Health
+    {
+        /// <summary>
+        ///     Read the detailed health report at <c>/health/details</c>, including the database schema version.
+        /// </summary>
+        public const string Read = "health.read";
     }
 
     /// <summary>
@@ -180,6 +191,7 @@ public static class PermissionNames
         Clients.Create,
         Clients.Update,
         Clients.Delete,
-        Clients.ManageSecrets
+        Clients.ManageSecrets,
+        Health.Read
     ];
 }

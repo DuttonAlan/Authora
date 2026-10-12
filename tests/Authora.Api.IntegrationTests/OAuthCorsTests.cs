@@ -26,7 +26,7 @@ public sealed class OAuthCorsTests(AuthoraApiFactory factory) : IClassFixture<Au
     [InlineData("/oauth/revoke")]
     public async Task PreflightFromOriginOfEnabledClient_IsAllowed(string endpoint)
     {
-        var origin = await CreateClientAsync(ClientStatus.Enabled);
+        var (origin, _) = await CreateClientAsync(ClientStatus.Enabled);
 
         using var response = await PreflightAsync(endpoint, origin);
 
@@ -39,11 +39,16 @@ public sealed class OAuthCorsTests(AuthoraApiFactory factory) : IClassFixture<Au
     [Fact]
     public async Task PostFromOriginOfEnabledClient_ReturnsCorsHeaderAlsoOnError()
     {
-        var origin = await CreateClientAsync(ClientStatus.Enabled);
+        var (origin, clientId) = await CreateClientAsync(ClientStatus.Enabled);
 
+        // Authenticated, but without a code, so the token endpoint answers with an OAuth error.
         using var request = new HttpRequestMessage(HttpMethod.Post, "/oauth/token")
         {
-            Content = new FormUrlEncodedContent([new("grant_type", "authorization_code")])
+            Content = new FormUrlEncodedContent(
+            [
+                new("grant_type", "authorization_code"),
+                new("client_id", clientId.ToString()),
+            ])
         };
         request.Headers.Add("Origin", origin);
 
@@ -57,7 +62,7 @@ public sealed class OAuthCorsTests(AuthoraApiFactory factory) : IClassFixture<Au
     [Fact]
     public async Task PreflightFromOriginOfDisabledClient_IsNotAllowed()
     {
-        var origin = await CreateClientAsync(ClientStatus.Disabled);
+        var (origin, _) = await CreateClientAsync(ClientStatus.Disabled);
 
         using var response = await PreflightAsync("/oauth/token", origin);
 
@@ -79,14 +84,14 @@ public sealed class OAuthCorsTests(AuthoraApiFactory factory) : IClassFixture<Au
     [InlineData("/api/users")]
     public async Task PreflightToOtherEndpoint_IsNotAllowed(string endpoint)
     {
-        var origin = await CreateClientAsync(ClientStatus.Enabled);
+        var (origin, _) = await CreateClientAsync(ClientStatus.Enabled);
 
         using var response = await PreflightAsync(endpoint, origin);
 
         Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
     }
 
-    private async Task<string> CreateClientAsync(ClientStatus status)
+    private async Task<(string Origin, Guid ClientId)> CreateClientAsync(ClientStatus status)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
@@ -105,7 +110,7 @@ public sealed class OAuthCorsTests(AuthoraApiFactory factory) : IClassFixture<Au
         context.Clients.Add(client);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        return origin;
+        return (origin, client.Id);
     }
 
     private async Task<HttpResponseMessage> PreflightAsync(string endpoint, string origin)
