@@ -30,7 +30,7 @@ public sealed class OidcSigningKeysValidator(IHostEnvironment environment) : IVa
 
         try
         {
-            _ = new PemSigningKeyProvider(Options.Create(options), environment, NullLogger<PemSigningKeyProvider>.Instance);
+            using var _ = new PemSigningKeyProvider(Options.Create(options), environment, NullLogger<PemSigningKeyProvider>.Instance);
         }
         catch (InvalidOperationException exception)
         {

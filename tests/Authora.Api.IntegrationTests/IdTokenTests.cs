@@ -24,7 +24,10 @@ namespace Authora.Api.IntegrationTests;
 /// <param name="factory">The Api under test.</param>
 public sealed class IdTokenTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>
 {
-    private readonly HttpClient _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    // Cookies are sent explicitly per request. A cookie jar would resend the antiforgery cookie of an earlier page,
+    // so the next page would not set a new one, and the Session cookie of one User would leak into the next request.
+    private readonly HttpClient _client = factory.CreateClient(
+        new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = false });
 
     [Fact]
     public async Task OpenIdRequest_ReturnsSignedIdTokenWithRequiredClaims()
