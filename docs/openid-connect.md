@@ -26,6 +26,8 @@ The document only lists what Authora supports: `response_type` `code`, `response
 
 `openid`, `profile` and `email` are seeded as System Scopes. Like every Scope, an administrator must allow them for a Client (`PUT /api/clients/{id}/scopes/{scopeId}`), and the User approves them on the consent screen. This is how administrators decide which identity attributes an application receives.
 
+The names are reserved from this version on. If a regular Scope named `openid`, `profile` or `email` already exists, Authora does not start, because promoting it would silently hand its Clients identity claims. Delete that Scope before upgrading (`DELETE /api/scopes/{id}?force=true` on the previous version, or in the database), then start the new version.
+
 | Scope | Claims |
 |---|---|
 | `openid` | `sub` (the User Id, the same for every Client) |

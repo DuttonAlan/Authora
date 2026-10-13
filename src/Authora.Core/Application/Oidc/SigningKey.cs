@@ -15,7 +15,7 @@ namespace Authora.Core.Application.Oidc;
 ///     The private key never leaves this class: only <see cref="Sign(byte[])"/> uses it, and
 ///     <see cref="ExportPublicParameters"/> exports the public part.
 /// </remarks>
-public sealed class SigningKey
+public sealed class SigningKey : IDisposable
 {
     /// <summary>
     ///     The JWS algorithm of all keys (RSASSA-PKCS1-v1_5 with SHA-256). Every OpenID Provider must support it.
@@ -90,6 +90,17 @@ public sealed class SigningKey
         lock (_lock)
         {
             return _rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        }
+    }
+
+    /// <summary>
+    ///     Disposes the RSA key.
+    /// </summary>
+    public void Dispose()
+    {
+        lock (_lock)
+        {
+            _rsa.Dispose();
         }
     }
 

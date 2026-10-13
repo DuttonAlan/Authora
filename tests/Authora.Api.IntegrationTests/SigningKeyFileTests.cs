@@ -35,7 +35,7 @@ public sealed class SigningKeyFileTests : IDisposable
         var signingPath = WriteKey("signing.pem", signingRsa.ExportPkcs8PrivateKeyPem());
         var previousPath = WriteKey("previous.pem", previousRsa.ExportSubjectPublicKeyInfoPem());
 
-        var provider = CreateProvider(new OidcOptions { SigningKeyPath = signingPath, AdditionalKeyPaths = [previousPath] });
+        using var provider = CreateProvider(new OidcOptions { SigningKeyPath = signingPath, AdditionalKeyPaths = [previousPath] });
 
         Assert.True(provider.SigningKey.CanSign);
         Assert.Equal(2, provider.PublishedKeys.Count);
@@ -49,7 +49,7 @@ public sealed class SigningKeyFileTests : IDisposable
         using var rsa = RSA.Create(2048);
         WriteKey("signing.pem", rsa.ExportPkcs8PrivateKeyPem());
 
-        var provider = CreateProvider(new OidcOptions { SigningKeyPath = "signing.pem" });
+        using var provider = CreateProvider(new OidcOptions { SigningKeyPath = "signing.pem" });
 
         Assert.True(provider.SigningKey.CanSign);
     }

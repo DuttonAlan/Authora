@@ -19,8 +19,9 @@ namespace Authora.Infrastructure.Security;
 /// <remarks>
 ///     The files are read only at startup, so rotating keys needs a restart. <see cref="OidcSigningKeysValidator"/>
 ///     loads them at startup too, so a missing or invalid file stops the start instead of failing the first request.
+///     The provider owns the keys and disposes them when it is disposed.
 /// </remarks>
-public sealed class PemSigningKeyProvider : ISigningKeyProvider
+public sealed class PemSigningKeyProvider : ISigningKeyProvider, IDisposable
 {
     /// <summary>
     ///     Loads the keys.
@@ -43,16 +44,26 @@ public sealed class PemSigningKeyProvider : ISigningKeyProvider
 
         var publishedKeys = new List<SigningKey> { SigningKey };
 
-        foreach (var path in settings.AdditionalKeyPaths)
+        try
         {
-            var key = Load(path, environment.ContentRootPath, mustSign: false);
-
-            if (publishedKeys.Any(existing => existing.KeyId == key.KeyId))
+            foreach (var path in settings.AdditionalKeyPaths)
             {
-                throw new InvalidOperationException($"The key in '{path}' is configured more than once.");
-            }
+                var key = Load(path, environment.ContentRootPath, mustSign: false);
 
-            publishedKeys.Add(key);
+                if (publishedKeys.Any(existing => existing.KeyId == key.KeyId))
+                {
+                    key.Dispose();
+                    throw new InvalidOperationException($"The key in '{path}' is configured more than once.");
+                }
+
+                publishedKeys.Add(key);
+            }
+        }
+        catch
+        {
+            // The constructor fails, so nobody else can dispose the keys loaded so far.
+            publishedKeys.ForEach(key => key.Dispose());
+            throw;
         }
 
         PublishedKeys = publishedKeys;
@@ -65,6 +76,17 @@ public sealed class PemSigningKeyProvider : ISigningKeyProvider
 
     /// <inheritdoc/>
     public IReadOnlyList<SigningKey> PublishedKeys { get; }
+
+    /// <summary>
+    ///     Disposes all keys.
+    /// </summary>
+    public void Dispose()
+    {
+        foreach (var key in PublishedKeys)
+        {
+            key.Dispose();
+        }
+    }
 
     private static SigningKey Load(string path, string contentRootPath, bool mustSign)
     {
@@ -105,6 +127,7 @@ public sealed class PemSigningKeyProvider : ISigningKeyProvider
 
         if (mustSign && !key.CanSign)
         {
+            key.Dispose();
             throw new InvalidOperationException(
                 $"The key file '{fullPath}' contains only a public key, but the signing key needs the private key.");
         }

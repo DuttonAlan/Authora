@@ -138,7 +138,8 @@ public sealed class IdentitySeeder(
             // A regular Scope can be deleted through the API, which would remove the System Scope from every Client.
             // Never promote it either: the Clients someone allowed it would silently gain e.g. admin API access for good.
             throw new InvalidOperationException(
-                $"The regular Scope '{scope.Id}' uses the Name '{name}' of a System Scope. Rename it.");
+                $"The regular Scope '{scope.Id}' uses the Name '{name}' of a System Scope. The Name of a Scope cannot "
+                + "change, so delete it through the API of the previous version or in the database, then start again.");
         }
 
         return scope;
