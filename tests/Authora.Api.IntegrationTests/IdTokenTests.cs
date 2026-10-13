@@ -10,6 +10,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using Authora.Api.Authentication;
+
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -239,6 +241,122 @@ public sealed class IdTokenTests(AuthoraApiFactory factory) : IClassFixture<Auth
         using var response = await AuthorizationCodeFlow.GetAsync(_client, parameters, sessionToken: null);
 
         AssertRedirectedError(response, redirectUri, "invalid_request");
+    }
+
+    [Fact]
+    public async Task ApprovingAfterMaxAgeExceeded_SendsToSignInInsteadOfIssuingCode()
+    {
+        var sessionToken = await factory.CreateSessionAsync(await factory.CreateUserAsync(), DateTime.UtcNow.AddMinutes(-10));
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        var shown = AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid");
+        shown["max_age"] = "3600";
+
+        // The submitted form is checked like a consent screen that stayed open until the sign-in was older than max_age.
+        var submitted = new Dictionary<string, string?>(shown) { ["max_age"] = "60" };
+
+        using var response = await AuthorizationCodeFlow.AllowAsync(_client, shown, submitted, sessionToken);
+
+        var returnQuery = AssertSentToSignIn(response);
+        Assert.False(returnQuery.ContainsKey("max_age"));
+    }
+
+    [Fact]
+    public async Task NonceOfMaxLength_ShowsConsent()
+    {
+        var sessionToken = await factory.CreateSessionAsync(await factory.CreateUserAsync());
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        var parameters = AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid");
+        parameters["nonce"] = new string('n', 512);
+
+        using var response = await AuthorizationCodeFlow.GetAsync(_client, parameters, sessionToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonceLongerThanMaxLength_RedirectsInvalidRequest()
+    {
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        var parameters = AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid");
+        parameters["nonce"] = new string('n', 513);
+
+        using var response = await AuthorizationCodeFlow.GetAsync(_client, parameters, sessionToken: null);
+
+        AssertRedirectedError(response, redirectUri, "invalid_request");
+    }
+
+    [Fact]
+    public async Task SelectAccount_SigningInAsOtherUser_IssuesIdTokenForThatUserAndEndsPreviousSession()
+    {
+        const string password = "correct horse battery staple";
+
+        var previousSessionToken = await factory.CreateSessionAsync(await factory.CreateUserAsync(), DateTime.UtcNow.AddMinutes(-10));
+        var (otherUserId, otherEmail) = await factory.CreateUserWithPasswordAsync(password);
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        var parameters = AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid");
+        parameters["prompt"] = "select_account";
+
+        var signInStartedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        using var authorize = await AuthorizationCodeFlow.GetAsync(_client, parameters, previousSessionToken);
+        var returnQuery = AssertSentToSignIn(authorize);
+        var signInUrl = authorize.Headers.Location!.OriginalString;
+
+        // The signed-in User gets the sign-in form instead of "You are signed in".
+        using var signInPage = await SendWithCookiesAsync(HttpMethod.Get, signInUrl, $"{SessionCookie.Name}={previousSessionToken}");
+        var html = await signInPage.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, signInPage.StatusCode);
+        Assert.Contains("asks you to sign in again", html, StringComparison.Ordinal);
+
+        var (antiforgeryToken, antiforgeryCookie) = await AuthorizationCodeFlow.ReadAntiforgeryAsync(signInPage);
+
+        using var signIn = await SendWithCookiesAsync(
+            HttpMethod.Post,
+            signInUrl,
+            $"{SessionCookie.Name}={previousSessionToken}; {antiforgeryCookie}",
+            new FormUrlEncodedContent(
+            [
+                new("Email", otherEmail),
+                new("Password", password),
+                new("__RequestVerificationToken", antiforgeryToken)
+            ]));
+
+        Assert.Equal(HttpStatusCode.Redirect, signIn.StatusCode);
+        Assert.StartsWith("/oauth/authorize?", signIn.Headers.Location!.OriginalString, StringComparison.Ordinal);
+
+        var sessionToken = signIn.Headers.GetValues("Set-Cookie")
+            .Select(cookie => cookie.Split(';')[0])
+            .Single(cookie => cookie.StartsWith($"{SessionCookie.Name}=", StringComparison.Ordinal))[(SessionCookie.Name.Length + 1)..];
+
+        // Back at the request without select_account, the new Session of the other User approves it.
+        var returnParameters = returnQuery.ToDictionary(parameter => parameter.Key, parameter => (string?)parameter.Value.Single());
+        Assert.False(returnParameters.ContainsKey("prompt"));
+
+        var code = await AuthorizationCodeFlow.GetCodeAsync(_client, returnParameters, sessionToken);
+        var tokens = await AuthorizationCodeFlow.ExchangeAsync(_client, clientId, redirectUri, code);
+        var (_, claims) = await AuthorizationCodeFlow.VerifyIdTokenAsync(_client, tokens.GetProperty("id_token").GetString()!);
+
+        Assert.Equal(otherUserId.ToString(), claims.GetProperty("sub").GetString());
+        Assert.True(claims.GetProperty("auth_time").GetInt64() >= signInStartedAt);
+
+        // Signing in ended the Session of the previous User of the browser.
+        using var withPreviousSession = await AuthorizationCodeFlow.GetAsync(
+            _client,
+            AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid"),
+            previousSessionToken);
+        AssertSentToSignIn(withPreviousSession);
+    }
+
+    private async Task<HttpResponseMessage> SendWithCookiesAsync(
+        HttpMethod method,
+        string url,
+        string cookies,
+        HttpContent? content = null)
+    {
+        using var request = new HttpRequestMessage(method, url) { Content = content };
+        request.Headers.Add("Cookie", cookies);
+
+        return await _client.SendAsync(request, TestContext.Current.CancellationToken);
     }
 
     private static void AssertRedirectedError(HttpResponseMessage response, string redirectUri, string error)

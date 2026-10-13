@@ -83,21 +83,41 @@ internal static partial class AuthorizationCodeFlow
     /// <returns>The Authorization Code.</returns>
     public static async Task<string> GetCodeAsync(HttpClient http, Dictionary<string, string?> parameters, string sessionToken)
     {
+        using var response = await AllowAsync(http, parameters, parameters, sessionToken);
+
+        Assert.Equal(HttpStatusCode.SeeOther, response.StatusCode);
+
+        var query = QueryHelpers.ParseQuery(response.Headers.Location!.Query);
+
+        return query["code"].Single()!;
+    }
+
+    /// <summary>
+    ///     Opens the consent screen as a signed-in User and allows the request with the given form parameters, which
+    ///     may differ from the shown request, e.g. to submit a consent screen as if it was shown with other parameters.
+    /// </summary>
+    /// <param name="http">A client that does not follow redirects.</param>
+    /// <param name="consentParameters">The parameters of the request that shows the consent screen.</param>
+    /// <param name="formParameters">The request parameters submitted with the consent form.</param>
+    /// <param name="sessionToken">The Session token of the User.</param>
+    /// <returns>The response to the submitted form.</returns>
+    public static async Task<HttpResponseMessage> AllowAsync(
+        HttpClient http,
+        Dictionary<string, string?> consentParameters,
+        Dictionary<string, string?> formParameters,
+        string sessionToken)
+    {
         string antiforgeryToken;
         string antiforgeryCookie;
 
-        using (var consent = await GetAsync(http, parameters, sessionToken))
+        using (var consent = await GetAsync(http, consentParameters, sessionToken))
         {
             Assert.Equal(HttpStatusCode.OK, consent.StatusCode);
 
-            var html = await consent.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-            antiforgeryToken = WebUtility.HtmlDecode(AntiforgeryTokenPattern().Match(html).Groups[1].Value);
-            antiforgeryCookie = consent.Headers.GetValues("Set-Cookie")
-                .Select(cookie => cookie.Split(';')[0])
-                .Single(cookie => cookie.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
+            (antiforgeryToken, antiforgeryCookie) = await ReadAntiforgeryAsync(consent);
         }
 
-        var form = parameters
+        var form = formParameters
             .Where(parameter => parameter.Value is not null)
             .Append(new("decision", "allow"))
             .Append(new("__RequestVerificationToken", antiforgeryToken));
@@ -108,13 +128,23 @@ internal static partial class AuthorizationCodeFlow
         };
         request.Headers.Add("Cookie", $"{SessionCookie.Name}={sessionToken}; {antiforgeryCookie}");
 
-        using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+        return await http.SendAsync(request, TestContext.Current.CancellationToken);
+    }
 
-        Assert.Equal(HttpStatusCode.SeeOther, response.StatusCode);
+    /// <summary>
+    ///     Reads the antiforgery token of the form on a page and the antiforgery cookie that belongs to it.
+    /// </summary>
+    /// <param name="page">The response with the page.</param>
+    /// <returns>The token and the cookie as <c>name=value</c>.</returns>
+    public static async Task<(string Token, string Cookie)> ReadAntiforgeryAsync(HttpResponseMessage page)
+    {
+        var html = await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var token = WebUtility.HtmlDecode(AntiforgeryTokenPattern().Match(html).Groups[1].Value);
+        var cookie = page.Headers.GetValues("Set-Cookie")
+            .Select(cookie => cookie.Split(';')[0])
+            .Single(cookie => cookie.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
 
-        var query = QueryHelpers.ParseQuery(response.Headers.Location!.Query);
-
-        return query["code"].Single()!;
+        return (token, cookie);
     }
 
     /// <summary>

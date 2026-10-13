@@ -7,6 +7,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Authora.Infrastructure.Persistence;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
@@ -67,6 +72,44 @@ public sealed class UserInfoTests(AuthoraApiFactory factory) : IClassFixture<Aut
     public async Task UnknownToken_IsUnauthorizedWithInvalidToken()
     {
         using var response = await GetUserInfoAsync(HttpMethod.Get, "not-a-token");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains("error=\"invalid_token\"", response.Headers.WwwAuthenticate.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TokenOfDisabledClient_IsUnauthorizedWithInvalidToken()
+    {
+        var (clientId, _) = await factory.CreatePublicClientAsync("openid");
+        var token = await factory.IssueAccessTokenAsync(await factory.CreateUserAsync(), ["openid"], clientId: clientId);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            (await context.Clients.SingleAsync(client => client.Id == clientId, TestContext.Current.CancellationToken)).Disable();
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var response = await GetUserInfoAsync(HttpMethod.Get, token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains("error=\"invalid_token\"", response.Headers.WwwAuthenticate.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TokenOfDeactivatedUser_IsUnauthorizedWithInvalidToken()
+    {
+        var userId = await factory.CreateUserAsync();
+        var token = await factory.IssueAccessTokenAsync(userId, ["openid"]);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            (await context.Users.SingleAsync(user => user.Id == userId, TestContext.Current.CancellationToken)).Deactivate();
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var response = await GetUserInfoAsync(HttpMethod.Get, token);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Contains("error=\"invalid_token\"", response.Headers.WwwAuthenticate.ToString(), StringComparison.Ordinal);

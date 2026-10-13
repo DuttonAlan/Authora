@@ -148,8 +148,17 @@ public sealed class AuthorizeModel(
             });
         }
 
+        var authenticatedAt = GetAuthenticatedAt();
+
+        // Checked again, because the consent screen may have been open for longer than max_age allows. Denying needs
+        // no recent sign-in, so only approving is checked.
+        if (validated.RequiresSignIn(authenticatedAt, timeProvider.GetUtcNow().UtcDateTime))
+        {
+            return SignIn(request);
+        }
+
         var userId = Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
-        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, GetAuthenticatedAt(), cancellationToken);
+        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, authenticatedAt, cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
         {
