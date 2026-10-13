@@ -5,8 +5,9 @@
 namespace Authora.Core.Application.OAuth.Authorize;
 
 /// <summary>
-///     The parameters of a request to the /authorize endpoint (RFC 6749, Section 4.1.1, and RFC 7636).
-///     Parameters sent without a value are treated as omitted. Unknown parameters are ignored.
+///     The parameters of a request to the /authorize endpoint (RFC 6749, Section 4.1.1, RFC 7636, and OpenID Connect
+///     Core 1.0, Section 3.1.2.1). Parameters sent without a value are treated as omitted. Unknown parameters are
+///     ignored, e.g. <c>display</c>, <c>ui_locales</c> or <c>login_hint</c>.
 /// </summary>
 /// <param name="ClientId">The <c>client_id</c>.</param>
 /// <param name="RedirectUri">The <c>redirect_uri</c>.</param>
@@ -16,6 +17,13 @@ namespace Authora.Core.Application.OAuth.Authorize;
 /// <param name="CodeChallenge">The PKCE <c>code_challenge</c>.</param>
 /// <param name="CodeChallengeMethod">The PKCE <c>code_challenge_method</c>. Only <c>S256</c> is supported.</param>
 /// <param name="ResponseMode">The <c>response_mode</c>. Only <c>query</c> is supported.</param>
+/// <param name="Nonce">The OpenID Connect <c>nonce</c>, returned unchanged in the ID Token.</param>
+/// <param name="Prompt">The OpenID Connect <c>prompt</c>, space-delimited.</param>
+/// <param name="MaxAge">The OpenID Connect <c>max_age</c> in seconds, unparsed.</param>
+/// <param name="UnsupportedParameter">
+///     The first sent parameter of <see cref="UnsupportedParameterNames"/>, or null. Such requests must be rejected
+///     instead of ignoring the parameter.
+/// </param>
 /// <param name="DuplicateParameters">Names of the known parameters that were sent more than once.</param>
 public sealed record AuthorizationRequest(
     string? ClientId,
@@ -26,6 +34,10 @@ public sealed record AuthorizationRequest(
     string? CodeChallenge,
     string? CodeChallengeMethod,
     string? ResponseMode,
+    string? Nonce,
+    string? Prompt,
+    string? MaxAge,
+    string? UnsupportedParameter,
     IReadOnlyCollection<string> DuplicateParameters)
 {
     /// <summary>
@@ -40,8 +52,17 @@ public sealed record AuthorizationRequest(
         "state",
         "code_challenge",
         "code_challenge_method",
-        "response_mode"
+        "response_mode",
+        "nonce",
+        "prompt",
+        "max_age"
     ];
+
+    /// <summary>
+    ///     OpenID Connect parameters Authora does not support. They change the meaning of the request, so OpenID
+    ///     Connect Core 1.0, Section 3.1.2.6, requires an error instead of ignoring them.
+    /// </summary>
+    public static readonly IReadOnlyList<string> UnsupportedParameterNames = ["request", "request_uri", "registration"];
 
     /// <summary>
     ///     Creates the request from its parameters.
@@ -76,6 +97,10 @@ public sealed record AuthorizationRequest(
             Get("code_challenge"),
             Get("code_challenge_method"),
             Get("response_mode"),
+            Get("nonce"),
+            Get("prompt"),
+            Get("max_age"),
+            UnsupportedParameterNames.FirstOrDefault(name => getValues(name).Any(value => !string.IsNullOrEmpty(value))),
             duplicates);
     }
 }
