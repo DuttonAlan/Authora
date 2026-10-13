@@ -23,6 +23,11 @@ public sealed class AuthorizationCode
     public static readonly TimeSpan MaxLifetime = TimeSpan.FromMinutes(10);
 
     /// <summary>
+    ///     Maximum length of the OpenID Connect <c>nonce</c>.
+    /// </summary>
+    public const int NonceMaxLength = 512;
+
+    /// <summary>
     ///     Used by EF Core to materialize an Authorization Code from the database.
     /// </summary>
     private AuthorizationCode()
@@ -72,6 +77,17 @@ public sealed class AuthorizationCode
     public string CodeChallenge { get; private set; } = null!;
 
     /// <summary>
+    ///     The OpenID Connect <c>nonce</c> of the authorization request, returned unchanged in the ID Token, or
+    ///     <see langword="null"/> if it was not sent.
+    /// </summary>
+    public string? Nonce { get; private set; }
+
+    /// <summary>
+    ///     Point in time (UTC) when the User signed in, returned as <c>auth_time</c> in the ID Token.
+    /// </summary>
+    public DateTime AuthenticatedAt { get; private set; }
+
+    /// <summary>
     ///     Point in time (UTC) when the code was issued.
     /// </summary>
     public DateTime CreatedAt { get; private set; }
@@ -108,6 +124,8 @@ public sealed class AuthorizationCode
     /// <param name="redirectUri">The <c>redirect_uri</c> as sent in the request, or null if it was omitted.</param>
     /// <param name="scopes">The approved Scope Names.</param>
     /// <param name="codeChallenge">The PKCE code challenge (method <c>S256</c>).</param>
+    /// <param name="nonce">The OpenID Connect <c>nonce</c>, or null if it was not sent.</param>
+    /// <param name="authenticatedAt">When the User signed in (UTC).</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <param name="lifetime">The lifetime of the code, at most <see cref="MaxLifetime"/>.</param>
     /// <returns>The created Authorization Code.</returns>
@@ -119,6 +137,8 @@ public sealed class AuthorizationCode
         string? redirectUri,
         IEnumerable<string> scopes,
         string codeChallenge,
+        string? nonce,
+        DateTime authenticatedAt,
         DateTime now,
         TimeSpan lifetime)
     {
@@ -126,6 +146,8 @@ public sealed class AuthorizationCode
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(user);
         ArgumentException.ThrowIfNullOrWhiteSpace(codeChallenge);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(nonce?.Length ?? 0, NonceMaxLength, nameof(nonce));
+        UtcGuard.EnsureUtc(authenticatedAt);
         UtcGuard.EnsureUtc(now);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, MaxLifetime);
@@ -139,6 +161,8 @@ public sealed class AuthorizationCode
             RedirectUri = redirectUri,
             Scope = ScopeList.Format(scopes),
             CodeChallenge = codeChallenge,
+            Nonce = nonce,
+            AuthenticatedAt = authenticatedAt,
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };

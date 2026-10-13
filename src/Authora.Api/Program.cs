@@ -16,6 +16,7 @@ using Authora.Core;
 using Authora.Core.Application.Account;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.OAuth;
+using Authora.Core.Application.Oidc;
 using Authora.Infrastructure;
 using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.HealthChecks;
@@ -61,6 +62,9 @@ builder.Services.AddRazorPages(options => options.Conventions.ConfigureFilter(ne
 builder.Services.AddOptions<OAuthOptions>()
     .Bind(builder.Configuration.GetSection(OAuthOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<OidcOptions>()
+    .Bind(builder.Configuration.GetSection(OidcOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.AddOptions<SignInOptions>()
     .Bind(builder.Configuration.GetSection(SignInOptions.SectionName))
     .ValidateOnStart();
@@ -80,7 +84,7 @@ builder.Services.AddAuthorization(options => options.AddAuthoraPolicies());
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddRateLimiter(options => options.AddAuthoraPolicies());
 
-// CORS only for the token and revocation endpoints, see OAuthCorsPolicyProvider. Replaces the default provider,
+// CORS only for the endpoints Clients call from a browser, see OAuthCorsPolicyProvider. Replaces the default provider,
 // which AddControllers already registered.
 builder.Services.AddCors();
 builder.Services.Replace(ServiceDescriptor.Singleton<ICorsPolicyProvider, OAuthCorsPolicyProvider>());

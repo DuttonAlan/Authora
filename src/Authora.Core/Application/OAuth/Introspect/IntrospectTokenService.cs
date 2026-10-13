@@ -88,10 +88,12 @@ public sealed class IntrospectTokenService(
         }
 
         // The Client the token was issued to already knows everything in it. A resource server only sees its own Scopes.
+        // System Scopes are served by Authora itself, so they never make a foreign token visible, even if an assignment
+        // slipped past ServeScopeService.
         var isOwnToken = accessToken.ClientId == caller.Id;
         var visibleScopes = isOwnToken
             ? accessToken.Scopes
-            : accessToken.Scopes.Where(scope => caller.ServedScopes.Any(served => served.Name == scope)).ToList();
+            : accessToken.Scopes.Where(scope => caller.ServedScopes.Any(served => !served.IsSystem && served.Name == scope)).ToList();
 
         // Inactive instead of an error, so the caller cannot tell a foreign token from an invalid one.
         if (!isOwnToken && visibleScopes.Count == 0)

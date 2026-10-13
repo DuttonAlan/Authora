@@ -34,12 +34,14 @@ public sealed class IssueAuthorizationCodeService(
     /// </summary>
     /// <param name="request">The validated request the User approved.</param>
     /// <param name="userId">The Id of the signed-in User.</param>
+    /// <param name="authenticatedAt">When the User signed in (UTC), for <c>auth_time</c> in the ID Token.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The plain-text code, which is only sent to the Client.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the User does not exist or cannot sign in.</exception>
     public async Task<string> ExecuteAsync(
         ValidatedAuthorizationRequest request,
         Guid userId,
+        DateTime authenticatedAt,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -61,6 +63,8 @@ public sealed class IssueAuthorizationCodeService(
             request.RequestedRedirectUri,
             request.Scopes.Select(scope => scope.Name),
             request.CodeChallenge,
+            request.Nonce,
+            authenticatedAt,
             timeProvider.GetUtcNow().UtcDateTime,
             options.Value.AuthorizationCodeLifetime);
 

@@ -396,7 +396,9 @@ public sealed class Client
     ///     <see cref="ServedScopes"/> must be loaded, otherwise the duplicate check cannot work.
     /// </remarks>
     /// <param name="scope">The Scope to serve.</param>
-    /// <exception cref="InvalidOperationException">Thrown when the Client is not a Confidential Client.</exception>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the Client is not a Confidential Client, or the Scope is a System Scope.
+    /// </exception>
     public void ServeScope(Scope scope)
     {
         ArgumentNullException.ThrowIfNull(scope);
@@ -405,6 +407,13 @@ public sealed class Client
         if (Type != ClientType.Confidential)
         {
             throw new InvalidOperationException("Only confidential clients can serve scopes.");
+        }
+
+        // System Scopes are served by Authora itself (admin API, UserInfo). A Client serving e.g. openid would see
+        // every sign-in of every Client as an active token at introspection.
+        if (scope.IsSystem)
+        {
+            throw new InvalidOperationException("System scopes cannot be served by clients.");
         }
 
         if (!_servedScopes.Any(x => x.Id == scope.Id))
