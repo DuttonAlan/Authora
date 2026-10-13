@@ -30,7 +30,7 @@ public sealed class ServeScopeService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Scope is served.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client or the Scope does not exist.</exception>
-    /// <exception cref="ConflictException">Thrown when the Client is not a Confidential Client.</exception>
+    /// <exception cref="ConflictException">Thrown when the Client is not a Confidential Client, or the Scope is a System Scope.</exception>
     public async Task ExecuteAsync(
         Guid clientId,
         Guid scopeId,
@@ -51,6 +51,11 @@ public sealed class ServeScopeService(
 
         var scope = await scopeRepository.GetScopeById(scopeId, cancellationToken)
             ?? throw new NotFoundException($"Scope '{scopeId}' was not found.");
+
+        if (scope.IsSystem)
+        {
+            throw new ConflictException($"The System Scope '{scope.Name}' is served by Authora and cannot be served by a Client.");
+        }
 
         client.ServeScope(scope);
 
