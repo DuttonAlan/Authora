@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.OAuth.ClientAuthentication;
+using Authora.Core.Application.Oidc;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -21,6 +22,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="tokenRepository">An Instance of a ITokenRepository to store, consume and revoke tokens.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to check the User.</param>
 /// <param name="tokenIssuer">The issuer for new tokens.</param>
+/// <param name="idTokenIssuer">The issuer for ID Tokens.</param>
 /// <param name="secretHasher">The hasher to look up codes and tokens.</param>
 /// <param name="timeProvider">The TimeProvider for expiry checks and new tokens.</param>
 /// <param name="logger">The Logger to record issued tokens and attacks.</param>
@@ -31,6 +33,7 @@ public sealed class IssueTokenService(
     ITokenRepository tokenRepository,
     IUserRepository userRepository,
     TokenIssuer tokenIssuer,
+    IdTokenIssuer idTokenIssuer,
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
     ILogger<IssueTokenService> logger)
@@ -171,7 +174,17 @@ public sealed class IssueTokenService(
 
         logger.GrantCreated(grant.Id, client.Id, grant.UserId, authorizationCode.Id);
 
-        return tokens.Response;
+        // OpenID Connect Core 1.0, Section 3.1.3.3: an ID Token only for requests with openid that the Client may
+        // still use. Not on refresh, which OpenID Connect leaves optional.
+        if (!scopes.Contains(OidcScopes.OpenId))
+        {
+            return tokens.Response;
+        }
+
+        return tokens.Response with
+        {
+            IdToken = idTokenIssuer.Issue(user, authorizationCode, scopes, tokens.Response.AccessToken, now)
+        };
     }
 
     private async Task<TokenResponse> ExchangeRefreshTokenAsync(

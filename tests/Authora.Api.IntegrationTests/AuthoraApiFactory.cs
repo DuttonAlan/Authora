@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Security.Cryptography;
+
 using Authora.Core.Abstractions;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -23,9 +25,33 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
 {
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:17-alpine").Build();
 
+    private readonly string _keyDirectory = Directory.CreateTempSubdirectory("authora-tests-").FullName;
+
+    /// <summary>
+    ///     The Issuer the Api is configured with.
+    /// </summary>
+    public const string Issuer = "https://localhost";
+
+    /// <summary>
+    ///     Path of the PEM file with the private key that signs ID Tokens.
+    /// </summary>
+    public string SigningKeyPath => Path.Combine(_keyDirectory, "signing-key.pem");
+
+    /// <summary>
+    ///     Path of the PEM file with the public key of a previous signing key, which is only published.
+    /// </summary>
+    public string PreviousKeyPath => Path.Combine(_keyDirectory, "previous-key.pem");
+
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
+        using (var signingKey = RSA.Create(2048))
+        using (var previousKey = RSA.Create(2048))
+        {
+            await File.WriteAllTextAsync(SigningKeyPath, signingKey.ExportPkcs8PrivateKeyPem());
+            await File.WriteAllTextAsync(PreviousKeyPath, previousKey.ExportSubjectPublicKeyInfoPem());
+        }
+
         await _database.StartAsync();
 
         // The Api does not apply migrations itself, and IdentitySeeder needs the tables at startup.
@@ -40,6 +66,8 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         await base.DisposeAsync();
         await _database.DisposeAsync();
+
+        Directory.Delete(_keyDirectory, recursive: true);
     }
 
     /// <summary>
@@ -66,6 +94,25 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         await context.SaveChangesAsync();
 
         return user.Id;
+    }
+
+    /// <summary>
+    ///     Creates a User who can sign in on the sign-in page with a password.
+    /// </summary>
+    /// <param name="password">The password of the User.</param>
+    /// <returns>The Id and the Email of the User.</returns>
+    public async Task<(Guid Id, string Email)> CreateUserWithPasswordAsync(string password)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        var user = CreateUser(passwordHasher.Hash(password));
+
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        return (user.Id, user.Email);
     }
 
     /// <summary>
@@ -132,7 +179,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             : await context.Clients.SingleAsync(client => client.Id == clientId);
 
         var authorizationCode = AuthorizationCode.Create(
-            secretHasher.Hash(secretGenerator.Generate()), client, user, null, scopes, "test-challenge", now, TimeSpan.FromMinutes(1));
+            secretHasher.Hash(secretGenerator.Generate()), client, user, null, scopes, "test-challenge", null, now, now, TimeSpan.FromMinutes(1));
         var grant = Grant.Create(authorizationCode, now);
 
         var token = secretGenerator.Generate();
@@ -154,8 +201,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     ///     Creates a Session for a User, like signing in does.
     /// </summary>
     /// <param name="userId">The Id of the User.</param>
+    /// <param name="signedInAt">When the User signed in, now by default. The Session lasts one hour from then.</param>
     /// <returns>The plain-text Session token, the value of the Session cookie.</returns>
-    public async Task<string> CreateSessionAsync(Guid userId)
+    public async Task<string> CreateSessionAsync(Guid userId, DateTime? signedInAt = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
@@ -165,10 +213,36 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         var user = await context.Users.SingleAsync(user => user.Id == userId);
 
         var token = secretGenerator.Generate();
-        context.Sessions.Add(Session.Create(user, secretHasher.Hash(token), DateTime.UtcNow, TimeSpan.FromHours(1)));
+        context.Sessions.Add(Session.Create(user, secretHasher.Hash(token), signedInAt ?? DateTime.UtcNow, TimeSpan.FromHours(1)));
         await context.SaveChangesAsync();
 
         return token;
+    }
+
+    /// <summary>
+    ///     Creates an enabled Public Client with a Redirect URI that is allowed the given Scopes.
+    /// </summary>
+    /// <param name="scopeNames">The Names of existing Scopes, e.g. the seeded <c>openid</c>.</param>
+    /// <returns>The Id and the Redirect URI of the Client.</returns>
+    public async Task<(Guid ClientId, string RedirectUri)> CreatePublicClientAsync(params string[] scopeNames)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+        var redirectUri = $"https://{Guid.NewGuid():N}.example.com/callback";
+
+        var client = Client.Create("Test Client", ClientType.Public);
+        client.AddRedirectUri(redirectUri);
+
+        foreach (var allowed in await context.Scopes.Where(allowed => scopeNames.Contains(allowed.Name)).ToListAsync())
+        {
+            client.AllowScope(allowed);
+        }
+
+        context.Clients.Add(client);
+        await context.SaveChangesAsync();
+
+        return (client.Id, redirectUri);
     }
 
     /// <inheritdoc/>
@@ -179,15 +253,17 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         // Not Development, so the bootstrap settings of appsettings.Development.json are not used.
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Database", _database.GetConnectionString());
-        builder.UseSetting("Authora:OAuth:Issuer", "https://localhost");
+        builder.UseSetting("Authora:OAuth:Issuer", Issuer);
+        builder.UseSetting("Authora:Oidc:SigningKeyPath", SigningKeyPath);
+        builder.UseSetting("Authora:Oidc:AdditionalKeyPaths:0", PreviousKeyPath);
 
         // Clients created by a test must be allowed for CORS right away.
         builder.UseSetting("Authora:OAuth:CorsOriginsCacheDuration", "00:00:00");
     }
 
-    private static User CreateUser()
+    private static User CreateUser(string passwordHash = "not-a-password-hash")
     {
-        // The tests never sign in with the password.
-        return User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", "not-a-password-hash");
+        // Only Users of CreateUserWithPasswordAsync sign in with their password.
+        return User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", passwordHash);
     }
 }

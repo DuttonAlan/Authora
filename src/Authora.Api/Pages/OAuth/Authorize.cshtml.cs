@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
+
 using Authora.Api.Authentication;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
@@ -19,17 +21,26 @@ namespace Authora.Api.Pages.OAuth;
 ///     is signed in, asks for consent and sends the Authorization Code or the error back to the Client.
 /// </summary>
 /// <remarks>
-///     Consent policy: the User is asked on every authorization request, and decisions are not remembered.
-///     The consent form repeats the request parameters, so they are validated again when it is submitted.
-///     The antiforgery token binds the form to the signed-in User.
+///     <para>
+///         Consent policy: the User is asked on every authorization request, and decisions are not remembered.
+///         The consent form repeats the request parameters, so they are validated again when it is submitted.
+///         The antiforgery token binds the form to the signed-in User.
+///     </para>
+///     <para>
+///         OpenID Connect: <c>prompt=login</c>, <c>prompt=select_account</c> and an exceeded <c>max_age</c> send a
+///         signed-in User to the sign-in page again. <c>prompt=none</c> never shows a page, so it is always answered
+///         with <c>login_required</c> or <c>consent_required</c>.
+///     </para>
 /// </remarks>
 /// <param name="validateAuthorizationRequestService">The Service to validate the request.</param>
 /// <param name="issueAuthorizationCodeService">The Service to issue the Authorization Code.</param>
 /// <param name="options">The OAuth settings with the Issuer.</param>
+/// <param name="timeProvider">The clock for <c>max_age</c>.</param>
 public sealed class AuthorizeModel(
     ValidateAuthorizationRequestService validateAuthorizationRequestService,
     IssueAuthorizationCodeService issueAuthorizationCodeService,
-    IOptions<OAuthOptions> options) : PageModel
+    IOptions<OAuthOptions> options,
+    TimeProvider timeProvider) : PageModel
 {
     /// <summary>
     ///     Value of the decision button to approve the request.
@@ -78,13 +89,29 @@ public sealed class AuthorizeModel(
             return Error(result);
         }
 
-        // Validate before signing in, so Users are not asked to sign in for a request that would fail anyway.
-        if (User.Identity?.IsAuthenticated != true)
+        var validated = result.Request;
+
+        // Validated before signing in, so Users are not asked to sign in for a request that would fail anyway.
+        var mustSignIn = User.Identity?.IsAuthenticated != true
+            || validated.RequiresSignIn(GetAuthenticatedAt(), timeProvider.GetUtcNow().UtcDateTime);
+
+        if (validated.Prompts.Contains(PromptValues.None))
         {
-            return Challenge();
+            // Consent is asked on every request, so a signed-in User still needs a page.
+            return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
+            {
+                ["error"] = mustSignIn ? OAuthErrors.LoginRequired : OAuthErrors.ConsentRequired,
+                ["error_description"] = mustSignIn ? "The User must sign in." : "The User must consent.",
+                ["state"] = validated.State
+            });
         }
 
-        return ShowConsent(request, result.Request);
+        if (mustSignIn)
+        {
+            return SignIn(request);
+        }
+
+        return ShowConsent(request, validated);
     }
 
     /// <summary>
@@ -106,7 +133,7 @@ public sealed class AuthorizeModel(
         if (User.Identity?.IsAuthenticated != true)
         {
             // Start over from the GET request, so the User sees the consent screen again after signing in.
-            return Challenge(new AuthenticationProperties { RedirectUri = BuildAuthorizeUrl(request) });
+            return SignIn(request);
         }
 
         var validated = result.Request;
@@ -121,14 +148,67 @@ public sealed class AuthorizeModel(
             });
         }
 
+        var authenticatedAt = GetAuthenticatedAt();
+
+        // Checked again, because the consent screen may have been open for longer than max_age allows. Denying needs
+        // no recent sign-in, so only approving is checked.
+        if (validated.RequiresSignIn(authenticatedAt, timeProvider.GetUtcNow().UtcDateTime))
+        {
+            return SignIn(request);
+        }
+
         var userId = Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
-        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, cancellationToken);
+        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, authenticatedAt, cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
         {
             ["code"] = code,
             ["state"] = validated.State
         });
+    }
+
+    /// <summary>
+    ///     Sends the User to the sign-in page, and from there back to the authorization request.
+    /// </summary>
+    /// <remarks>
+    ///     The way back leaves out the values of <c>prompt</c> that require a new sign-in and <c>max_age</c>, which the
+    ///     new sign-in satisfies, so the User is not sent to the sign-in page again and again. The ID Token always
+    ///     contains <c>auth_time</c>, so the Client can still check them.
+    /// </remarks>
+    private ChallengeResult SignIn(AuthorizationRequest request)
+    {
+        var parameters = GetParameters(request);
+        parameters.Remove("max_age");
+
+        var prompts = (request.Prompt ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(prompt => prompt is not (PromptValues.Login or PromptValues.SelectAccount))
+            .ToList();
+
+        if (prompts.Count > 0)
+        {
+            parameters["prompt"] = string.Join(' ', prompts);
+        }
+        else
+        {
+            parameters.Remove("prompt");
+        }
+
+        var returnUrl = QueryHelpers.AddQueryString(
+            $"{Request.PathBase}{Request.Path}",
+            parameters.Select(parameter => new KeyValuePair<string, string?>(parameter.Key, parameter.Value)));
+
+        return Challenge(new AuthenticationProperties { RedirectUri = returnUrl });
+    }
+
+    /// <summary>
+    ///     When the signed-in User signed in, from the Session.
+    /// </summary>
+    private DateTime GetAuthenticatedAt()
+    {
+        var value = User.FindFirst(SessionClaimTypes.AuthenticationTime)!.Value;
+
+        return DateTimeOffset.FromUnixTimeSeconds(long.Parse(value, CultureInfo.InvariantCulture)).UtcDateTime;
     }
 
     private PageResult ShowConsent(AuthorizationRequest request, ValidatedAuthorizationRequest validated)
@@ -175,13 +255,6 @@ public sealed class AuthorizeModel(
         return StatusCode(StatusCodes.Status303SeeOther);
     }
 
-    private string BuildAuthorizeUrl(AuthorizationRequest request)
-    {
-        return QueryHelpers.AddQueryString(
-            $"{Request.PathBase}{Request.Path}",
-            GetParameters(request).Select(parameter => new KeyValuePair<string, string?>(parameter.Key, parameter.Value)));
-    }
-
     private static Dictionary<string, string> GetParameters(AuthorizationRequest request)
     {
         var parameters = new Dictionary<string, string?>
@@ -193,7 +266,10 @@ public sealed class AuthorizeModel(
             ["state"] = request.State,
             ["code_challenge"] = request.CodeChallenge,
             ["code_challenge_method"] = request.CodeChallengeMethod,
-            ["response_mode"] = request.ResponseMode
+            ["response_mode"] = request.ResponseMode,
+            ["nonce"] = request.Nonce,
+            ["prompt"] = request.Prompt,
+            ["max_age"] = request.MaxAge
         };
 
         return parameters

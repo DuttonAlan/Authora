@@ -37,6 +37,13 @@ public sealed class OAuthOptionsValidator : IValidateOptions<OAuthOptions>
             {
                 failures.Add($"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.Issuer)}' must not contain a query, fragment or user information.");
             }
+
+            // Clients append /.well-known/openid-configuration and compare iss character by character (OpenID Connect
+            // Discovery 1.0, Sections 4 and 4.3), so "https://auth.example.com/" would not match.
+            if (options.Issuer.EndsWith('/'))
+            {
+                failures.Add($"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.Issuer)}' must not end with '/'.");
+            }
         }
 
         if (options.AuthorizationCodeLifetime <= TimeSpan.Zero || options.AuthorizationCodeLifetime > AuthorizationCode.MaxLifetime)

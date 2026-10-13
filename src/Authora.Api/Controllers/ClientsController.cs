@@ -383,7 +383,8 @@ public sealed class ClientsController(
     /// </summary>
     /// <remarks>
     ///     The Client can then introspect Access Tokens of other Clients that contain this Scope, and sees only the
-    ///     Scopes it serves. Only Confidential Clients can serve Scopes.
+    ///     Scopes it serves. Only Confidential Clients can serve Scopes, and never System Scopes such as
+    ///     <c>openid</c> or <c>authora.admin</c>, which only Authora serves.
     ///     This operation is idempotent: serving a Scope that is already served also succeeds.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
@@ -392,7 +393,7 @@ public sealed class ClientsController(
     /// <returns>204 No Content once the Scope is served.</returns>
     /// <response code="204">Responds with no content once the Scope is served.</response>
     /// <response code="404">Responds with problem details if no Client or no Scope with the given Id exists.</response>
-    /// <response code="409">Responds with problem details if the Client is a Public Client, which cannot introspect tokens.</response>
+    /// <response code="409">Responds with problem details if the Client is a Public Client, which cannot introspect tokens, or the Scope is a System Scope, which only Authora serves.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/served-scopes/{scopeId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

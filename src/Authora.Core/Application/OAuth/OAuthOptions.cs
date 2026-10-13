@@ -19,7 +19,8 @@ public sealed class OAuthOptions
     /// <summary>
     ///     The Issuer Identifier of Authora, e.g. <c>https://auth.example.com</c>. Returned as <c>iss</c> in
     ///     authorization responses (RFC 9207) and in introspection responses. Must use HTTPS, except for loopback
-    ///     hosts during development, and must not contain a query or fragment.
+    ///     hosts during development, and must not contain a query or fragment or end with <c>/</c>. If it has a path,
+    ///     Authora must be served under that path, because the discovery document and the endpoints are below it.
     /// </summary>
     public string Issuer { get; set; } = string.Empty;
 

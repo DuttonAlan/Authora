@@ -23,13 +23,13 @@ This document describes the OAuth 2.1 authorization server of Authora (Phase 4, 
 
 `/oauth/token` and `/oauth/revoke` allow CORS, so browser-based Clients (SPAs) can call them directly. Allowed are the origins (scheme, host and port) of the Redirect URIs of enabled Clients, only `POST`, only the `Content-Type` header and no credentials. All other endpoints, including `/oauth/introspect`, `/oauth/authorize`, `/account/*` and `/api/*`, send no CORS headers.
 
-Discovery (`/.well-known/...`), ID Tokens, JWKS and UserInfo follow with OpenID Connect in Phase 5.
+Discovery, ID Tokens, JWKS and UserInfo are described in [openid-connect.md](openid-connect.md). `/oauth/userinfo`, the discovery document and the JWKS have CORS policies of their own, see there.
 
 ## Configuration
 
 | Setting | Default | Description |
 |---|---|---|
-| `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment. Returned as `iss`. Startup fails if it is missing or invalid. |
+| `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment, no trailing `/`. Returned as `iss`. Startup fails if it is missing or invalid. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | Lifetime of Authorization Codes, at most 10 minutes. |
 | `Authora:OAuth:CorsOriginsCacheDuration` | `00:01:00` | How long the CORS origins of `/oauth/token` and `/oauth/revoke` are cached, at most 1 hour. `00:00:00` disables the cache. |
 | `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. At most 24 hours. |
@@ -127,7 +127,7 @@ Access Tokens are **opaque reference tokens**. Resource servers validate them th
 
 - revoking a token, a Grant or a Session takes effect immediately,
 - disabling a Client or rotating the `SecurityStamp` of a User invalidates its tokens immediately,
-- no signing keys are needed yet. Signed JWTs can be added with the signing keys of Phase 5 (US-024).
+- Access Tokens need no signing keys. Only ID Tokens are signed, see [openid-connect.md](openid-connect.md).
 
 ```mermaid
 erDiagram
@@ -207,8 +207,10 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 | Range | Area |
 |---|---|
 | 5001 – 5006 | Sign-in, sign-out, lockout, invalidated Sessions |
-| 6001 – 6011 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
+| 6001 – 6012 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
+| 7001 – 7007 | Seeding at startup |
 | 8001 – 8002 | Cleanup of expired codes, Grants, tokens and Sessions |
+| 9001 | Signing keys loaded |
 
 Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings.
 
