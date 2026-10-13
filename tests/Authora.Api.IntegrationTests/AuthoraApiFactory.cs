@@ -97,6 +97,25 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     }
 
     /// <summary>
+    ///     Creates a User who can sign in on the sign-in page with a password.
+    /// </summary>
+    /// <param name="password">The password of the User.</param>
+    /// <returns>The Id and the Email of the User.</returns>
+    public async Task<(Guid Id, string Email)> CreateUserWithPasswordAsync(string password)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        var user = CreateUser(passwordHasher.Hash(password));
+
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        return (user.Id, user.Email);
+    }
+
+    /// <summary>
     ///     Creates a User who can sign in, with the administrator Role.
     /// </summary>
     /// <returns>The Id of the User.</returns>
@@ -242,9 +261,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         builder.UseSetting("Authora:OAuth:CorsOriginsCacheDuration", "00:00:00");
     }
 
-    private static User CreateUser()
+    private static User CreateUser(string passwordHash = "not-a-password-hash")
     {
-        // The tests never sign in with the password.
-        return User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", "not-a-password-hash");
+        // Only Users of CreateUserWithPasswordAsync sign in with their password.
+        return User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", passwordHash);
     }
 }

@@ -53,7 +53,7 @@ In addition to the parameters in [oauth-core.md](oauth-core.md#authorization-req
 | `select_account` | Same as `login`, there is no account chooser. |
 | `consent` | No change, consent is always asked. |
 
-If the sign-in is older than `max_age`, the User signs in again. After that sign-in, the request continues without `login`, `select_account` and `max_age`, so the User is not sent back to the sign-in page in a loop. The ID Token always contains `auth_time`, so Clients can check `max_age` themselves.
+If the sign-in is older than `max_age`, the User signs in again. This is checked both when the consent screen is shown and when the User approves it, so a consent screen left open too long does not issue a code. After that sign-in, the request continues without `login`, `select_account` and `max_age`, so the User is not sent back to the sign-in page in a loop. The ID Token always contains `auth_time`, so Clients can check `max_age` themselves.
 
 `prompt` and `max_age` are front-channel parameters: whoever controls the browser can remove them from the URL, and Authora cannot tell that apart from a request without them (only signed requests, PAR or JAR, would prevent it, and Authora supports neither). Clients that need a recent sign-in, e.g. for step-up before a sensitive action, must compare `auth_time` with the time they sent the request, and must not rely on `prompt=login` or `max_age` alone.
 
