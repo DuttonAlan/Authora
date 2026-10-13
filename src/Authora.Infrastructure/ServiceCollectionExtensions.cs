@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Oidc;
 using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
@@ -57,6 +58,8 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
         serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();
         serviceCollection.AddSingleton<IPasswordHasher, PasswordHasher>();
+        serviceCollection.AddSingleton<ISigningKeyProvider, PemSigningKeyProvider>();
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OidcOptions>, OidcSigningKeysValidator>());
 
         serviceCollection.AddTransient<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
         serviceCollection.AddTransient<IClientRepository, ClientRepository>();

@@ -5,7 +5,8 @@
 namespace Authora.Core.Application.OAuth;
 
 /// <summary>
-///     The <c>error</c> codes of OAuth error responses (RFC 6749, Sections 4.1.2.1 and 5.2, RFC 7009, Section 2.2.1).
+///     The <c>error</c> codes of OAuth error responses (RFC 6749, Sections 4.1.2.1 and 5.2, RFC 7009, Section 2.2.1,
+///     RFC 6750, Section 3.1, and OpenID Connect Core 1.0, Section 3.1.2.6).
 /// </summary>
 public static class OAuthErrors
 {
@@ -49,4 +50,40 @@ public static class OAuthErrors
     ///     The User denied the request.
     /// </summary>
     public const string AccessDenied = "access_denied";
+
+    /// <summary>
+    ///     <c>prompt=none</c> was sent, but the User is not signed in or must sign in again (OpenID Connect).
+    /// </summary>
+    public const string LoginRequired = "login_required";
+
+    /// <summary>
+    ///     <c>prompt=none</c> was sent, but the User must consent first (OpenID Connect). Authora always asks for
+    ///     consent, so this is always the answer for a signed-in User.
+    /// </summary>
+    public const string ConsentRequired = "consent_required";
+
+    /// <summary>
+    ///     The <c>request</c> parameter (Request Object) is not supported (OpenID Connect).
+    /// </summary>
+    public const string RequestNotSupported = "request_not_supported";
+
+    /// <summary>
+    ///     The <c>request_uri</c> parameter is not supported (OpenID Connect).
+    /// </summary>
+    public const string RequestUriNotSupported = "request_uri_not_supported";
+
+    /// <summary>
+    ///     The <c>registration</c> parameter is not supported (OpenID Connect).
+    /// </summary>
+    public const string RegistrationNotSupported = "registration_not_supported";
+
+    /// <summary>
+    ///     The Access Token sent to a protected resource is unknown, expired or revoked (RFC 6750).
+    /// </summary>
+    public const string InvalidToken = "invalid_token";
+
+    /// <summary>
+    ///     The Access Token sent to a protected resource lacks a required Scope (RFC 6750).
+    /// </summary>
+    public const string InsufficientScope = "insufficient_scope";
 }

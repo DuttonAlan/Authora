@@ -29,6 +29,8 @@ using Authora.Core.Application.OAuth.ClientAuthentication;
 using Authora.Core.Application.OAuth.Introspect;
 using Authora.Core.Application.OAuth.Revoke;
 using Authora.Core.Application.OAuth.Token;
+using Authora.Core.Application.Oidc;
+using Authora.Core.Application.Oidc.UserInfo;
 using Authora.Core.Application.Permissions.GetAll;
 using Authora.Core.Application.Roles.Create;
 using Authora.Core.Application.Roles.Delete;
@@ -91,6 +93,10 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<RevokeTokenService>();
         serviceCollection.AddTransient<TokenIssuer>();
         serviceCollection.AddTransient<ValidateAuthorizationRequestService>();
+
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OidcOptions>, OidcOptionsValidator>());
+        serviceCollection.AddTransient<GetUserInfoService>();
+        serviceCollection.AddTransient<IdTokenIssuer>();
 
         serviceCollection.AddTransient<ClientSecretIssuer>();
         serviceCollection.AddTransient<AddRedirectUriService>();

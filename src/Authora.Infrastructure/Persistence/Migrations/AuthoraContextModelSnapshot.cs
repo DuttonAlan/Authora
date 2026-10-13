@@ -66,6 +66,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("AuthenticatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid");
 
@@ -87,6 +90,10 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Nonce")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("RedirectUri")
                         .HasMaxLength(2048)

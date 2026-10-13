@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.Oidc;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Infrastructure.Persistence;
@@ -16,7 +17,8 @@ namespace Authora.Infrastructure.Seeding;
 
 /// <summary>
 ///     Seeds the data Authora needs at startup: the Permissions of <see cref="PermissionNames"/>, the administrator
-///     Role with all Permissions, the <see cref="AdminApiScope"/>, and the first administrator (US-003).
+///     Role with all Permissions, the <see cref="AdminApiScope"/>, the <see cref="OidcScopes"/>, and the first
+///     administrator (US-003).
 /// </summary>
 /// <remarks>
 ///     Idempotent: only what is missing is created, so it runs on every start. It runs at runtime instead of
@@ -38,7 +40,7 @@ public sealed class IdentitySeeder(
     /// <param name="cancellationToken">CancellationToken to cancel the seeding.</param>
     /// <returns>A Task that completes once the data is seeded.</returns>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when a regular Role or Scope uses the Name of the administrator Role or the admin API Scope, or the
+    ///     Thrown when a regular Role or Scope uses the Name of the administrator Role or of a System Scope, or the
     ///     first administrator has to be created but has no password or an Email that is already used by another User.
     /// </exception>
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -50,7 +52,12 @@ public sealed class IdentitySeeder(
 
         var permissions = await SeedPermissionsAsync(cancellationToken);
         var administratorRole = await SeedAdministratorRoleAsync(permissions, cancellationToken);
-        var adminApiScope = await SeedAdminApiScopeAsync(cancellationToken);
+        var adminApiScope = await SeedSystemScopeAsync(AdminApiScope.Name, AdminApiScope.DisplayName, AdminApiScope.Description, cancellationToken);
+
+        foreach (var (name, displayName, description) in OidcScopes.All)
+        {
+            await SeedSystemScopeAsync(name, displayName, description, cancellationToken);
+        }
 
         await context.SaveChangesAsync(cancellationToken);
 
@@ -110,24 +117,28 @@ public sealed class IdentitySeeder(
         return role;
     }
 
-    private async Task<Scope> SeedAdminApiScopeAsync(CancellationToken cancellationToken)
+    private async Task<Scope> SeedSystemScopeAsync(
+        string name,
+        string displayName,
+        string description,
+        CancellationToken cancellationToken)
     {
         var scope = await context.Scopes
-            .FirstOrDefaultAsync(scope => scope.Name == AdminApiScope.Name, cancellationToken);
+            .FirstOrDefaultAsync(scope => scope.Name == name, cancellationToken);
 
         if (scope is null)
         {
-            scope = Scope.CreateSystem(AdminApiScope.Name, AdminApiScope.DisplayName, AdminApiScope.Description);
+            scope = Scope.CreateSystem(name, displayName, description);
             context.Scopes.Add(scope);
 
             logger.SystemScopeCreated(scope.Id, scope.Name);
         }
         else if (!scope.IsSystem)
         {
-            // A regular Scope can be deleted through the API, which would remove the admin API Scope from every Client.
-            // Never promote it either: the Clients someone allowed it would silently gain admin API access for good.
+            // A regular Scope can be deleted through the API, which would remove the System Scope from every Client.
+            // Never promote it either: the Clients someone allowed it would silently gain e.g. admin API access for good.
             throw new InvalidOperationException(
-                $"The regular Scope '{scope.Id}' uses the Name '{AdminApiScope.Name}' of the admin API Scope. Rename it.");
+                $"The regular Scope '{scope.Id}' uses the Name '{name}' of a System Scope. Rename it.");
         }
 
         return scope;

@@ -2,8 +2,11 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
+
 using Authora.Core.Abstractions;
 using Authora.Core.Domain;
+using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 
 using Microsoft.Extensions.Logging;
@@ -130,6 +133,18 @@ public sealed class ValidateAuthorizationRequestService(
                 $"The parameter {request.DuplicateParameters.First()} must not be sent more than once.");
         }
 
+        if (request.UnsupportedParameter is not null)
+        {
+            return Fail(
+                request.UnsupportedParameter switch
+                {
+                    "request" => OAuthErrors.RequestNotSupported,
+                    "request_uri" => OAuthErrors.RequestUriNotSupported,
+                    _ => OAuthErrors.RegistrationNotSupported
+                },
+                $"The {request.UnsupportedParameter} parameter is not supported.");
+        }
+
         if (request.ResponseType is null)
         {
             return Fail(OAuthErrors.InvalidRequest, "The response_type parameter is required.");
@@ -182,12 +197,42 @@ public sealed class ValidateAuthorizationRequestService(
             .Select(name => client.AllowedScopes.First(scope => string.Equals(scope.Name, name, StringComparison.Ordinal)))
             .ToList();
 
+        if (request.Nonce?.Length > AuthorizationCode.NonceMaxLength)
+        {
+            return Fail(OAuthErrors.InvalidRequest, $"The nonce must be at most {AuthorizationCode.NonceMaxLength} characters long.");
+        }
+
+        var promptValues = (request.Prompt ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (promptValues.Contains(PromptValues.None) && promptValues.Distinct(StringComparer.Ordinal).Count() > 1)
+        {
+            return Fail(OAuthErrors.InvalidRequest, "The prompt value none must not be combined with other values.");
+        }
+
+        // Unknown values are ignored, e.g. "create" of OpenID Connect Prompt Create 1.0.
+        var prompts = promptValues.Where(PromptValues.All.Contains).ToHashSet(StringComparer.Ordinal);
+
+        TimeSpan? maxAge = null;
+
+        if (request.MaxAge is not null)
+        {
+            if (!int.TryParse(request.MaxAge, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds))
+            {
+                return Fail(OAuthErrors.InvalidRequest, "The max_age must be a non-negative number of seconds.");
+            }
+
+            maxAge = TimeSpan.FromSeconds(seconds);
+        }
+
         return AuthorizationRequestValidationResult.Valid(new ValidatedAuthorizationRequest(
             client,
             redirectUri,
             request.RedirectUri,
             scopes,
             state,
-            request.CodeChallenge));
+            request.CodeChallenge,
+            request.Nonce,
+            prompts,
+            maxAge));
     }
 }

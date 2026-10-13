@@ -4,7 +4,8 @@
     ViewData["Title"] = "Sign in";
 }
 
-@if (Model.IsSignedIn && Model.ErrorMessage is null)
+@* With a ReturnUrl, a signed-in User was sent here to sign in again, e.g. for prompt=login or max_age. *@
+@if (Model.IsSignedIn && Model.ReturnUrl is null && Model.ErrorMessage is null)
 {
     <h1>You are signed in</h1>
     <p>Signed in as <strong>@Model.SignedInEmail</strong>.</p>
@@ -13,6 +14,11 @@
 else
 {
     <h1>Sign in</h1>
+
+    @if (Model.IsSignedIn && Model.ErrorMessage is null)
+    {
+        <p>The application asks you to sign in again. You are signed in as <strong>@Model.SignedInEmail</strong>.</p>
+    }
 
     @if (Model.ErrorMessage is not null)
     {

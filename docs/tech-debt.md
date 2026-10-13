@@ -2,7 +2,7 @@
 
 Shortcuts and temporary decisions that were taken on purpose and must be resolved later. Bugs (unintended behaviour) are tracked as GitHub issues.
 
-When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and replace "To resolve" with a short "Resolution". IDs are never reused, so the next entry is **TD-011**.
+When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and replace "To resolve" with a short "Resolution". IDs are never reused, so the next entry is **TD-012**.
 
 | ID | Title | Status |
 |---|---|---|
@@ -16,6 +16,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Resolved (2026-10-12) |
 | [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Resolved (2026-10-12) |
 | [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Resolved (2026-10-12) |
+| [TD-011](#td-011-signing-keys-are-only-read-at-startup) | Signing keys are only read at startup | Open |
 
 ## TD-001: Users can be created without a password
 
@@ -96,3 +97,11 @@ Access Tokens have no audience, so any enabled Confidential Client could learn t
 `GET /health` listed the applied and pending migrations to anyone, which revealed the exact version that is running.
 
 **Resolution:** `/health` and `/health/live` only return `{"status": "..."}` with the usual status codes (503 when unhealthy), which is enough for load balancers and orchestrators. The full report moved to `GET /health/details`, which needs an admin Access Token and the new Permission `health.read`. The seeder adds the Permission and grants it to the administrator Role. Access by internal network was not added, because it needs trusted proxy and IP range configuration, and probes do not need the details.
+
+## TD-011: Signing keys are only read at startup
+
+**Status:** Open · **Area:** OpenID Connect (`PemSigningKeyProvider`)
+
+The ID Token signing key and the keys published for rotation are read from PEM files once at startup. Every rotation step (publish the new key, switch the signing key, remove the old key) needs a restart of all instances, and the operator has to time the steps by hand, see [openid-connect.md](openid-connect.md#key-rotation).
+
+**To resolve:** reload the key files when they change (e.g. `IOptionsMonitor` and a file watcher), or store the keys encrypted and rotate them automatically on a schedule.
