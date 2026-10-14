@@ -192,9 +192,10 @@ public static class PermissionNames
         public const string ManageSecrets = "clients.manage-secrets";
 
         /// <summary>
-        ///     Mark Clients as first-party, so Users are not asked for consent, and as third-party again. Whoever has
-        ///     this Permission and <see cref="Update"/> can let any Client obtain the Scopes it is allowed without
-        ///     asking the User.
+        ///     Mark Clients as first-party, so Users are not asked for consent, and as third-party again. Redirect URIs
+        ///     and Scopes cannot be added to a first-party Client, so <see cref="Update"/> alone cannot send its codes
+        ///     elsewhere, e.g. those of the admin interface. Whoever has this Permission and <see cref="Update"/> can
+        ///     let any Client obtain the Scopes it is allowed without asking the User.
         /// </summary>
         public const string ManageFirstParty = "clients.manage-first-party";
     }

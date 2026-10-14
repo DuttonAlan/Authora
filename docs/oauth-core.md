@@ -98,6 +98,8 @@ The User is asked on every authorization request of a third-party Client (the de
 
 Marking a Client lets it obtain every Scope it is allowed without the User's approval, so it needs a Permission of its own, `clients.manage-first-party`, which only the administrator Role has by default: `PUT /api/clients/{id}/first-party` marks it, `DELETE` reverts it. Both are recorded in the audit log (`client.marked-first-party`, `client.marked-third-party`) and logged as events 4015 and 4016. `GET /api/clients/{id}` shows `isFirstParty`.
 
+While a Client is first-party, no Redirect URI and no Scope can be added to it (`409 Conflict`); removing them still works. Otherwise anyone with `clients.update` could register their own Redirect URI for e.g. the admin interface and receive the codes of every signed-in User who opens a link, without a click. To change it, mark it as third-party, change it, and mark it as first-party again, which needs `clients.manage-first-party`.
+
 ### Authorization response
 
 The code is sent with a `303 See Other` redirect, together with `state` and `iss` (RFC 9207, so the Client can detect mix-up attacks).
@@ -220,7 +222,7 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 | 5001 – 5007 | Sign-in, sign-out, lockout, invalidated Sessions |
 | 6001 – 6012 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
 | 7001 – 7009 | Seeding at startup, including the Client of the admin interface |
-| 8001 – 8003 | Cleanup of expired codes, Grants, tokens, Sessions and audit events |
+| 8001 – 8004 | Cleanup of expired codes, Grants, tokens, Sessions and audit events, including the new start of the audit chain |
 | 9001 – 9005 | Signing keys loaded, reloaded or not reloadable, see [openid-connect.md](openid-connect.md#logging) |
 | 11001 – 11011 | Hash chain of the audit log: checkpoints after sealing (11001), failed sealing (11002), broken chain (11011, critical), see [admin.md](admin.md#hash-chain-td-013) |
 | 12001 – 12002 | Failed sign-in and refresh of the admin interface's backend for frontend |

@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Audit.Verify;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Domain.Entities;
@@ -124,6 +126,45 @@ public sealed class AuditChainTests(AuthoraApiFactory factory) : IClassFixture<A
     }
 
     [Fact]
+    public async Task StartDeletedInTheDatabase_BreaksTheChain()
+    {
+        var token = await CreateVerifierTokenAsync();
+        await CreateGroupAsync(token);
+        await CreateGroupAsync(token);
+        await SealAsync();
+
+        var before = await VerifyAsync(token);
+        Assert.True(before.IsIntact, before.Problem);
+
+        AuditChainLink first = null!;
+        AuditEvent firstEvent = null!;
+
+        // Deletes the first link and its event, as the cleanup would, but without recording it.
+        await ExecuteAsync(async context =>
+        {
+            first = await context.AuditChainLinks.AsNoTracking().SingleAsync(link => link.Sequence == before.FirstSequence);
+            firstEvent = await context.AuditEvents.AsNoTracking().SingleAsync(auditEvent => auditEvent.Id == first.EventId);
+
+            await context.AuditEvents.Where(auditEvent => auditEvent.Id == first.EventId).ExecuteDeleteAsync();
+            await context.AuditChainLinks.Where(link => link.Sequence == first.Sequence).ExecuteDeleteAsync();
+        });
+
+        var result = await VerifyAsync(token);
+
+        Assert.False(result.IsIntact);
+        Assert.Equal(first.Sequence, result.BrokenAtSequence);
+        Assert.Contains("no cleanup recorded", result.Problem, StringComparison.Ordinal);
+
+        await ExecuteAsync(context =>
+        {
+            context.AuditEvents.Add(firstEvent);
+            context.AuditChainLinks.Add(first);
+            return context.SaveChangesAsync();
+        });
+        Assert.True((await VerifyAsync(token)).IsIntact);
+    }
+
+    [Fact]
     public async Task ShortenedChain_DoesNotMatchTheCheckpoint()
     {
         var token = await CreateVerifierTokenAsync();
@@ -199,6 +240,12 @@ public sealed class AuditChainTests(AuthoraApiFactory factory) : IClassFixture<A
             var remaining = Assert.Single(await context.AuditChainLinks.ToListAsync(TestContext.Current.CancellationToken));
             Assert.Equal(last.Sequence, remaining.Sequence);
             Assert.True(await context.AuditEvents.AnyAsync(auditEvent => auditEvent.Id == lastEvent.Id, TestContext.Current.CancellationToken));
+
+            // The cut is recorded in the audit log itself, so the verification can tell it from tampering.
+            Assert.True(await context.AuditEvents.AnyAsync(
+                auditEvent => auditEvent.Type == AuditEventTypes.System.AuditChainTruncated
+                    && auditEvent.TargetId == last.Sequence.ToString(CultureInfo.InvariantCulture),
+                TestContext.Current.CancellationToken));
         }
 
         // The cleanup also deleted the token, which expired by then.

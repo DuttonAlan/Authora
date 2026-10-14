@@ -322,6 +322,8 @@ public sealed class ClientsController(
     /// </summary>
     /// <remarks>
     ///     This operation is idempotent: registering a Redirect URI that is already registered also succeeds.
+    ///     A first-party Client gets no new Redirect URIs, because it gets codes without asking the User: mark it as
+    ///     third-party first.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
     /// <param name="request">The request with the Redirect URI.</param>
@@ -330,12 +332,14 @@ public sealed class ClientsController(
     /// <response code="204">Responds with no content once the Redirect URI was registered.</response>
     /// <response code="400">Responds with problem details if the Redirect URI is not absolute, contains a fragment or does not use HTTPS.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is first-party.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/redirect-uris")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AddRedirectUri(
@@ -384,6 +388,8 @@ public sealed class ClientsController(
     /// </summary>
     /// <remarks>
     ///     This operation is idempotent: allowing a Scope that is already allowed also succeeds.
+    ///     A first-party Client is allowed no new Scopes, because it obtains them without asking the User: mark it as
+    ///     third-party first.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
     /// <param name="scopeId" example="0199d1a2-7c3e-7b4a-9f10-4c963f66afa6">Id of the Scope.</param>
@@ -391,10 +397,12 @@ public sealed class ClientsController(
     /// <returns>204 No Content once the Scope is allowed.</returns>
     /// <response code="204">Responds with no content once the Scope was allowed.</response>
     /// <response code="404">Responds with problem details if no Client or no Scope with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is first-party.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/scopes/{scopeId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AllowScope(

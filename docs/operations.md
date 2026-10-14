@@ -13,7 +13,7 @@ This document describes how to run Authora securely (US-036): the required setti
 - [ ] Migrations were applied before the start (`dotnet ef database update`, or a migration bundle or SQL script).
 - [ ] After the first sign-in of the bootstrap administrator: a new password is set and `Authora:Bootstrap:Administrator:Password` is removed (Authora logs event 7007 until it is).
 - [ ] Health checks are wired to the orchestrator, and the application logs are shipped to a separate log system (they also hold the checkpoints of the audit chain, see [admin.md](admin.md#hash-chain-td-013)).
-- [ ] With several instances, or in containers without a persistent home directory: `Authora:DataProtection:KeysPath` points to a shared, protected directory, see [Data protection keys](#data-protection-keys).
+- [ ] With several instances, or in containers without a persistent home directory: `Authora:DataProtection:KeysPath` points to a shared, protected directory, and `Authora:DataProtection:CertificatePath` encrypts the keys in it, see [Data protection keys](#data-protection-keys).
 - [ ] Database backups run and a restore was tested, see [Backup and recovery](#backup-and-recovery).
 
 ## Settings checked at startup
@@ -91,8 +91,19 @@ ASP.NET Core Data Protection encrypts the antiforgery tokens and the cookies of 
 | Setting | Default | Description |
 |---|---|---|
 | `Authora:DataProtection:KeysPath` | not set | Directory the keys are stored in, shared by all instances, e.g. a mounted volume. |
+| `Authora:DataProtection:CertificatePath` | not set | PKCS#12 file (`.pfx`) with a certificate and its private key that encrypts the keys at rest (TD-015). Requires `KeysPath`. |
+| `Authora:DataProtection:CertificatePassword` | not set | Password of the certificate file. Pass it like the other secrets, e.g. as the environment variable `Authora__DataProtection__CertificatePassword`. |
 
-The keys are stored unencrypted (TD-015 in [tech-debt.md](tech-debt.md)). Whoever can read them can decrypt a stolen admin cookie, so restrict the directory to the user that runs Authora, like the signing key, and do not put it into the database backup.
+Authora does not start if the certificate cannot be loaded with its private key, or if it is set without `KeysPath`. Without a certificate, the keys are stored unencrypted: whoever can read them can decrypt a stolen admin cookie. In either case, restrict the directory and the certificate file to the user that runs Authora, like the signing key, and do not put them into the database backup.
+
+Create a certificate, e.g.:
+
+```sh
+openssl req -x509 -newkey rsa:3072 -nodes -days 3650 -subj "/CN=Authora Data Protection" -keyout dp.key -out dp.crt
+openssl pkcs12 -export -inkey dp.key -in dp.crt -out data-protection.pfx
+```
+
+The certificate only encrypts keys created after it was set; existing unencrypted keys stay readable until they expire (90 days), so delete them once to start over (this signs administrators out). Every instance needs the same certificate. If the certificate is replaced, keys encrypted with the old one can no longer be read: Authora creates new keys, and administrators sign in again.
 
 ## Database
 

@@ -137,6 +137,45 @@ public sealed class FirstPartyClientTests(AuthoraApiFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task FirstPartyClient_WithOnlyUpdatePermission_GetsNoRedirectUriOrScope()
+    {
+        var userId = await factory.CreateUserAsync(PermissionNames.Clients.Read, PermissionNames.Clients.Update);
+        var token = await factory.IssueAccessTokenAsync(userId, [AdminApiScope.Name]);
+
+        Guid adminUiClientId;
+        Guid scopeId;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            adminUiClientId = await context.Clients
+                .Where(client => client.RedirectUris.Any(uri => uri.Value == $"{AuthoraApiFactory.Issuer}/admin/callback"))
+                .Select(client => client.Id)
+                .SingleAsync(TestContext.Current.CancellationToken);
+            scopeId = await context.Scopes
+                .Where(existing => existing.Name == "openid")
+                .Select(existing => existing.Id)
+                .SingleAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Otherwise the codes of the admin interface, which are issued without a click, could be sent anywhere.
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            await SendAsync(HttpMethod.Post, $"/api/clients/{adminUiClientId}/redirect-uris", token, new { uri = "https://evil.example.com/callback" }));
+        Assert.Equal(HttpStatusCode.Conflict, await SendAsync(HttpMethod.Put, $"/api/clients/{adminUiClientId}/scopes/{scopeId}", token));
+
+        var client = await GetClientAsync(adminUiClientId, token);
+        Assert.DoesNotContain("https://evil.example.com/callback", client.RedirectUris);
+
+        // Third-party Clients can still be changed with the Permission.
+        var (thirdPartyId, _) = await factory.CreatePublicClientAsync("openid");
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            await SendAsync(HttpMethod.Post, $"/api/clients/{thirdPartyId}/redirect-uris", token, new { uri = "https://app.example.com/other" }));
+    }
+
+    [Fact]
     public async Task MarkFirstParty_UnknownClient_IsNotFound()
     {
         var adminToken = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
@@ -171,10 +210,16 @@ public sealed class FirstPartyClientTests(AuthoraApiFactory factory) : IClassFix
         return (clientId, redirectUri);
     }
 
-    private async Task<HttpStatusCode> SendAsync(HttpMethod method, string path, string token)
+    private async Task<HttpStatusCode> SendAsync(HttpMethod method, string path, string token, object? body = null)
     {
         using var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
         using var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
 
         return response.StatusCode;

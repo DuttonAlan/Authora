@@ -39,4 +39,13 @@ public interface IAuditChainRepository
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The number of events.</returns>
     public Task<int> CountUnsealedEvents(DateTime occurredBefore, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Whether the cleanup recorded that the chain starts at a Sequence, with an event of the type
+    ///     <c>system.audit-chain-truncated</c>.
+    /// </summary>
+    /// <param name="firstSequence">The Sequence the chain starts at.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if such an event exists.</returns>
+    public Task<bool> IsTruncationRecorded(long firstSequence, CancellationToken cancellationToken = default);
 }

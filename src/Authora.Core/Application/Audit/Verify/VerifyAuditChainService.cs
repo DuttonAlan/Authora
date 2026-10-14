@@ -18,8 +18,9 @@ namespace Authora.Core.Application.Audit.Verify;
 /// <remarks>
 ///     <para>
 ///         Recomputes every link from the first remaining one: the Sequence must have no gaps, each link must continue
-///         the hash of the previous one, and its event must still exist and hash to the stored value. The first
-///         remaining link is trusted, because older links are deleted after the retention.
+///         the hash of the previous one, and its event must still exist and hash to the stored value. Older links
+///         are deleted after the retention, so the chain may start later than Sequence 1, but only if the cleanup
+///         recorded that start with a <c>system.audit-chain-truncated</c> event.
 ///     </para>
 ///     <para>
 ///         Someone with write access to the database can still rebuild the whole chain after a change. That is only
@@ -88,6 +89,15 @@ public sealed class VerifyAuditChainService(
             {
                 break;
             }
+        }
+
+        // Only the cleanup deletes the start of the chain, and it records the new start before. Without that record,
+        // the start was deleted directly in the database.
+        if (broken is null
+            && first is { Sequence: > 1 }
+            && !await auditChainRepository.IsTruncationRecorded(first.Sequence, cancellationToken))
+        {
+            broken = (first.Sequence - 1, $"The links before {first.Sequence} were deleted, but no cleanup recorded it.");
         }
 
         var unsealed = await auditChainRepository.CountUnsealedEvents(

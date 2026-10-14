@@ -30,6 +30,7 @@ public sealed class AddRedirectUriService(
     /// <returns>A Task that completes once the Redirect URI is registered.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
     /// <exception cref="ArgumentException">Thrown when the URI is not a valid Redirect URI.</exception>
+    /// <exception cref="ConflictException">Thrown when the Client is first-party.</exception>
     public async Task ExecuteAsync(
         Guid id,
         AddRedirectUriRequest request,
@@ -41,6 +42,14 @@ public sealed class AddRedirectUriService(
         if (client.IsRedirectUriAllowed(request.Uri))
         {
             return;
+        }
+
+        // A first-party Client gets codes without asking the User, so a new Redirect URI would send them anywhere
+        // without a click. Marking it as third-party first needs the Permission to manage first-party Clients.
+        if (client.IsFirstParty)
+        {
+            throw new ConflictException(
+                $"Client '{id}' is first-party, so no Redirect URI can be added. Mark it as third-party first.");
         }
 
         client.AddRedirectUri(request.Uri);

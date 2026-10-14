@@ -8,9 +8,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 using Authora.Api.AdminUi;
+using Authora.Api.Authentication;
 using Authora.Api.RateLimiting;
 using Authora.Core.Abstractions;
-using Authora.Core.Application.Account;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.AdminUi.GetSettings;
 using Authora.Core.Application.OAuth;
@@ -44,7 +45,7 @@ namespace Authora.Api.Controllers;
 /// <param name="cookies">Reads and writes the encrypted cookies.</param>
 /// <param name="secretGenerator">Generates the <c>state</c> and the <c>code_verifier</c>.</param>
 /// <param name="oauthOptions">The OAuth settings with the Issuer.</param>
-/// <param name="signInOptions">The sign-in settings with the Session lifetime, which also limits refreshes.</param>
+/// <param name="validateSessionService">The Service to check the Session the tokens are bound to.</param>
 /// <param name="timeProvider">The clock for the issue time of the tokens.</param>
 /// <param name="logger">The Logger to record failed sign-ins.</param>
 [ApiController]
@@ -57,7 +58,7 @@ public sealed partial class AdminUiController(
     AdminUiCookies cookies,
     ISecretGenerator secretGenerator,
     IOptions<OAuthOptions> oauthOptions,
-    IOptions<SignInOptions> signInOptions,
+    ValidateSessionService validateSessionService,
     TimeProvider timeProvider,
     ILogger<AdminUiController> logger) : ControllerBase
 {
@@ -181,6 +182,16 @@ public sealed partial class AdminUiController(
             return RedirectToAdminUi(signIn.ReturnTo, UnavailableError);
         }
 
+        // The code was just issued for the Session of this browser. The tokens are bound to it, so they are not
+        // refreshed once it ends, see RefreshSession.
+        var session = await GetSessionAsync(cancellationToken);
+
+        if (session is null)
+        {
+            logger.AdminUiSignInFailed("no session");
+            return RedirectToAdminUi(signIn.ReturnTo, SignInFailedError);
+        }
+
         TokenResponse tokens;
 
         try
@@ -203,7 +214,7 @@ public sealed partial class AdminUiController(
         }
 
         var now = timeProvider.GetUtcNow();
-        cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, now));
+        cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, session.SessionId));
 
         return RedirectToAdminUi(signIn.ReturnTo, error: null);
     }
@@ -257,9 +268,12 @@ public sealed partial class AdminUiController(
             return Unauthorized();
         }
 
-        // The Session the User signed in with has ended by now, so refreshing further would keep the admin interface
-        // signed in longer than any Session may last. Signing in again needs the password once the Session is gone.
-        if (now - current.SignedInAt >= signInOptions.Value.SessionLifetime)
+        // The admin interface stays signed in only as long as the Session it signed in with: once that Session expired,
+        // went idle, was signed out or its User can no longer sign in, signing in again needs the password. The
+        // Access Token in the cookie stays usable until it expires, like any other Access Token.
+        var session = await GetSessionAsync(cancellationToken);
+
+        if (session is null || session.SessionId != current.SessionId)
         {
             AdminUiCookies.DeleteTokens(Response);
             await RevokeAsync(settings, current, cancellationToken);
@@ -280,7 +294,7 @@ public sealed partial class AdminUiController(
                     new ClientCredentials(settings.ClientId.ToString(), ClientSecret: null)),
                 cancellationToken);
 
-            cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, current.SignedInAt));
+            cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, current.SessionId));
 
             return NoContent();
         }
@@ -339,6 +353,16 @@ public sealed partial class AdminUiController(
             token,
             hint,
             cancellationToken);
+    }
+
+    /// <summary>
+    ///     Gets the valid Session of the Session cookie this browser sent, or null.
+    /// </summary>
+    private async Task<AuthenticatedSession?> GetSessionAsync(CancellationToken cancellationToken)
+    {
+        var sessionToken = SessionCookie.Read(Request);
+
+        return sessionToken is null ? null : await validateSessionService.ExecuteAsync(sessionToken, cancellationToken);
     }
 
     /// <summary>

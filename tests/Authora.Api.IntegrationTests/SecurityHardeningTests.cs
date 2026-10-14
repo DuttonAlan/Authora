@@ -3,12 +3,16 @@
 // See the LICENSE file in the project root for license information.
 
 using System.Net;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 using Authora.Api.Security;
 
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting.Internal;
 
 namespace Authora.Api.IntegrationTests;
@@ -172,6 +176,58 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
         var environment = new HostingEnvironment { EnvironmentName = environmentName };
 
         Assert.Equal(expected, ProductionSettingsCheck.AppliesTo(environment));
+    }
+
+    [Fact]
+    public void DataProtection_RejectsUnusableCertificate()
+    {
+        var withoutKeysPath = new DataProtectionSettings { CertificatePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pfx") };
+
+        var failures = withoutKeysPath.Validate().ToList();
+
+        Assert.Contains(failures, failure => failure.Contains("requires", StringComparison.Ordinal));
+        Assert.Contains(failures, failure => failure.Contains("cannot be loaded", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DataProtection_WithCertificate_EncryptsTheKeysAtRest()
+    {
+        var directory = Directory.CreateTempSubdirectory("authora-keys-");
+
+        try
+        {
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("CN=Authora Data Protection", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+                File.WriteAllBytes(Path.Combine(directory.FullName, "certificate.pfx"), certificate.Export(X509ContentType.Pkcs12, "secret"));
+            }
+
+            var settings = new DataProtectionSettings
+            {
+                KeysPath = Path.Combine(directory.FullName, "keys"),
+                CertificatePath = Path.Combine(directory.FullName, "certificate.pfx"),
+                CertificatePassword = "secret"
+            };
+
+            Assert.Empty(settings.Validate());
+
+            var services = new ServiceCollection();
+            settings.Apply(services.AddDataProtection().SetApplicationName("Authora"));
+
+            using var provider = services.BuildServiceProvider();
+            var protector = provider.GetRequiredService<IDataProtectionProvider>().CreateProtector("test");
+
+            Assert.Equal("payload", protector.Unprotect(protector.Protect("payload")));
+
+            var key = File.ReadAllText(Assert.Single(Directory.GetFiles(settings.KeysPath, "key-*.xml")));
+            Assert.Contains("<encryptedSecret", key, StringComparison.Ordinal);
+            Assert.DoesNotContain("<masterKey", key, StringComparison.Ordinal);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
     }
 
     private static IConfiguration Configuration(string issuer, string allowedHosts)

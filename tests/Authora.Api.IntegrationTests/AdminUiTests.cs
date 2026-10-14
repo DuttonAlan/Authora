@@ -10,7 +10,6 @@ using Authora.Api.AdminUi;
 using Authora.Api.Authentication;
 using Authora.Api.Controllers;
 using Authora.Api.Security;
-using Authora.Core.Application.Account;
 using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Users.GetCurrent;
@@ -106,7 +105,10 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
         Assert.Equal(HttpStatusCode.SeeOther, authorization.StatusCode);
         Assert.StartsWith(RedirectUri, authorization.Headers.Location!.ToString(), StringComparison.Ordinal);
 
-        using var callback = await SendAsync(HttpMethod.Get, authorization.Headers.Location.PathAndQuery, CookiePair(signInCookie));
+        using var callback = await SendAsync(
+            HttpMethod.Get,
+            authorization.Headers.Location.PathAndQuery,
+            $"{CookiePair(signInCookie)}; {SessionCookie.Name}={sessionToken}");
 
         Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
         Assert.Equal("/admin/#/users", callback.Headers.Location!.OriginalString);
@@ -160,7 +162,7 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
         var sessionToken = await factory.CreateSessionAsync(await factory.CreateAdministratorAsync());
 
         using var start = await _client.GetAsync("/admin/signin", TestContext.Current.CancellationToken);
-        var signInCookie = CookiePair(GetSetCookie(start, AdminUiCookies.SignInName));
+        var signInCookie = $"{CookiePair(GetSetCookie(start, AdminUiCookies.SignInName))}; {SessionCookie.Name}={sessionToken}";
 
         using var authorization = await SendAsync(HttpMethod.Get, start.Headers.Location!.OriginalString, $"{SessionCookie.Name}={sessionToken}");
         var response = QueryHelpers.ParseQuery(authorization.Headers.Location!.Query);
@@ -191,13 +193,31 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
     }
 
     [Fact]
+    public async Task Callback_WithoutSession_DoesNotRedeemTheCode()
+    {
+        var sessionToken = await factory.CreateSessionAsync(await factory.CreateAdministratorAsync());
+
+        using var start = await _client.GetAsync("/admin/signin", TestContext.Current.CancellationToken);
+        using var authorization = await SendAsync(HttpMethod.Get, start.Headers.Location!.OriginalString, $"{SessionCookie.Name}={sessionToken}");
+
+        // The tokens are bound to the Session of the browser, so a callback without one gets none.
+        using var callback = await SendAsync(HttpMethod.Get, authorization.Headers.Location!.PathAndQuery, CookiePair(GetSetCookie(start, AdminUiCookies.SignInName)));
+
+        Assert.Equal($"/admin/?error={AdminUiController.SignInFailedError}", callback.Headers.Location!.OriginalString);
+        Assert.False(callback.Headers.TryGetValues("Set-Cookie", out var cookies) && cookies.Any(cookie => cookie.StartsWith($"{AdminUiCookies.TokensName}=", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task SignIn_WithForeignReturnTo_ReturnsToStartPage()
     {
         var sessionToken = await factory.CreateSessionAsync(await factory.CreateAdministratorAsync());
 
         using var start = await _client.GetAsync("/admin/signin?returnTo=https%3A%2F%2Fevil.example.com", TestContext.Current.CancellationToken);
         using var authorization = await SendAsync(HttpMethod.Get, start.Headers.Location!.OriginalString, $"{SessionCookie.Name}={sessionToken}");
-        using var callback = await SendAsync(HttpMethod.Get, authorization.Headers.Location!.PathAndQuery, CookiePair(GetSetCookie(start, AdminUiCookies.SignInName)));
+        using var callback = await SendAsync(
+            HttpMethod.Get,
+            authorization.Headers.Location!.PathAndQuery,
+            $"{CookiePair(GetSetCookie(start, AdminUiCookies.SignInName))}; {SessionCookie.Name}={sessionToken}");
 
         Assert.Equal("/admin/", callback.Headers.Location!.OriginalString);
     }
@@ -227,8 +247,8 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
         Assert.NotEqual(tokensCookie, refreshedCookie);
         await GetMeAsync(refreshedCookie);
 
-        // A refresh does not move the sign-in time, so refreshing cannot extend the admin interface's lifetime.
-        Assert.Equal(ReadTokens(tokensCookie).SignedInAt, ReadTokens(refreshedCookie).SignedInAt);
+        // The refreshed tokens stay bound to the Session the User signed in with.
+        Assert.Equal(ReadTokens(tokensCookie).SessionId, ReadTokens(refreshedCookie).SessionId);
 
         // The Refresh Token was rotated: the old one counts as reuse and revokes the Grant.
         using var reuse = await SendAsync(HttpMethod.Post, "/admin/session/refresh", olderCookie, AddAdminHeader);
@@ -237,12 +257,22 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
     }
 
     [Fact]
-    public async Task Refresh_AfterSessionLifetime_RevokesTheGrantAndIsUnauthorized()
+    public async Task Refresh_AfterTheSessionEnded_RevokesTheGrantAndIsUnauthorized()
     {
         var tokensCookie = await SignInAsync();
-        var expiredCookie = Age(tokensCookie, new SignInOptions().SessionLifetime);
 
-        using var response = await SendAsync(HttpMethod.Post, "/admin/session/refresh", expiredCookie, AddAdminHeader);
+        // E.g. signed out of Authora in another tab, expired or idle: the Session is no longer valid.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var sessionId = ReadTokens(tokensCookie).SessionId;
+            var session = await context.Sessions.SingleAsync(session => session.Id == sessionId, TestContext.Current.CancellationToken);
+
+            session.Revoke(DateTime.UtcNow);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var response = await SendAsync(HttpMethod.Post, "/admin/session/refresh", Age(tokensCookie), AddAdminHeader);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Contains("expires=Thu, 01 Jan 1970", GetSetCookie(response, AdminUiCookies.TokensName), StringComparison.OrdinalIgnoreCase);
@@ -251,6 +281,21 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
         using var me = await SendAsync(HttpMethod.Get, "/api/me", tokensCookie, AddAdminHeader);
 
         Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_WithAnotherSession_IsUnauthorized()
+    {
+        var tokensCookie = await SignInAsync();
+        var userId = (await GetMeAsync(tokensCookie)).Id;
+
+        // The same User signed in again, so the browser now sends a Session the tokens are not bound to.
+        var otherSession = $"{SessionCookie.Name}={await factory.CreateSessionAsync(userId)}";
+        var cookie = $"{Age(tokensCookie).Split("; ")[0]}; {otherSession}";
+
+        using var response = await SendAsync(HttpMethod.Post, "/admin/session/refresh", cookie, AddAdminHeader);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -347,35 +392,38 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
     /// <summary>
     ///     Signs in an administrator through the backend for frontend.
     /// </summary>
-    /// <returns>The cookie with the tokens as <c>name=value</c>.</returns>
+    /// <returns>
+    ///     The cookie with the tokens and the Session cookie the browser sends along, as <c>name=value; name=value</c>.
+    /// </returns>
     private async Task<string> SignInAsync()
     {
-        var sessionToken = await factory.CreateSessionAsync(await factory.CreateAdministratorAsync());
+        var sessionCookie = $"{SessionCookie.Name}={await factory.CreateSessionAsync(await factory.CreateAdministratorAsync())}";
 
         using var start = await _client.GetAsync("/admin/signin", TestContext.Current.CancellationToken);
-        using var authorization = await SendAsync(HttpMethod.Get, start.Headers.Location!.OriginalString, $"{SessionCookie.Name}={sessionToken}");
-        using var callback = await SendAsync(HttpMethod.Get, authorization.Headers.Location!.PathAndQuery, CookiePair(GetSetCookie(start, AdminUiCookies.SignInName)));
+        using var authorization = await SendAsync(HttpMethod.Get, start.Headers.Location!.OriginalString, sessionCookie);
+        using var callback = await SendAsync(
+            HttpMethod.Get,
+            authorization.Headers.Location!.PathAndQuery,
+            $"{CookiePair(GetSetCookie(start, AdminUiCookies.SignInName))}; {sessionCookie}");
 
-        return CookiePair(GetSetCookie(callback, AdminUiCookies.TokensName));
+        return $"{CookiePair(GetSetCookie(callback, AdminUiCookies.TokensName))}; {sessionCookie}";
     }
 
     /// <summary>
-    ///     Writes the tokens of a cookie again as if they were issued a minute ago, so a refresh is not skipped, and
-    ///     optionally as if the User signed in earlier.
+    ///     Writes the tokens of a cookie again as if they were issued a minute ago, so a refresh is not skipped. The
+    ///     other cookies are kept.
     /// </summary>
-    private string Age(string tokensCookie, TimeSpan? signedInEarlier = null)
+    private string Age(string cookie)
     {
         var cookies = factory.Services.GetRequiredService<AdminUiCookies>();
-        var tokens = ReadTokens(tokensCookie);
+        var tokens = ReadTokens(cookie);
 
         var context = new DefaultHttpContext();
-        cookies.AppendTokens(context.Response, tokens with
-        {
-            IssuedAt = tokens.IssuedAt.AddMinutes(-1),
-            SignedInAt = tokens.SignedInAt - (signedInEarlier ?? TimeSpan.Zero)
-        });
+        cookies.AppendTokens(context.Response, tokens with { IssuedAt = tokens.IssuedAt.AddMinutes(-1) });
 
-        return CookiePair(context.Response.Headers.SetCookie.Single()!);
+        var others = cookie.Split("; ").Where(pair => !pair.StartsWith($"{AdminUiCookies.TokensName}=", StringComparison.Ordinal));
+
+        return string.Join("; ", others.Prepend(CookiePair(context.Response.Headers.SetCookie.Single()!)));
     }
 
     private AdminUiTokens ReadTokens(string tokensCookie)

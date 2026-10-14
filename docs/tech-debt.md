@@ -20,7 +20,7 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-012](#td-012-the-admin-interface-asks-for-consent-on-every-sign-in) | The admin interface asks for consent on every sign-in | Resolved (2026-10-14) |
 | [TD-013](#td-013-audit-events-can-be-changed-with-database-access) | Audit events can be changed with database access | Resolved (2026-10-14) |
 | [TD-014](#td-014-the-admin-interface-keeps-its-tokens-in-the-browser) | The admin interface keeps its tokens in the browser | Resolved (2026-10-14) |
-| [TD-015](#td-015-data-protection-keys-are-stored-unencrypted) | Data Protection keys are stored unencrypted | Open |
+| [TD-015](#td-015-data-protection-keys-are-stored-unencrypted) | Data Protection keys are stored unencrypted | Resolved (2026-10-14) |
 
 ## TD-001: Users can be created without a password
 
@@ -136,8 +136,8 @@ The admin interface keeps its Access and Refresh Token in `sessionStorage`. A sc
 
 ## TD-015: Data Protection keys are stored unencrypted
 
-**Status:** Open · **Area:** Admin interface, antiforgery (`Authora:DataProtection:KeysPath`)
+**Status:** Resolved (2026-10-14) · **Area:** Admin interface, antiforgery (`DataProtectionSettings`, `Authora:DataProtection`)
 
-The Data Protection keys encrypt the antiforgery tokens and the cookie with the admin interface's tokens (TD-014). With `Authora:DataProtection:KeysPath`, they are stored as plain XML files in that directory. Whoever can read them, together with a stolen admin cookie, can decrypt the Access and Refresh Token. Without the setting, the keys may only live in memory, so restarts sign administrators out and several instances cannot read each other's cookies.
+The Data Protection keys encrypt the antiforgery tokens and the cookie with the admin interface's tokens (TD-014). With `Authora:DataProtection:KeysPath`, they were stored as plain XML files in that directory. Whoever could read them, together with a stolen admin cookie, could decrypt the Access and Refresh Token. Without the setting, the keys may only live in memory, so restarts sign administrators out and several instances cannot read each other's cookies.
 
-**To resolve:** encrypt the keys at rest (`ProtectKeysWithCertificate`, or a key vault such as Azure Key Vault or AWS KMS), or store them in a protected shared store. Until then, restrict the directory to the user that runs Authora and keep it out of backups, see [operations.md](operations.md#data-protection-keys).
+**Resolution:** `Authora:DataProtection:CertificatePath` (and `CertificatePassword`) names a PKCS#12 certificate with which new keys are encrypted at rest (`ProtectKeysWithCertificate`). Authora does not start if it is set without `KeysPath` or cannot be loaded with its private key. It stays optional, because a single instance with a protected home directory works without it; the operations checklist asks for it. A key vault (Azure Key Vault, AWS KMS) is not built in. See [operations.md](operations.md#data-protection-keys).

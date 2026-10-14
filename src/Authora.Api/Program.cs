@@ -79,14 +79,10 @@ builder.Services.AddAntiforgery(options =>
 });
 
 // Encrypts the antiforgery tokens and the cookies of the admin interface (TD-014). Several instances must share the
-// keys, and keys that are lost on a restart sign every administrator out, so production sets a shared directory.
-var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Authora");
-var dataProtectionKeysPath = builder.Configuration["Authora:DataProtection:KeysPath"];
-
-if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
-{
-    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
-}
+// keys, and keys that are lost on a restart sign every administrator out, so production sets a shared directory and
+// a certificate that encrypts the keys at rest (TD-015).
+var dataProtection = builder.Configuration.GetSection(DataProtectionSettings.SectionName).Get<DataProtectionSettings>()
+    ?? new DataProtectionSettings();
 
 builder.Services.AddSingleton<AdminUiCookies>();
 
@@ -97,7 +93,7 @@ builder.Services.AddHsts(options =>
 
 var forwardedHeaders = builder.Configuration.GetSection(ForwardedHeadersSettings.SectionName).Get<ForwardedHeadersSettings>()
     ?? new ForwardedHeadersSettings();
-var startupFailures = forwardedHeaders.Validate().ToList();
+var startupFailures = forwardedHeaders.Validate().Concat(dataProtection.Validate()).ToList();
 
 if (ProductionSettingsCheck.AppliesTo(builder.Environment))
 {
@@ -111,6 +107,7 @@ if (startupFailures.Count > 0)
 }
 
 builder.Services.Configure<ForwardedHeadersOptions>(forwardedHeaders.Apply);
+dataProtection.Apply(builder.Services.AddDataProtection().SetApplicationName("Authora"));
 
 builder.Services.AddOptions<OAuthOptions>()
     .Bind(builder.Configuration.GetSection(OAuthOptions.SectionName))
