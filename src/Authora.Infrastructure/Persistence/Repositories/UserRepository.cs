@@ -37,7 +37,9 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     public async Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Users
+            .AsSplitQuery()
             .Include(user => user.Roles)
+            .Include(user => user.Groups)
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
 
@@ -55,6 +57,9 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
             .AsNoTracking()
             .AsSplitQuery()
             .Include(user => user.Roles)
+            .ThenInclude(role => role.Permissions)
+            .Include(user => user.Groups)
+            .ThenInclude(group => group.Roles)
             .ThenInclude(role => role.Permissions)
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
@@ -180,6 +185,11 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
             }
 
             throw new ConflictException("The User was changed by another request. Load it again and retry.", exception);
+        }
+        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
+        {
+            // E.g. a concurrent request added the same Group membership first. Services can then check the result.
+            throw new ConflictException(DbUpdateExceptionExtensions.UniqueViolationMessage, exception);
         }
     }
 

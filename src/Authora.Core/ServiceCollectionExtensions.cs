@@ -29,6 +29,16 @@ using Authora.Core.Application.OAuth.ClientAuthentication;
 using Authora.Core.Application.OAuth.Introspect;
 using Authora.Core.Application.OAuth.Revoke;
 using Authora.Core.Application.OAuth.Token;
+using Authora.Core.Application.Groups.AddMember;
+using Authora.Core.Application.Groups.AssignRole;
+using Authora.Core.Application.Groups.Create;
+using Authora.Core.Application.Groups.Delete;
+using Authora.Core.Application.Groups.Get;
+using Authora.Core.Application.Groups.GetAll;
+using Authora.Core.Application.Groups.GetMembers;
+using Authora.Core.Application.Groups.RemoveMember;
+using Authora.Core.Application.Groups.RemoveRole;
+using Authora.Core.Application.Groups.Update;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Application.Oidc.UserInfo;
 using Authora.Core.Application.Permissions.GetAll;
@@ -51,6 +61,7 @@ using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.RemoveRole;
@@ -115,6 +126,17 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<RevokeClientSecretService>();
         serviceCollection.AddTransient<UpdateClientService>();
 
+        serviceCollection.AddTransient<AddGroupMemberService>();
+        serviceCollection.AddTransient<AssignGroupRoleService>();
+        serviceCollection.AddTransient<CreateGroupService>();
+        serviceCollection.AddTransient<DeleteGroupService>();
+        serviceCollection.AddTransient<GetAllGroupsService>();
+        serviceCollection.AddTransient<GetGroupMembersService>();
+        serviceCollection.AddTransient<GetGroupService>();
+        serviceCollection.AddTransient<RemoveGroupMemberService>();
+        serviceCollection.AddTransient<RemoveGroupRoleService>();
+        serviceCollection.AddTransient<UpdateGroupService>();
+
         serviceCollection.AddTransient<GetAllPermissionsService>();
 
         serviceCollection.AddTransient<CreateRoleService>();
@@ -138,6 +160,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<DeleteUserService>();
         serviceCollection.AddTransient<GetEffectivePermissionsService>();
         serviceCollection.AddTransient<GetUserService>();
+        serviceCollection.AddTransient<GetUserGroupsService>();
         serviceCollection.AddTransient<GetUserRolesService>();
         serviceCollection.AddTransient<GetAllUsersService>();
         serviceCollection.AddTransient<RemoveRoleService>();

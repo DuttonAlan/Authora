@@ -56,7 +56,7 @@ public sealed class RoleRepository(AuthoraContext context) : IRoleRepository
     /// <inheritdoc/>
     public async Task DeleteRole(Role role, CancellationToken cancellationToken = default)
     {
-        // user_roles and role_permissions are removed by the database (cascade delete).
+        // user_roles, group_roles and role_permissions are removed by the database (cascade delete).
         context.Roles.Remove(role);
         await context.SaveChangesAsync(cancellationToken);
     }

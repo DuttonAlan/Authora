@@ -41,6 +41,8 @@ public sealed class User
 
     private readonly List<Role> _roles = [];
 
+    private readonly List<Group> _groups = [];
+
     /// <summary>
     ///     Used by EF Core to materialize a User from the database.
     /// </summary>
@@ -120,9 +122,14 @@ public sealed class User
     public Guid SecurityStamp { get; private set; } = Guid.NewGuid();
 
     /// <summary>
-    ///     Roles assigned to the User. The User has all Permissions of these Roles.
+    ///     Roles assigned directly to the User. The User has all Permissions of these Roles.
     /// </summary>
     public IReadOnlyCollection<Role> Roles => _roles;
+
+    /// <summary>
+    ///     Groups the User is a member of. The User also has all Roles of these Groups.
+    /// </summary>
+    public IReadOnlyCollection<Group> Groups => _groups;
 
     /// <summary>
     ///     Whether the User may sign in and use tokens: the User is <see cref="UserState.Active"/> or
@@ -258,6 +265,46 @@ public sealed class User
     public void RemoveRole(Guid roleId)
     {
         _roles.RemoveAll(x => x.Id == roleId);
+    }
+
+    /// <summary>
+    ///     Adds the User to a Group. Does nothing if the User is already a member.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Groups"/> must be loaded, otherwise the duplicate check cannot work.
+    /// </remarks>
+    /// <param name="group">The Group to join.</param>
+    public void JoinGroup(Group group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+
+        if (!_groups.Any(x => x.Id == group.Id))
+        {
+            _groups.Add(group);
+        }
+    }
+
+    /// <summary>
+    ///     Removes the User from a Group. Does nothing if the User is not a member.
+    /// </summary>
+    /// <param name="groupId">The Id of the Group to leave.</param>
+    public void LeaveGroup(Guid groupId)
+    {
+        _groups.RemoveAll(x => x.Id == groupId);
+    }
+
+    /// <summary>
+    ///     Gets all Roles of the User: the directly assigned Roles and the Roles of their Groups, each Role once.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Roles"/>, <see cref="Groups"/> and the Roles of the Groups must be loaded.
+    /// </remarks>
+    /// <returns>The effective Roles of the User.</returns>
+    public IEnumerable<Role> GetEffectiveRoles()
+    {
+        return _roles
+            .Concat(_groups.SelectMany(group => group.Roles))
+            .DistinctBy(role => role.Id);
     }
 
     /// <summary>

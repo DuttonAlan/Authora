@@ -19,7 +19,7 @@ public sealed class DeleteRoleService(
     ILogger<DeleteRoleService> logger)
 {
     /// <summary>
-    ///     Deletes a Role based on the Id. The Role is also removed from all Users that have it.
+    ///     Deletes a Role based on the Id. The Role is also removed from all Users and Groups that have it.
     ///     Does nothing if the Role does not exist.
     /// </summary>
     /// <param name="id">Id of the Role.</param>

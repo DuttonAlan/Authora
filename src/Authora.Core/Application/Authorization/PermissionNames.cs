@@ -19,7 +19,7 @@ public static class PermissionNames
     public static class Users
     {
         /// <summary>
-        ///     Read Users, their Roles and their effective Permissions.
+        ///     Read Users, their Roles, their Groups and their effective Permissions.
         /// </summary>
         public const string Read = "users.read";
 
@@ -84,6 +84,44 @@ public static class PermissionNames
         ///     Permission.
         /// </summary>
         public const string GrantPermissions = "roles.grant-permissions";
+    }
+
+    /// <summary>
+    ///     Permissions to manage Groups.
+    /// </summary>
+    public static class Groups
+    {
+        /// <summary>
+        ///     Read Groups, their Roles and their members.
+        /// </summary>
+        public const string Read = "groups.read";
+
+        /// <summary>
+        ///     Create Groups.
+        /// </summary>
+        public const string Create = "groups.create";
+
+        /// <summary>
+        ///     Change Groups.
+        /// </summary>
+        public const string Update = "groups.update";
+
+        /// <summary>
+        ///     Delete Groups.
+        /// </summary>
+        public const string Delete = "groups.delete";
+
+        /// <summary>
+        ///     Add Users to Groups and remove them. Whoever has this Permission can give themselves the Roles of any
+        ///     Group.
+        /// </summary>
+        public const string ManageMembers = "groups.manage-members";
+
+        /// <summary>
+        ///     Assign Roles to Groups and remove them. Whoever has this Permission can give their own Groups any Role
+        ///     except the administrator Role.
+        /// </summary>
+        public const string AssignRoles = "groups.assign-roles";
     }
 
     /// <summary>
@@ -182,6 +220,12 @@ public static class PermissionNames
         Roles.Update,
         Roles.Delete,
         Roles.GrantPermissions,
+        Groups.Read,
+        Groups.Create,
+        Groups.Update,
+        Groups.Delete,
+        Groups.ManageMembers,
+        Groups.AssignRoles,
         Permissions.Read,
         Scopes.Read,
         Scopes.Create,

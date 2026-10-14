@@ -7,10 +7,11 @@ using Authora.Core.Abstractions;
 namespace Authora.Core.Application.Authorization;
 
 /// <summary>
-///     Checks whether a User has a Permission through one of their Roles (US-032).
+///     Checks whether a User has a Permission through one of their Roles, assigned directly or through a Group (US-032).
 /// </summary>
 /// <remarks>
-///     The Permissions are loaded on every check, so a removed Role or Permission takes effect on the next request.
+///     The Permissions are loaded on every check, so a removed Role, Permission or Group membership takes effect on
+///     the next request.
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to load the User with their Permissions.</param>
 public sealed class PermissionEvaluator(IUserRepository userRepository)
@@ -37,7 +38,7 @@ public sealed class PermissionEvaluator(IUserRepository userRepository)
         }
 
         // The administrator Role always has all Permissions, also those added since the last seeding.
-        return user.Roles.Any(role => role.IsAdministrator
+        return user.GetEffectiveRoles().Any(role => role.IsAdministrator
             || role.Permissions.Any(permission => permission.Name == permissionName));
     }
 }
