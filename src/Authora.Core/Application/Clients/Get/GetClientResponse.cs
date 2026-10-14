@@ -13,6 +13,7 @@ namespace Authora.Core.Application.Clients.Get;
 /// <param name="Name" example="Shop Web App">Display Name of the Client.</param>
 /// <param name="Type" example="Confidential">Type of the Client.</param>
 /// <param name="Status" example="Enabled">Status of the Client. Disabled Clients cannot obtain new tokens.</param>
+/// <param name="IsFirstParty" example="false">Whether the Client is first-party, so Users are not asked for consent.</param>
 /// <param name="GrantTypes" example="[&quot;authorization_code&quot;, &quot;refresh_token&quot;]">Allowed Grant Types.</param>
 /// <param name="AccessTokenTTL" example="3600">Lifetime of Access Tokens in seconds.</param>
 /// <param name="RefreshTokenTTL" example="86400">Lifetime of Refresh Tokens in seconds.</param>
@@ -27,6 +28,7 @@ public sealed record GetClientResponse(
     string Name,
     ClientType Type,
     ClientStatus Status,
+    bool IsFirstParty,
     IReadOnlyList<string> GrantTypes,
     int AccessTokenTTL,
     int RefreshTokenTTL,

@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 
 using Authora.Api.Authorization;
 using Authora.Core.Application.Audit.Search;
+using Authora.Core.Application.Audit.Verify;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Paging;
 using Authora.Core.Domain.Enums;
@@ -16,14 +17,17 @@ using Microsoft.AspNetCore.Mvc;
 namespace Authora.Api.Controllers;
 
 /// <summary>
-///     Provides the Endpoint to search the audit log (US-034).
+///     Provides the Endpoints to search the audit log (US-034) and to verify its hash chain (TD-013).
 /// </summary>
 /// <param name="searchAuditEventsService">The Service to search the audit log.</param>
+/// <param name="verifyAuditChainService">The Service to verify the hash chain of the audit log.</param>
 [ApiController]
 [Authorize(AuthorizationPolicies.AdminApi)]
 [Route("api/audit-events")]
 [Tags("Audit")]
-public sealed class AuditEventsController(SearchAuditEventsService searchAuditEventsService) : ControllerBase
+public sealed class AuditEventsController(
+    SearchAuditEventsService searchAuditEventsService,
+    VerifyAuditChainService verifyAuditChainService) : ControllerBase
 {
     /// <summary>
     ///     Searches the audit log, newest events first.
@@ -70,5 +74,37 @@ public sealed class AuditEventsController(SearchAuditEventsService searchAuditEv
             cancellationToken);
 
         return Ok(events);
+    }
+
+    /// <summary>
+    ///     Verifies the hash chain of the audit log (TD-013).
+    /// </summary>
+    /// <remarks>
+    ///     New events are sealed into the chain every few seconds (<c>Authora:Audit:SealInterval</c>). The chain
+    ///     detects sealed events that were changed or deleted in the database, and events that were inserted there
+    ///     without being sealed. Someone with write access to the database could rebuild the whole chain, so compare
+    ///     the result with a checkpoint (Sequence and hash) from the application logs, which the sealing writes after
+    ///     every batch. Reads every event, so it can take a while.
+    /// </remarks>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <param name="checkpointSequence" example="1532">The Sequence of a checkpoint from the application logs.</param>
+    /// <param name="checkpointHash" example="9f2c…">The hash of the checkpoint. Required with <c>checkpointSequence</c>.</param>
+    /// <returns>200 OK with the result, also if the chain is broken.</returns>
+    /// <response code="200">Responds with the result. <c>isIntact</c> is false if the chain is broken, events are not sealed, or the checkpoint does not match.</response>
+    /// <response code="400">Responds with validation problem details if only one part of the checkpoint is given or a part is malformed.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpGet("verification")]
+    [ProducesResponseType<AuditChainVerificationResponse>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Audit.Verify)]
+    public async Task<IActionResult> Verify(
+        CancellationToken cancellationToken,
+        [FromQuery, Range(1, long.MaxValue)] long? checkpointSequence = null,
+        [FromQuery, RegularExpression("^[0-9a-fA-F]{64}$")] string? checkpointHash = null)
+    {
+        var result = await verifyAuditChainService.ExecuteAsync(checkpointSequence, checkpointHash, cancellationToken);
+
+        return Ok(result);
     }
 }

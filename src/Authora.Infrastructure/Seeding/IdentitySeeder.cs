@@ -281,9 +281,13 @@ public sealed class IdentitySeeder(
         }
 
         client.AllowScope(adminApiScope);
+
+        // The admin interface is part of Authora, so administrators are not asked for consent on every sign-in, which
+        // would train them to allow without reading (TD-012).
+        client.SetFirstParty(true);
         context.Clients.Add(client);
 
-        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.System.ClientBootstrapped, client.Id, $"Name '{client.Name}'"));
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.System.ClientBootstrapped, client.Id, $"Name '{client.Name}', first-party"));
         logger.AdminUiClientCreated(client.Id, redirectUri);
     }
 }

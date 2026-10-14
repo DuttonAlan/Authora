@@ -129,6 +129,13 @@ public sealed class Client
     public ClientStatus Status { get; private set; } = ClientStatus.Enabled;
 
     /// <summary>
+    ///     Whether the Client is part of the same deployment as Authora, e.g. the admin interface. Users are not asked
+    ///     for consent when a first-party Client requests Scopes it is allowed, unless it sends <c>prompt=consent</c>.
+    ///     Defaults to <see langword="false"/>. Set via <see cref="SetFirstParty(bool)"/>.
+    /// </summary>
+    public bool IsFirstParty { get; private set; }
+
+    /// <summary>
     ///     Point in time (UTC) when the Client was created.
     /// </summary>
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -269,6 +276,15 @@ public sealed class Client
     public void Disable()
     {
         Status = ClientStatus.Disabled;
+    }
+
+    /// <summary>
+    ///     Marks the Client as first-party, so Users are no longer asked for consent, or as third-party again.
+    /// </summary>
+    /// <param name="isFirstParty">True to skip the consent screen for the Client.</param>
+    public void SetFirstParty(bool isFirstParty)
+    {
+        IsFirstParty = isFirstParty;
     }
 
     /// <summary>

@@ -104,6 +104,7 @@ export async function detail(context, id) {
                 details([
                     ['Client Id', h('code', { text: client.id })],
                     ['Status', statusBadge(client.status)],
+                    ['Consent', client.isFirstParty ? badge('First-party: not asked') : 'Asked on every sign-in'],
                     ['Grant Types', client.grantTypes.join(', ')],
                     ['Access Token lifetime', `${client.accessTokenTTL} s`],
                     ['Refresh Token lifetime', `${client.refreshTokenTTL} s`],
@@ -133,6 +134,16 @@ function clientActions(context, client) {
                 }
             })
             : button('Enable', () => run(() => api('POST', `/clients/${client.id}/enable`), 'The Client was enabled.', context)));
+    }
+
+    if (context.can('clients.manage-first-party')) {
+        actions.push(client.isFirstParty
+            ? button('Ask for consent', () => run(() => api('DELETE', `/clients/${client.id}/first-party`), 'Users are asked for consent again.', context))
+            : button('Mark as first-party', () => {
+                if (confirmed(`Mark ${client.name} as first-party? Users are no longer asked for consent, so it gets every Scope it is allowed without asking. Only for Clients of your own deployment.`)) {
+                    run(() => api('PUT', `/clients/${client.id}/first-party`), 'The Client is first-party.', context);
+                }
+            }));
     }
 
     if (context.can('clients.delete')) {

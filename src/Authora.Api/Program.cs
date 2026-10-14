@@ -4,6 +4,7 @@
 
 using System.Text.Json.Serialization;
 
+using Authora.Api.AdminUi;
 using Authora.Api.Auditing;
 using Authora.Api.Authentication;
 using Authora.Api.Authorization;
@@ -18,6 +19,7 @@ using Authora.Core;
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Account;
 using Authora.Core.Application.AdminUi;
+using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
@@ -29,6 +31,7 @@ using Authora.Infrastructure.Seeding;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -75,6 +78,18 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.HttpOnly = true;
 });
 
+// Encrypts the antiforgery tokens and the cookies of the admin interface (TD-014). Several instances must share the
+// keys, and keys that are lost on a restart sign every administrator out, so production sets a shared directory.
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Authora");
+var dataProtectionKeysPath = builder.Configuration["Authora:DataProtection:KeysPath"];
+
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+
+builder.Services.AddSingleton<AdminUiCookies>();
+
 builder.Services.AddHsts(options =>
 {
     options.MaxAge = TimeSpan.FromDays(365);
@@ -111,6 +126,9 @@ builder.Services.AddOptions<BootstrapOptions>()
     .ValidateOnStart();
 builder.Services.AddOptions<CleanupOptions>()
     .Bind(builder.Configuration.GetSection(CleanupOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<AuditChainOptions>()
+    .Bind(builder.Configuration.GetSection(AuditChainOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddOptions<AdminUiOptions>()
     .Bind(builder.Configuration.GetSection(AdminUiOptions.SectionName))
@@ -170,7 +188,7 @@ var adminUiEnabled = app.Services.GetRequiredService<IOptions<AdminUiOptions>>()
 
 if (adminUiEnabled)
 {
-    // Serves /admin/index.html for "/admin/", and redirects "/admin" to "/admin/", the Redirect URI.
+    // Serves /admin/index.html for "/admin/", and redirects "/admin" to "/admin/".
     app.UseDefaultFiles();
 }
 else
@@ -187,6 +205,14 @@ else
 
 app.UseStaticFiles();
 app.UseCors();
+
+if (adminUiEnabled)
+{
+    // Before the authentication, so the admin API sees the Access Token of the admin interface's cookie as a Bearer
+    // token (TD-014).
+    app.UseMiddleware<AdminUiTokenMiddleware>();
+}
+
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();

@@ -60,6 +60,7 @@ public sealed class GetClientService(
             client.Name,
             client.Type,
             client.Status,
+            client.IsFirstParty,
             GrantTypeNames.ToNames(client.AllowedGrantTypes),
             client.AccessTokenTTL,
             client.RefreshTokenTTL,

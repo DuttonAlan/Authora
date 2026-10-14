@@ -20,8 +20,9 @@ namespace Authora.Api.Authentication;
 /// </summary>
 /// <remarks>
 ///     The token is checked in the database on every request, like the introspection endpoint does, so a revoked
-///     token, a disabled Client or a User who can no longer sign in is rejected right away. Cookies are ignored,
-///     so the API cannot be called through cross-site requests of a signed-in browser.
+///     token, a disabled Client or a User who can no longer sign in is rejected right away. Cookies are ignored
+///     (the admin interface's cookie is turned into a Bearer token before, see AdminUiTokenMiddleware), so the API
+///     cannot be called through cross-site requests of a signed-in browser.
 /// </remarks>
 /// <param name="options">The options of the scheme.</param>
 /// <param name="logger">The LoggerFactory of the handler.</param>
