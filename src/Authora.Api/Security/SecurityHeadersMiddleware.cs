@@ -31,7 +31,7 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next)
 
     /// <summary>
     ///     The policy of the admin interface: only its own files and calls to Authora, no inline scripts or styles,
-    ///     so an injected script cannot run and read the Access Token.
+    ///     so an injected script cannot run and act as the signed-in administrator.
     /// </summary>
     public const string AdminUiContentSecurityPolicy =
         "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "

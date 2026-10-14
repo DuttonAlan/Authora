@@ -12,7 +12,8 @@ This document describes how to run Authora securely (US-036): the required setti
 - [ ] The signing key is a mounted secret, readable only by the user that runs Authora, and backed up separately.
 - [ ] Migrations were applied before the start (`dotnet ef database update`, or a migration bundle or SQL script).
 - [ ] After the first sign-in of the bootstrap administrator: a new password is set and `Authora:Bootstrap:Administrator:Password` is removed (Authora logs event 7007 until it is).
-- [ ] Health checks are wired to the orchestrator, and the application logs are shipped to a log system.
+- [ ] Health checks are wired to the orchestrator, and the application logs are shipped to a separate log system (they also hold the checkpoints of the audit chain, see [admin.md](admin.md#hash-chain-td-013)).
+- [ ] With several instances, or in containers without a persistent home directory: `Authora:DataProtection:KeysPath` points to a shared, protected directory, see [Data protection keys](#data-protection-keys).
 - [ ] Database backups run and a restore was tested, see [Backup and recovery](#backup-and-recovery).
 
 ## Settings checked at startup
@@ -36,8 +37,8 @@ Further settings are described in [oauth-core.md](oauth-core.md#configuration), 
 | `POST /oauth/token`, `POST /oauth/revoke` | Clients | Client authentication (Secret or PKCE), rate limit. CORS only from origins of registered Redirect URIs. |
 | `POST /oauth/introspect` | Confidential Clients that serve a Scope | Client Secret; only tokens with a served Scope are reported active. |
 | `GET/POST /oauth/userinfo` | Clients with an Access Token with `openid` | Access Token. |
-| `/api/*` | Admin Clients, e.g. the admin interface | Access Token with `authora.admin` plus a Permission per action. Cookies are ignored. No CORS. |
-| `/admin/*` | Browsers of administrators | Static files and public settings only; all data comes from `/api/*`. |
+| `/api/*` | Admin Clients, e.g. the admin interface | Access Token with `authora.admin` plus a Permission per action. The only cookie used is that of the admin interface, and only with the header `X-Authora-Admin: 1` from the same origin. No CORS. |
+| `/admin/*` | Browsers of administrators | Static files and the backend for frontend (`/admin/signin`, `/admin/callback`, `/admin/session/*`), which keeps the tokens in an encrypted `HttpOnly` cookie; all data comes from `/api/*`. See [admin.md](admin.md#how-it-works). |
 | `GET /health`, `GET /health/live` | Load balancers, orchestrators | Public, only the overall status. |
 | `GET /health/details` | Monitoring with an admin Access Token | Permission `health.read`. |
 
@@ -72,14 +73,26 @@ The headers are only read when one of the lists is set, and only from those addr
 | `Cache-Control: no-store` | Token, revocation, introspection, UserInfo responses | Tokens are not cached. |
 | Session cookie `__Host-authora_session` | Browsers | `Secure`, `HttpOnly`, `SameSite=Lax`, no `Domain`, no expiry. The server enforces idle timeout and lifetime. |
 | Antiforgery cookie `__Host-authora_antiforgery` | Browsers | `Secure`, `HttpOnly`, `SameSite=Strict`, no `Domain`. |
+| Admin interface cookie `__Host-authora_admin` | Browsers of administrators | The Access and Refresh Token, encrypted with Data Protection. `Secure`, `HttpOnly`, `SameSite=Strict`, no `Domain`, no expiry. |
+| Admin sign-in cookie `__Host-authora_admin_signin` | Browsers of administrators | `state` and PKCE verifier of a running sign-in, encrypted. `Secure`, `HttpOnly`, `SameSite=Lax`, 10 minutes. |
 
 ### CSRF, redirects, rate limits and tokens
 
-- **CSRF:** all forms (sign-in, sign-out, consent) use antiforgery tokens. The admin API ignores cookies and only accepts Bearer tokens, so a signed-in browser cannot be abused for it. The OAuth `state` parameter protects Clients, and the admin interface checks it.
+- **CSRF:** all forms (sign-in, sign-out, consent) use antiforgery tokens. The admin API accepts Bearer tokens, and the admin interface's cookie only with the header `X-Authora-Admin: 1`, which a cross-site request cannot send without a CORS preflight that `/api/*` never allows; the cookie is also `SameSite=Strict`. The OAuth `state` parameter protects Clients, and the admin interface's backend checks it.
 - **Redirects:** Redirect URIs must match a registered URI exactly; an invalid `redirect_uri` is shown as an error and never redirected to. The sign-in page only returns to local URLs. Redirect URIs must use HTTPS, or HTTP only for `127.0.0.1` and `[::1]`.
 - **Rate limits:** sign-in attempts (10 per minute and IP address) and the token and revocation endpoints (300). A User is locked out after 5 failed sign-ins in a row. See [oauth-core.md](oauth-core.md#configuration).
 - **Tokens:** codes, Access and Refresh Tokens and Session tokens are 256-bit random values; only their SHA-256 hash is stored. Codes are single-use, Refresh Tokens rotate, and reuse revokes the Grant. Access Tokens are opaque and checked on every request, so revocation takes effect immediately. PKCE `S256` is required for all Clients. ID Tokens are signed with RS256 and live 5 minutes.
 - **Passwords:** PBKDF2-HMAC-SHA512 with 210,000 iterations; 12 to 128 characters.
+
+## Data protection keys
+
+ASP.NET Core Data Protection encrypts the antiforgery tokens and the cookies of the admin interface, which hold its Access and Refresh Token. By default, the keys are kept in the home directory of the user that runs Authora, or only in memory if there is none (e.g. in many containers). Then a restart signs every administrator out, and with several instances a cookie of one instance cannot be read by another.
+
+| Setting | Default | Description |
+|---|---|---|
+| `Authora:DataProtection:KeysPath` | not set | Directory the keys are stored in, shared by all instances, e.g. a mounted volume. |
+
+The keys are stored unencrypted (TD-015 in [tech-debt.md](tech-debt.md)). Whoever can read them can decrypt a stolen admin cookie, so restrict the directory to the user that runs Authora, like the signing key, and do not put it into the database backup.
 
 ## Database
 
@@ -92,7 +105,7 @@ dotnet ef migrations bundle --project src/Authora.Infrastructure --startup-proje
 dotnet ef migrations script --idempotent --project src/Authora.Infrastructure --startup-project src/Authora.Api -o migrate.sql
 ```
 
-Use two database users: one that owns the schemas and runs the migrations, and one for the application with `SELECT`, `INSERT`, `UPDATE` and `DELETE` on the tables of the schemas `identity`, `auth` and `audit` and nothing else. The application needs `DELETE` on `audit.events` only for the cleanup after the retention; to make the audit log append-only, revoke `UPDATE` on `audit.events` from the application user. Use TLS for the connection when the database is not on the same host (`SSL Mode=VerifyFull` in the connection string).
+Use two database users: one that owns the schemas and runs the migrations, and one for the application with `SELECT`, `INSERT`, `UPDATE` and `DELETE` on the tables of the schemas `identity`, `auth` and `audit` and nothing else. The application needs `DELETE` on `audit.events` and `audit.chain` only for the cleanup after the retention, and never `UPDATE` on them: revoke `UPDATE` on both from the application user, so the audit log and its hash chain are append-only for it. Use TLS for the connection when the database is not on the same host (`SSL Mode=VerifyFull` in the connection string).
 
 The schemas:
 
@@ -100,7 +113,7 @@ The schemas:
 |---|---|
 | `identity` | Users, Groups, Roles, Permissions, Scopes, Clients with their Redirect URIs and Secret hashes. |
 | `auth` | Sessions, Authorization Codes, Grants, Access and Refresh Tokens (hashes only). |
-| `audit` | Audit events. |
+| `audit` | Audit events and their hash chain (`audit.chain`). |
 
 ## Health checks
 
@@ -157,7 +170,7 @@ The integration tests (`tests/Authora.Api.IntegrationTests`, run in CI against P
 | Admin API authorization (every action needs the admin Scope and a Permission) | `AdminApiPolicyTests`, `AdminApiAccessTests` |
 | Concurrency rules (last administrator, memberships) | `LastAdministratorTests`, `GroupTests` |
 | Signing keys and their rotation | `SigningKeyFileTests` |
-| Audit log | `AuditLogTests` |
-| Admin interface sign-in and `/api/me` | `AdminUiTests` |
+| Audit log and its hash chain | `AuditLogTests`, `AuditChainTests` |
+| Admin interface: backend for frontend, its cookie, `/api/me`; first-party Clients | `AdminUiTests`, `FirstPartyClientTests` |
 | Headers, cookies, rate limits, production checks | `SecurityHardeningTests` |
 | Cleanup and health | `ExpiredDataCleanerTests`, `HealthEndpointTests` |

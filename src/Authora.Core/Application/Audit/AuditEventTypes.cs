@@ -190,6 +190,12 @@ public static class AuditEventTypes
 
         /// <summary>A Client Secret was revoked.</summary>
         public const string SecretRevoked = "client.secret-revoked";
+
+        /// <summary>A Client was marked as first-party, so Users are no longer asked for consent.</summary>
+        public const string MarkedFirstParty = "client.marked-first-party";
+
+        /// <summary>A Client was marked as third-party again, so Users are asked for consent.</summary>
+        public const string MarkedThirdParty = "client.marked-third-party";
     }
 
     /// <summary>

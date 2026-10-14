@@ -10,7 +10,7 @@ This document describes the OAuth 2.1 authorization server of Authora (Phase 4, 
 
 | Endpoint | Used by | Purpose |
 |---|---|---|
-| `GET /oauth/authorize` | Browser | Authorization endpoint. Validates the request, sends the User to sign in, asks for consent and redirects back with a code. |
+| `GET /oauth/authorize` | Browser | Authorization endpoint. Validates the request, sends the User to sign in, asks for consent (not for first-party Clients) and redirects back with a code. |
 | `POST /oauth/authorize` | Browser | Submits the consent form. Not called by Clients directly. |
 | `POST /oauth/token` | Client | Token endpoint. Grant types `authorization_code` and `refresh_token`. |
 | `POST /oauth/revoke` | Client | Revocation endpoint (RFC 7009). |
@@ -91,7 +91,11 @@ The request is validated before the User has to sign in, and again when the cons
 
 ### Consent policy
 
-The User is asked on every authorization request. The consent screen shows the Client Name, the Display Name and Description of every requested Scope, the signed-in User and where the browser will be sent. Decisions are not remembered. Denying sends `error=access_denied` to the Client.
+The User is asked on every authorization request of a third-party Client (the default). The consent screen shows the Client Name, the Display Name and Description of every requested Scope, the signed-in User and where the browser will be sent. Decisions are not remembered. Denying sends `error=access_denied` to the Client.
+
+**First-party Clients** (TD-012) are not asked: a signed-in User gets the code right away, also with `prompt=none`. `prompt=consent` still shows the consent screen. A first-party Client is one of the same deployment as Authora, e.g. the admin interface, which the seeder creates as first-party. Asking administrators on every sign-in to an application of their own would only train them to allow without reading.
+
+Marking a Client lets it obtain every Scope it is allowed without the User's approval, so it needs a Permission of its own, `clients.manage-first-party`, which only the administrator Role has by default: `PUT /api/clients/{id}/first-party` marks it, `DELETE` reverts it. Both are recorded in the audit log (`client.marked-first-party`, `client.marked-third-party`) and logged as events 4015 and 4016. `GET /api/clients/{id}` shows `isFirstParty`.
 
 ### Authorization response
 
@@ -217,6 +221,8 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 | 7001 – 7009 | Seeding at startup, including the Client of the admin interface |
 | 8001 – 8003 | Cleanup of expired codes, Grants, tokens, Sessions and audit events |
 | 9001 – 9005 | Signing keys loaded, reloaded or not reloadable, see [openid-connect.md](openid-connect.md#logging) |
+| 11001 – 11011 | Hash chain of the audit log: checkpoints after sealing (11001), failed sealing (11002), broken chain (11011, critical), see [admin.md](admin.md#hash-chain-td-013) |
+| 12001 – 12002 | Failed sign-in and refresh of the admin interface's backend for frontend |
 
 Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings. Reuse is also recorded in the audit log (`oauth.authorization-code-reused`, `oauth.refresh-token-reused`).
 

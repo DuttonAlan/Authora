@@ -73,6 +73,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     /// </summary>
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
+    /// <summary>
+    ///     The hash chain of the audit events (TD-013) in the <c>audit</c> schema.
+    /// </summary>
+    public DbSet<AuditChainLink> AuditChainLinks => Set<AuditChainLink>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
