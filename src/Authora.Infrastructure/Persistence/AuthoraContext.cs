@@ -29,6 +29,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<Role> Roles => Set<Role>();
 
     /// <summary>
+    ///     The Groups Table.
+    /// </summary>
+    public DbSet<Group> Groups => Set<Group>();
+
+    /// <summary>
     ///     The Permissions Table.
     /// </summary>
     public DbSet<Permission> Permissions => Set<Permission>();

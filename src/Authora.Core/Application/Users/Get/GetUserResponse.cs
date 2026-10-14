@@ -19,7 +19,7 @@ namespace Authora.Core.Application.Users.Get;
 /// <param name="LastLoginAt">Point in time (UTC) of the last successful login, or null if the User never logged in.</param>
 /// <param name="CreatedAt">Point in time (UTC) when the User was created.</param>
 /// <param name="ModifiedAt">Point in time (UTC) when the User was last modified, or null if it was never modified.</param>
-/// <param name="Roles">Roles assigned to the User.</param>
+/// <param name="Roles">Roles assigned to the User directly. The Roles the User has through Groups are returned by <c>GET /api/users/{id}/roles</c>.</param>
 public sealed record GetUserResponse(
     Guid Id,
     string Email,

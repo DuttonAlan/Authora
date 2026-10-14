@@ -12,7 +12,7 @@ namespace Authora.Infrastructure.Persistence;
 internal static class Schemas
 {
     /// <summary>
-    ///     Users, Clients, Roles, Permissions and Scopes.
+    ///     Users, Groups, Clients, Roles, Permissions and Scopes.
     /// </summary>
     public const string Identity = "identity";
 

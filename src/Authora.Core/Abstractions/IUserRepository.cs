@@ -26,7 +26,7 @@ public interface IUserRepository
     public Task<Guid> CreateUser(User user, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Get a User by Id, including its Roles.
+    ///     Get a User by Id, including its Roles and Groups (without the Roles of the Groups).
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -42,7 +42,8 @@ public interface IUserRepository
     public Task<User?> GetUserByNormalizedEmail(string normalizedEmail, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Get a User by Id, including its Roles and their Permissions. The User is not tracked.
+    ///     Get a User by Id, including its Roles, its Groups with their Roles, and the Permissions of all these Roles.
+    ///     The User is not tracked.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

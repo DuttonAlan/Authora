@@ -37,7 +37,9 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     public async Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Users
+            .AsSplitQuery()
             .Include(user => user.Roles)
+            .Include(user => user.Groups)
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
 
@@ -55,6 +57,9 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
             .AsNoTracking()
             .AsSplitQuery()
             .Include(user => user.Roles)
+            .ThenInclude(role => role.Permissions)
+            .Include(user => user.Groups)
+            .ThenInclude(group => group.Roles)
             .ThenInclude(role => role.Permissions)
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
