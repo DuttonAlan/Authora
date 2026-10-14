@@ -32,6 +32,7 @@ Discovery, ID Tokens, JWKS and UserInfo are described in [openid-connect.md](ope
 | `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment, no trailing `/`. Returned as `iss`. Startup fails if it is missing or invalid. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | Lifetime of Authorization Codes, at most 10 minutes. |
 | `Authora:OAuth:CorsOriginsCacheDuration` | `00:01:00` | How long the CORS origins of `/oauth/token` and `/oauth/revoke` are cached, at most 1 hour. `00:00:00` disables the cache. |
+| `Authora:OAuth:GrantLifetime` | `90.00:00:00` | Absolute lifetime of a Grant from the exchange of the code, at most 365 days. No Access or Refresh Token of the Grant expires later, so rotating Refresh Tokens cannot keep it alive; afterwards the User has to approve the Client again. |
 | `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. At most 24 hours. |
 | `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. At most 7 days. |
 | `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. 1 to 100. |
@@ -152,21 +153,21 @@ erDiagram
 |---|---|---|
 | `Session` | `auth.sessions` | Browser Session of a signed-in User at Authora. The cookie holds the token, the table its hash. |
 | `AuthorizationCode` | `auth.authorization_codes` | Code issued by `/oauth/authorize`. Bound to the Client, User, `SecurityStamp`, Redirect URI, Scopes and PKCE code challenge. |
-| `Grant` | `auth.grants` | The approval of a User for a Client, created when a code is exchanged. All tokens issued from the code and its Refresh Tokens belong to it, so they can be revoked together. |
+| `Grant` | `auth.grants` | The approval of a User for a Client, created when a code is exchanged. All tokens issued from the code and its Refresh Tokens belong to it, so they can be revoked together. Expires after `Authora:OAuth:GrantLifetime`; no token of it expires later. |
 | `AccessToken` | `auth.access_tokens` | Access Token. Its Scopes can be narrower than the Grant's. |
 | `RefreshToken` | `auth.refresh_tokens` | Refresh Token. Always has the Scopes of its Grant. |
 
 A token is active only if all of these hold:
 
 1. It exists, is not expired and not revoked.
-2. Its Grant is not revoked.
+2. Its Grant is neither revoked nor expired.
 3. Its Client exists and is enabled.
 4. Its User can sign in (`Active` or `Inactive`, has a password) and still has the `SecurityStamp` the Grant was created with.
 
 ### Single use and rotation
 
 - **Authorization Codes** are consumed with a single atomic `UPDATE … WHERE "ConsumedAt" IS NULL` before any other check, so a code can only be used once, even by concurrent requests, and even if the first attempt fails (e.g. a wrong `code_verifier`). A code that is used again revokes the Grant created from it (OAuth 2.1, Section 4.1.3).
-- **Refresh Tokens** are rotated: every use consumes the token atomically and returns a new one. A consumed Refresh Token that is used again revokes the whole Grant, including the Access Tokens (OAuth 2.1, Section 4.3.1).
+- **Refresh Tokens** are rotated: every use consumes the token atomically and returns a new one, which expires after the Client's Refresh Token TTL or with the Grant, whichever is earlier. A consumed Refresh Token that is used again revokes the whole Grant, including the Access Tokens (OAuth 2.1, Section 4.3.1).
 - **Scopes** of a refresh can be narrowed, never widened. Scopes that an administrator disallowed for the Client in the meantime are dropped.
 
 ### Revocation (RFC 7009)

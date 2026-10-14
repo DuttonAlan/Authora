@@ -9,6 +9,7 @@ using Authora.Api.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting.Internal;
 
 namespace Authora.Api.IntegrationTests;
 
@@ -82,11 +83,13 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
         Assert.Equal([HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests], statusCodes);
     }
 
-    [Fact]
-    public void ProductionEnvironment_WithInsecureSettings_DoesNotStart()
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void DeployedEnvironment_WithInsecureSettings_DoesNotStart(string environmentName)
     {
         // appsettings.json allows every host.
-        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment(environmentName));
 
         var exception = Assert.ThrowsAny<Exception>(() => production.Server);
 
@@ -128,6 +131,47 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
 
         Assert.Empty(settings.Validate());
         Assert.True(settings.IsEnabled);
+    }
+
+    [Theory]
+    [InlineData("0.0.0.0/0")]
+    [InlineData("0.0.0.0/7")]
+    [InlineData("::/0")]
+    [InlineData("::/6")]
+    [InlineData("::/80")]
+    [InlineData("::ffff:0:0/96")]
+    [InlineData("::ffff:0:0/103")]
+    public void ForwardedHeaders_RejectNetworksThatTrustAlmostEveryone(string network)
+    {
+        var settings = new ForwardedHeadersSettings { KnownNetworks = [network] };
+
+        Assert.Contains(settings.Validate(), failure => failure.Contains("broader than", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("10.0.0.0/8")]
+    [InlineData("172.16.0.0/12")]
+    [InlineData("fc00::/7")]
+    [InlineData("2001:db8::/32")]
+    [InlineData("::ffff:10.0.0.0/104")]
+    public void ForwardedHeaders_AcceptPrivateNetworks(string network)
+    {
+        var settings = new ForwardedHeadersSettings { KnownNetworks = [network] };
+
+        Assert.Empty(settings.Validate());
+    }
+
+    [Theory]
+    [InlineData("Development", false)]
+    [InlineData("Testing", false)]
+    [InlineData("Production", true)]
+    [InlineData("Staging", true)]
+    [InlineData("Prod", true)]
+    public void ProductionCheck_AppliesToEveryEnvironmentExceptDevelopmentAndTesting(string environmentName, bool expected)
+    {
+        var environment = new HostingEnvironment { EnvironmentName = environmentName };
+
+        Assert.Equal(expected, ProductionSettingsCheck.AppliesTo(environment));
     }
 
     private static IConfiguration Configuration(string issuer, string allowedHosts)

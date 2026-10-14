@@ -41,4 +41,16 @@ public sealed class OAuthOptions
     ///     Maximum of <see cref="CorsOriginsCacheDuration"/>.
     /// </summary>
     public static readonly TimeSpan MaxCorsOriginsCacheDuration = TimeSpan.FromHours(1);
+
+    /// <summary>
+    ///     Absolute lifetime of a Grant, counted from the exchange of the Authorization Code. Rotating Refresh Tokens
+    ///     never extend it: no Access or Refresh Token of the Grant expires later, so the User has to approve the
+    ///     Client again afterwards. Defaults to 90 days, at most <see cref="MaxGrantLifetime"/>.
+    /// </summary>
+    public TimeSpan GrantLifetime { get; set; } = TimeSpan.FromDays(90);
+
+    /// <summary>
+    ///     Maximum of <see cref="GrantLifetime"/>.
+    /// </summary>
+    public static readonly TimeSpan MaxGrantLifetime = TimeSpan.FromDays(365);
 }

@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using Authora.Api.AdminUi;
 using Authora.Api.RateLimiting;
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account;
 using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.AdminUi.GetSettings;
 using Authora.Core.Application.OAuth;
@@ -43,6 +44,7 @@ namespace Authora.Api.Controllers;
 /// <param name="cookies">Reads and writes the encrypted cookies.</param>
 /// <param name="secretGenerator">Generates the <c>state</c> and the <c>code_verifier</c>.</param>
 /// <param name="oauthOptions">The OAuth settings with the Issuer.</param>
+/// <param name="signInOptions">The sign-in settings with the Session lifetime, which also limits refreshes.</param>
 /// <param name="timeProvider">The clock for the issue time of the tokens.</param>
 /// <param name="logger">The Logger to record failed sign-ins.</param>
 [ApiController]
@@ -55,6 +57,7 @@ public sealed partial class AdminUiController(
     AdminUiCookies cookies,
     ISecretGenerator secretGenerator,
     IOptions<OAuthOptions> oauthOptions,
+    IOptions<SignInOptions> signInOptions,
     TimeProvider timeProvider,
     ILogger<AdminUiController> logger) : ControllerBase
 {
@@ -199,7 +202,8 @@ public sealed partial class AdminUiController(
             return RedirectToAdminUi(signIn.ReturnTo, SignInFailedError);
         }
 
-        cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, timeProvider.GetUtcNow()));
+        var now = timeProvider.GetUtcNow();
+        cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, now));
 
         return RedirectToAdminUi(signIn.ReturnTo, error: null);
     }
@@ -253,6 +257,16 @@ public sealed partial class AdminUiController(
             return Unauthorized();
         }
 
+        // The Session the User signed in with has ended by now, so refreshing further would keep the admin interface
+        // signed in longer than any Session may last. Signing in again needs the password once the Session is gone.
+        if (now - current.SignedInAt >= signInOptions.Value.SessionLifetime)
+        {
+            AdminUiCookies.DeleteTokens(Response);
+            await RevokeAsync(settings, current, cancellationToken);
+
+            return Unauthorized();
+        }
+
         try
         {
             var tokens = await issueTokenService.ExecuteAsync(
@@ -266,7 +280,7 @@ public sealed partial class AdminUiController(
                     new ClientCredentials(settings.ClientId.ToString(), ClientSecret: null)),
                 cancellationToken);
 
-            cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now));
+            cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, current.SignedInAt));
 
             return NoContent();
         }
@@ -305,19 +319,26 @@ public sealed partial class AdminUiController(
 
         if (settings is not null && cookies.TryReadTokens(Request, out var tokens))
         {
-            // Revoking the Refresh Token revokes the whole Grant, including the Access Token.
-            var (token, hint) = tokens.RefreshToken is null
-                ? (tokens.AccessToken, TokenTypeHints.AccessToken)
-                : (tokens.RefreshToken, TokenTypeHints.RefreshToken);
-
-            await revokeTokenService.ExecuteAsync(
-                new ClientCredentials(settings.ClientId.ToString(), ClientSecret: null),
-                token,
-                hint,
-                cancellationToken);
+            await RevokeAsync(settings, tokens, cancellationToken);
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    ///     Revokes the tokens of the cookie. Revoking the Refresh Token revokes the whole Grant, including the Access Token.
+    /// </summary>
+    private async Task RevokeAsync(AdminUiSettingsResponse settings, AdminUiTokens tokens, CancellationToken cancellationToken)
+    {
+        var (token, hint) = tokens.RefreshToken is null
+            ? (tokens.AccessToken, TokenTypeHints.AccessToken)
+            : (tokens.RefreshToken, TokenTypeHints.RefreshToken);
+
+        await revokeTokenService.ExecuteAsync(
+            new ClientCredentials(settings.ClientId.ToString(), ClientSecret: null),
+            token,
+            hint,
+            cancellationToken);
     }
 
     /// <summary>
