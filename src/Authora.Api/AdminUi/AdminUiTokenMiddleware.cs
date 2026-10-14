@@ -51,6 +51,11 @@ internal sealed class AdminUiTokenMiddleware(RequestDelegate next, AdminUiCookie
     /// <summary>
     ///     Whether the request is same-origin according to the Fetch Metadata the browser sends, if it sends any.
     /// </summary>
+    /// <remarks>
+    ///     A request without <c>Sec-Fetch-Site</c> passes on purpose: older browsers (e.g. Safari before 16.4) do not
+    ///     send it. This check is only defense in depth; <see cref="HeaderName"/> and the <c>SameSite=Strict</c>
+    ///     cookie are what stop cross-site requests, also in those browsers.
+    /// </remarks>
     private static bool IsSameOrigin(HttpRequest request)
     {
         var site = request.Headers["Sec-Fetch-Site"].ToString();

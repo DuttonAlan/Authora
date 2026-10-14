@@ -18,13 +18,13 @@ This document describes how to run Authora securely (US-036): the required setti
 
 ## Settings checked at startup
 
-Authora does not start if a setting is invalid. Every options class has a validator (`ValidateOnStart`), and the key files are loaded at startup. In the `Production` environment, these settings are also required:
+Authora does not start if a setting is invalid. Every options class has a validator (`ValidateOnStart`), and the key files are loaded at startup. In every environment except `Development` and `Testing` (so also in e.g. `Staging`), these settings are also required:
 
 | Setting | Requirement |
 |---|---|
-| `Authora:OAuth:Issuer` | HTTPS. Outside Production, HTTP is allowed for loopback hosts. |
+| `Authora:OAuth:Issuer` | HTTPS. In `Development` and `Testing`, HTTP is allowed for loopback hosts. |
 | `AllowedHosts` | Set and without `*`. Host filtering rejects requests with another `Host` header. `appsettings.json` contains `*` for development, so it must be overridden, e.g. `AllowedHosts=auth.example.com`. |
-| `Authora:ForwardedHeaders` | Valid IP addresses and CIDR networks (in every environment). |
+| `Authora:ForwardedHeaders` | Valid IP addresses and CIDR networks, none broader than `/8` (IPv4) or `/7` (IPv6), and none that contains every IPv4-mapped address (`::ffff:0:0/96`); in every environment. |
 
 Further settings are described in [oauth-core.md](oauth-core.md#configuration), [openid-connect.md](openid-connect.md#configuration) and [admin.md](admin.md#configuration). Swagger UI and the OpenAPI document are only available in `Development`.
 
@@ -55,7 +55,7 @@ Behind a reverse proxy that terminates TLS, Authora must trust the proxy's `X-Fo
 | Setting | Default | Description |
 |---|---|---|
 | `Authora:ForwardedHeaders:KnownProxies` | `[]` | IP addresses of the proxies, e.g. `10.0.0.5`. |
-| `Authora:ForwardedHeaders:KnownNetworks` | `[]` | Networks of the proxies in CIDR notation, e.g. `10.0.0.0/24`. |
+| `Authora:ForwardedHeaders:KnownNetworks` | `[]` | Networks of the proxies in CIDR notation, e.g. `10.0.0.0/24`. At most as broad as `/8` (IPv4) or `/7` (IPv6), so `0.0.0.0/0` or `::/0` cannot make every client a trusted proxy. |
 | `Authora:ForwardedHeaders:ForwardLimit` | `1` | Number of proxies in front of Authora, 1 to 10. |
 
 The headers are only read when one of the lists is set, and only from those addresses, so nobody else can fake their IP address. The proxy must overwrite (not append to) `X-Forwarded-For` from the client, and forward the original `Host` header.

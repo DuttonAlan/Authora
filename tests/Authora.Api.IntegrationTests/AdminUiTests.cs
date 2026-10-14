@@ -10,6 +10,7 @@ using Authora.Api.AdminUi;
 using Authora.Api.Authentication;
 using Authora.Api.Controllers;
 using Authora.Api.Security;
+using Authora.Core.Application.Account;
 using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Users.GetCurrent;
@@ -226,10 +227,30 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
         Assert.NotEqual(tokensCookie, refreshedCookie);
         await GetMeAsync(refreshedCookie);
 
+        // A refresh does not move the sign-in time, so refreshing cannot extend the admin interface's lifetime.
+        Assert.Equal(ReadTokens(tokensCookie).SignedInAt, ReadTokens(refreshedCookie).SignedInAt);
+
         // The Refresh Token was rotated: the old one counts as reuse and revokes the Grant.
         using var reuse = await SendAsync(HttpMethod.Post, "/admin/session/refresh", olderCookie, AddAdminHeader);
 
         Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_AfterSessionLifetime_RevokesTheGrantAndIsUnauthorized()
+    {
+        var tokensCookie = await SignInAsync();
+        var expiredCookie = Age(tokensCookie, new SignInOptions().SessionLifetime);
+
+        using var response = await SendAsync(HttpMethod.Post, "/admin/session/refresh", expiredCookie, AddAdminHeader);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains("expires=Thu, 01 Jan 1970", GetSetCookie(response, AdminUiCookies.TokensName), StringComparison.OrdinalIgnoreCase);
+
+        // The Grant is revoked, so the Access Token still in the old cookie stops working too.
+        using var me = await SendAsync(HttpMethod.Get, "/api/me", tokensCookie, AddAdminHeader);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
     }
 
     [Fact]
@@ -339,20 +360,31 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
     }
 
     /// <summary>
-    ///     Writes the tokens of a cookie again as if they were issued a minute ago, so a refresh is not skipped.
+    ///     Writes the tokens of a cookie again as if they were issued a minute ago, so a refresh is not skipped, and
+    ///     optionally as if the User signed in earlier.
     /// </summary>
-    private string Age(string tokensCookie)
+    private string Age(string tokensCookie, TimeSpan? signedInEarlier = null)
     {
         var cookies = factory.Services.GetRequiredService<AdminUiCookies>();
-
-        var request = new DefaultHttpContext().Request;
-        request.Headers.Cookie = tokensCookie;
-        Assert.True(cookies.TryReadTokens(request, out var tokens));
+        var tokens = ReadTokens(tokensCookie);
 
         var context = new DefaultHttpContext();
-        cookies.AppendTokens(context.Response, tokens with { IssuedAt = tokens.IssuedAt.AddMinutes(-1) });
+        cookies.AppendTokens(context.Response, tokens with
+        {
+            IssuedAt = tokens.IssuedAt.AddMinutes(-1),
+            SignedInAt = tokens.SignedInAt - (signedInEarlier ?? TimeSpan.Zero)
+        });
 
         return CookiePair(context.Response.Headers.SetCookie.Single()!);
+    }
+
+    private AdminUiTokens ReadTokens(string tokensCookie)
+    {
+        var request = new DefaultHttpContext().Request;
+        request.Headers.Cookie = tokensCookie;
+        Assert.True(factory.Services.GetRequiredService<AdminUiCookies>().TryReadTokens(request, out var tokens));
+
+        return tokens;
     }
 
     private async Task<GetCurrentUserResponse> GetMeAsync(string tokensCookie)

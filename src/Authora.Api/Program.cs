@@ -99,7 +99,7 @@ var forwardedHeaders = builder.Configuration.GetSection(ForwardedHeadersSettings
     ?? new ForwardedHeadersSettings();
 var startupFailures = forwardedHeaders.Validate().ToList();
 
-if (builder.Environment.IsProduction())
+if (ProductionSettingsCheck.AppliesTo(builder.Environment))
 {
     startupFailures.AddRange(ProductionSettingsCheck.Validate(builder.Configuration));
 }
