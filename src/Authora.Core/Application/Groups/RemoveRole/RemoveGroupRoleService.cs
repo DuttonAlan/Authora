@@ -44,7 +44,20 @@ public sealed class RemoveGroupRoleService(
 
         group.RemoveRole(role.Id);
 
-        await groupRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await groupRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            // A concurrent request may have removed the same Role first, which is the requested result.
+            if (!await groupRepository.HasRole(group.Id, role.Id, cancellationToken))
+            {
+                return;
+            }
+
+            throw;
+        }
 
         logger.GroupRoleRemoved(group.Id, group.Name, role.Id, role.Name);
     }

@@ -124,6 +124,6 @@ public interface IUserRepository
     /// </remarks>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the changes are saved.</returns>
-    /// <exception cref="Application.Exceptions.ConflictException">Thrown when another request changed a User meanwhile.</exception>
+    /// <exception cref="Application.Exceptions.ConflictException">Thrown when another request changed a User meanwhile, or a unique index was violated (e.g. a concurrent request added the same Group membership first).</exception>
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

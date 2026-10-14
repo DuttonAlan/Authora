@@ -17,7 +17,7 @@ internal static partial class GroupLog
     [LoggerMessage(EventId = 10002, Level = LogLevel.Information, Message = "Group {GroupId} ({GroupName}) was updated.")]
     public static partial void GroupUpdated(this ILogger logger, Guid groupId, string groupName);
 
-    [LoggerMessage(EventId = 10003, Level = LogLevel.Warning, Message = "Group {GroupId} ({GroupName}) was deleted and {MemberCount} Users lost its Roles.")]
+    [LoggerMessage(EventId = 10003, Level = LogLevel.Warning, Message = "Group {GroupId} ({GroupName}) was deleted and {MemberCount} memberships ended.")]
     public static partial void GroupDeleted(this ILogger logger, Guid groupId, string groupName, int memberCount);
 
     [LoggerMessage(EventId = 10004, Level = LogLevel.Information, Message = "Role {RoleId} ({RoleName}) was assigned to Group {GroupId} ({GroupName}).")]

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Paging;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -87,8 +88,35 @@ public sealed class GroupRepository(AuthoraContext context) : IGroupRepository
     }
 
     /// <inheritdoc/>
+    public async Task<bool> HasRole(Guid groupId, Guid roleId, CancellationToken cancellationToken = default)
+    {
+        return await context.Groups
+            .AnyAsync(group => group.Id == groupId && group.Roles.Any(role => role.Id == roleId), cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> IsMember(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await context.Users
+            .AnyAsync(user => user.Id == userId && user.Groups.Any(group => group.Id == groupId), cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            // E.g. a concurrent request removed the same Role first, so the delete matched no row.
+            throw new ConflictException("The Group was changed by another request. Load it again and retry.", exception);
+        }
+        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
+        {
+            // E.g. a concurrent request assigned the same Role first.
+            throw new ConflictException(DbUpdateExceptionExtensions.UniqueViolationMessage, exception);
+        }
     }
 }

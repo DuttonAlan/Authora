@@ -186,6 +186,11 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
 
             throw new ConflictException("The User was changed by another request. Load it again and retry.", exception);
         }
+        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
+        {
+            // E.g. a concurrent request added the same Group membership first. Services can then check the result.
+            throw new ConflictException(DbUpdateExceptionExtensions.UniqueViolationMessage, exception);
+        }
     }
 
     /// <summary>

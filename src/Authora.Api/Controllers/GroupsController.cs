@@ -56,7 +56,8 @@ public sealed class GroupsController(
     ///     Creates a Group.
     /// </summary>
     /// <remarks>
-    ///     Leading and trailing whitespace is trimmed from all fields before the Group is saved.
+    ///     Leading and trailing whitespace is trimmed from the Display Name and the Description before the Group is
+    ///     saved. The Name must not contain whitespace.
     ///     New Groups have no Roles and no members.
     /// </remarks>
     /// <param name="request">The request to create the Group.</param>
@@ -164,7 +165,8 @@ public sealed class GroupsController(
     /// <remarks>
     ///     This is a partial update: only fields that are set in the request are changed,
     ///     fields that are null or missing are left unchanged. An empty Description removes it.
-    ///     Leading and trailing whitespace is trimmed from all set fields.
+    ///     Leading and trailing whitespace is trimmed from the Display Name and the Description.
+    ///     The Name must not contain whitespace.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-4b1e2a7c9d01">Id of the Group.</param>
     /// <param name="request">The request to update the Group.</param>

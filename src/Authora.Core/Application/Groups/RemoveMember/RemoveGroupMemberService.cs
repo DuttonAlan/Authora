@@ -14,9 +14,11 @@ namespace Authora.Core.Application.Groups.RemoveMember;
 ///     The Service to remove a User from a Group.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
+/// <param name="groupRepository">An Instance of a IGroupRepository to check the membership after a conflict.</param>
 /// <param name="logger">The Logger to record the removal.</param>
 public sealed class RemoveGroupMemberService(
     IUserRepository userRepository,
+    IGroupRepository groupRepository,
     ILogger<RemoveGroupMemberService> logger)
 {
     /// <summary>
@@ -48,7 +50,20 @@ public sealed class RemoveGroupMemberService(
 
         user.LeaveGroup(group.Id);
 
-        await userRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await userRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            // A concurrent request may have removed the same membership first, which is the requested result.
+            if (!await groupRepository.IsMember(group.Id, user.Id, cancellationToken))
+            {
+                return;
+            }
+
+            throw;
+        }
 
         logger.MemberRemoved(group.Id, group.Name, user.Id);
     }
