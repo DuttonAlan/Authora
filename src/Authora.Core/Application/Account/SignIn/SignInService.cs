@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
+using Authora.Core.Domain.Enums;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,6 +28,7 @@ namespace Authora.Core.Application.Account.SignIn;
 /// <param name="secretHasher">The hasher for the stored Session token.</param>
 /// <param name="timeProvider">The TimeProvider for the lockout and the Session lifetime.</param>
 /// <param name="options">The sign-in settings.</param>
+/// <param name="auditLog">The audit log to record sign-ins and lockouts.</param>
 /// <param name="logger">The Logger to record sign-ins.</param>
 public sealed class SignInService(
     IUserRepository userRepository,
@@ -35,6 +38,7 @@ public sealed class SignInService(
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
     IOptions<SignInOptions> options,
+    IAuditLog auditLog,
     ILogger<SignInService> logger)
 {
     // How often a sign-in is tried when the User is changed by another request at the same time.
@@ -86,6 +90,9 @@ public sealed class SignInService(
             VerifyDummyPassword(password);
             logger.SignInFailedUnknownUser();
 
+            // The Email is not recorded: it may be a password typed into the wrong field.
+            await RecordFailureAsync(userId: null, "Unknown Email", cancellationToken);
+
             return SignInResult.Failed;
         }
 
@@ -93,6 +100,7 @@ public sealed class SignInService(
         {
             VerifyDummyPassword(password);
             logger.SignInFailed(user.Id, "the User is locked out");
+            await RecordFailureAsync(user.Id, "The User is locked out", cancellationToken);
 
             return SignInResult.Failed;
         }
@@ -101,6 +109,7 @@ public sealed class SignInService(
         {
             VerifyDummyPassword(password);
             logger.SignInFailed(user.Id, "the User cannot sign in");
+            await RecordFailureAsync(user.Id, "The User cannot sign in", cancellationToken);
 
             return SignInResult.Failed;
         }
@@ -118,10 +127,15 @@ public sealed class SignInService(
                 cancellationToken);
 
             logger.SignInFailed(user.Id, "wrong password");
+            await RecordFailureAsync(user.Id, "Wrong password", cancellationToken);
 
             if (lockoutEndAt > now)
             {
                 logger.LockedOut(user.Id, lockoutEndAt.Value);
+
+                await auditLog.RecordNowAsync(
+                    AuditEntry.ForUser(AuditEventTypes.Account.LockedOut, user.Id, $"Until {lockoutEndAt.Value:O}"),
+                    cancellationToken);
             }
 
             return SignInResult.Failed;
@@ -140,11 +154,23 @@ public sealed class SignInService(
         var sessionToken = secretGenerator.Generate();
         var session = Session.Create(user, secretHasher.Hash(sessionToken), now, options.Value.SessionLifetime);
 
+        // Recorded after the User was saved: a retry after a conflict must not record the sign-in twice.
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.SignIn, user.Id, $"Session {session.Id}"));
+
         await sessionRepository.CreateSession(session, cancellationToken);
 
         logger.SignedIn(user.Id, session.Id);
 
         return new SignInResult(sessionToken);
+    }
+
+    private async Task RecordFailureAsync(Guid? userId, string reason, CancellationToken cancellationToken)
+    {
+        var entry = userId is null
+            ? new AuditEntry(AuditEventTypes.Account.SignIn, Details: reason)
+            : AuditEntry.ForUser(AuditEventTypes.Account.SignIn, userId.Value, reason);
+
+        await auditLog.RecordNowAsync(entry with { Outcome = AuditOutcome.Failed }, cancellationToken);
     }
 
     private void VerifyDummyPassword(string password)

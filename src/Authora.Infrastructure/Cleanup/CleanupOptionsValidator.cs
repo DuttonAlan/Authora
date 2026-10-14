@@ -29,6 +29,11 @@ public sealed class CleanupOptionsValidator : IValidateOptions<CleanupOptions>
             failures.Add($"'{section}:{nameof(CleanupOptions.Retention)}' must be at least {CleanupOptions.MinRetention}.");
         }
 
+        if (options.AuditRetention < CleanupOptions.MinAuditRetention)
+        {
+            failures.Add($"'{section}:{nameof(CleanupOptions.AuditRetention)}' must be at least {CleanupOptions.MinAuditRetention}.");
+        }
+
         if (options.BatchSize is < 1 or > CleanupOptions.MaxBatchSize)
         {
             failures.Add($"'{section}:{nameof(CleanupOptions.BatchSize)}' must be between 1 and {CleanupOptions.MaxBatchSize}.");

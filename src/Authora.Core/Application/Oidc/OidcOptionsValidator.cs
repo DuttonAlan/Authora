@@ -39,6 +39,13 @@ public sealed class OidcOptionsValidator : IValidateOptions<OidcOptions>
                 + $"and at most {OidcOptions.MaxIdTokenLifetime}.");
         }
 
+        if (options.KeyReloadInterval < OidcOptions.MinKeyReloadInterval || options.KeyReloadInterval > OidcOptions.MaxKeyReloadInterval)
+        {
+            failures.Add(
+                $"'{OidcOptions.SectionName}:{nameof(OidcOptions.KeyReloadInterval)}' must be between "
+                + $"{OidcOptions.MinKeyReloadInterval} and {OidcOptions.MaxKeyReloadInterval}.");
+        }
+
         return failures.Count > 0 ? ValidateOptionsResult.Fail(failures) : ValidateOptionsResult.Success;
     }
 }

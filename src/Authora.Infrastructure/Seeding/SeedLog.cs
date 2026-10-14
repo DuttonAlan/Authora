@@ -31,4 +31,10 @@ internal static partial class SeedLog
 
     [LoggerMessage(EventId = 7007, Level = LogLevel.Warning, Message = "An administrator already exists, but a bootstrap password is still configured. Remove 'Authora:Bootstrap:Administrator:Password' from the configuration.")]
     public static partial void BootstrapPasswordNotRemoved(this ILogger logger);
+
+    [LoggerMessage(EventId = 7008, Level = LogLevel.Information, Message = "Created the Public Client {ClientId} of the admin interface with the Redirect URI {RedirectUri}.")]
+    public static partial void AdminUiClientCreated(this ILogger logger, Guid clientId, string redirectUri);
+
+    [LoggerMessage(EventId = 7009, Level = LogLevel.Warning, Message = "The Client of the admin interface was not created, because its Redirect URI {RedirectUri} is invalid: {Reason} The admin interface cannot be used.")]
+    public static partial void AdminUiClientNotCreated(this ILogger logger, string redirectUri, string reason);
 }

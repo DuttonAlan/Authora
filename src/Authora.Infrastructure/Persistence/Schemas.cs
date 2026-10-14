@@ -22,6 +22,11 @@ internal static class Schemas
     public const string Auth = "auth";
 
     /// <summary>
+    ///     The audit log. A schema of its own, so database permissions can allow the application only to insert.
+    /// </summary>
+    public const string Audit = "audit";
+
+    /// <summary>
     ///     Maximum length of a stored hash of a code or token (SHA-256, Base64Url encoded: 43 characters).
     /// </summary>
     public const int HashMaxLength = 64;

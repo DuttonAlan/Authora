@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Authora.Core.Application.Clients.RevokeSecret;
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="timeProvider">The TimeProvider for the revocation time.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the revocation.</param>
 public sealed class RevokeClientSecretService(
     IClientRepository clientRepository,
     TimeProvider timeProvider,
+    IAuditLog auditLog,
     ILogger<RevokeClientSecretService> logger)
 {
     /// <summary>
@@ -46,6 +49,7 @@ public sealed class RevokeClientSecretService(
         }
 
         client.RevokeSecret(secret.Id, timeProvider.GetUtcNow().UtcDateTime);
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.SecretRevoked, client.Id, $"Secret {secret.Id}"));
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

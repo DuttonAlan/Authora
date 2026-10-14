@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Authora.Core.Application.Groups.AssignRole;
 /// </summary>
 /// <param name="groupRepository">An Instance of a IGroupRepository to change the Group.</param>
 /// <param name="roleRepository">An Instance of a IRoleRepository to get the Role.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the assignment.</param>
 public sealed class AssignGroupRoleService(
     IGroupRepository groupRepository,
     IRoleRepository roleRepository,
+    IAuditLog auditLog,
     ILogger<AssignGroupRoleService> logger)
 {
     /// <summary>
@@ -52,6 +55,7 @@ public sealed class AssignGroupRoleService(
         }
 
         group.AssignRole(role);
+        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.RoleAssigned, group.Id, $"Role '{role.Name}' ({role.Id})"));
 
         try
         {

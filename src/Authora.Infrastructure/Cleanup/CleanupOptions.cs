@@ -5,7 +5,7 @@
 namespace Authora.Infrastructure.Cleanup;
 
 /// <summary>
-///     Settings of the cleanup of expired Authorization Codes, Grants, tokens and Sessions, bound from the section
+///     Settings of the cleanup of expired Authorization Codes, Grants, tokens, Sessions and audit events, bound from the section
 ///     <see cref="SectionName"/>.
 /// </summary>
 public sealed class CleanupOptions
@@ -19,6 +19,11 @@ public sealed class CleanupOptions
     ///     Minimum of <see cref="Retention"/>.
     /// </summary>
     public static readonly TimeSpan MinRetention = TimeSpan.FromDays(1);
+
+    /// <summary>
+    ///     Minimum of <see cref="AuditRetention"/>.
+    /// </summary>
+    public static readonly TimeSpan MinAuditRetention = TimeSpan.FromDays(30);
 
     /// <summary>
     ///     Maximum of <see cref="BatchSize"/>.
@@ -45,4 +50,9 @@ public sealed class CleanupOptions
     ///     Defaults to 1000, at most <see cref="MaxBatchSize"/>.
     /// </summary>
     public int BatchSize { get; set; } = 1000;
+
+    /// <summary>
+    ///     How long audit events are kept (US-034). Defaults to 365 days, at least <see cref="MinAuditRetention"/>.
+    /// </summary>
+    public TimeSpan AuditRetention { get; set; } = TimeSpan.FromDays(365);
 }

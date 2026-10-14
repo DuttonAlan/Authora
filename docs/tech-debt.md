@@ -2,7 +2,7 @@
 
 Shortcuts and temporary decisions that were taken on purpose and must be resolved later. Bugs (unintended behaviour) are tracked as GitHub issues.
 
-When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and replace "To resolve" with a short "Resolution". IDs are never reused, so the next entry is **TD-012**.
+When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and replace "To resolve" with a short "Resolution". IDs are never reused, so the next entry is **TD-015**.
 
 | ID | Title | Status |
 |---|---|---|
@@ -16,7 +16,10 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-008](#td-008-expired-codes-tokens-and-sessions-are-never-deleted) | Expired codes, tokens and Sessions are never deleted | Resolved (2026-10-12) |
 | [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Resolved (2026-10-12) |
 | [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Resolved (2026-10-12) |
-| [TD-011](#td-011-signing-keys-are-only-read-at-startup) | Signing keys are only read at startup | Open |
+| [TD-011](#td-011-signing-keys-are-only-read-at-startup) | Signing keys are only read at startup | Resolved (2026-10-14) |
+| [TD-012](#td-012-the-admin-interface-asks-for-consent-on-every-sign-in) | The admin interface asks for consent on every sign-in | Open |
+| [TD-013](#td-013-audit-events-can-be-changed-with-database-access) | Audit events can be changed with database access | Open |
+| [TD-014](#td-014-the-admin-interface-keeps-its-tokens-in-the-browser) | The admin interface keeps its tokens in the browser | Open |
 
 ## TD-001: Users can be created without a password
 
@@ -100,8 +103,32 @@ Access Tokens have no audience, so any enabled Confidential Client could learn t
 
 ## TD-011: Signing keys are only read at startup
 
-**Status:** Open · **Area:** OpenID Connect (`PemSigningKeyProvider`)
+**Status:** Resolved (2026-10-14) · **Area:** OpenID Connect (`PemSigningKeyProvider`)
 
-The ID Token signing key and the keys published for rotation are read from PEM files once at startup. Every rotation step (publish the new key, switch the signing key, remove the old key) needs a restart of all instances, and the operator has to time the steps by hand, see [openid-connect.md](openid-connect.md#key-rotation).
+The ID Token signing key and the keys published for rotation are read from PEM files once at startup. Every rotation step (publish the new key, switch the signing key, remove the old key) needs a restart of all instances, and the operator has to time the steps by hand, see [openid-connect.md](openid-connect.md#key-rotation-us-035).
 
-**To resolve:** reload the key files when they change (e.g. `IOptionsMonitor` and a file watcher), or store the keys encrypted and rotate them automatically on a schedule.
+**Resolution:** `SigningKeyReloadService` reloads the key files and paths every `Authora:Oidc:KeyReloadInterval` (default 1 minute) through `IOptionsMonitor`, comparing a hash of the files first (US-035). Polling was chosen over a file watcher, because watchers miss the symlink swaps of mounted Kubernetes secrets. A file that cannot be loaded keeps the previous keys and reports the health check `signing-keys` as `Degraded`. Every change is recorded in the audit log. The steps are still timed by the operator; automatic rotation on a schedule would need the keys in a store Authora can write to.
+
+## TD-012: The admin interface asks for consent on every sign-in
+
+**Status:** Open · **Area:** Admin interface, consent (`/oauth/authorize`)
+
+Authora asks for consent on every authorization request and does not remember decisions (see [oauth-core.md](oauth-core.md#consent-policy)). The admin interface is part of Authora, but it is an ordinary Public Client, so administrators see the consent screen every time they sign in to it, which trains them to click "Allow" without reading.
+
+**To resolve:** remember consent per User, Client and Scopes (with a way to withdraw it), or mark Clients as first-party so they skip the consent screen. First-party must not be settable through the admin API without a dedicated Permission, because it would let a Client skip consent for any Scope.
+
+## TD-013: Audit events can be changed with database access
+
+**Status:** Open · **Area:** Audit log (`audit.events`)
+
+The audit log (US-034) is stored in Authora's own database. The API cannot change or delete events, but anyone with write access to the database, including the application's database user if `UPDATE` is not revoked, can change or delete them without a trace. There is also no export to an external system.
+
+**To resolve:** chain the events with hashes (each event stores the hash of the previous one) so changes are detectable, or forward them to an append-only external store (e.g. a SIEM or object storage with retention locks). Until then, ship the application logs to a separate system and restrict the database permissions as described in [operations.md](operations.md#database).
+
+## TD-014: The admin interface keeps its tokens in the browser
+
+**Status:** Open · **Area:** Admin interface (`wwwroot/admin/js/auth.js`)
+
+The admin interface keeps its Access and Refresh Token in `sessionStorage`. A script that runs on the admin interface could read them and use them from elsewhere until they expire or the Grant is revoked. The strict Content Security Policy (no inline or foreign scripts) and inserting all text as text nodes make such a script unlikely, but do not rule it out (e.g. a compromised dependency of the browser).
+
+**To resolve:** a backend for frontend: a server-side part of the admin interface that holds the tokens and gives the browser only an `HttpOnly` cookie, or sender-constrained tokens (DPoP, RFC 9449), which a stolen token cannot be used without.

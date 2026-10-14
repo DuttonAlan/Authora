@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.OAuth.ClientAuthentication;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Domain;
@@ -25,6 +26,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="idTokenIssuer">The issuer for ID Tokens.</param>
 /// <param name="secretHasher">The hasher to look up codes and tokens.</param>
 /// <param name="timeProvider">The TimeProvider for expiry checks and new tokens.</param>
+/// <param name="auditLog">The audit log to record attacks.</param>
 /// <param name="logger">The Logger to record issued tokens and attacks.</param>
 public sealed class IssueTokenService(
     ClientAuthenticator clientAuthenticator,
@@ -36,6 +38,7 @@ public sealed class IssueTokenService(
     IdTokenIssuer idTokenIssuer,
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
+    IAuditLog auditLog,
     ILogger<IssueTokenService> logger)
 {
     /// <summary>
@@ -119,6 +122,7 @@ public sealed class IssueTokenService(
             await authorizationCodeRepository.MarkReused(authorizationCode.Id, now, cancellationToken);
             var revoked = await tokenRepository.RevokeGrantsOfAuthorizationCode(authorizationCode.Id, now, cancellationToken);
             logger.AuthorizationCodeReused(authorizationCode.Id, revoked);
+            await RecordCodeReusedAsync(client, authorizationCode, revoked, cancellationToken);
 
             throw invalidCode;
         }
@@ -158,6 +162,7 @@ public sealed class IssueTokenService(
         {
             await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
             logger.AuthorizationCodeReused(authorizationCode.Id, 1);
+            await RecordCodeReusedAsync(client, authorizationCode, 1, cancellationToken);
 
             throw invalidCode;
         }
@@ -220,7 +225,7 @@ public sealed class IssueTokenService(
 
         if (refreshToken.ConsumedAt is not null)
         {
-            await RevokeReusedGrantAsync(refreshToken, now, cancellationToken);
+            await RevokeReusedGrantAsync(grant, refreshToken, now, cancellationToken);
             throw invalidToken;
         }
 
@@ -257,7 +262,7 @@ public sealed class IssueTokenService(
         // Concurrent requests with the same token: only one wins, the others count as reuse.
         if (!await tokenRepository.TryConsumeRefreshToken(refreshToken.Id, now, cancellationToken))
         {
-            await RevokeReusedGrantAsync(refreshToken, now, cancellationToken);
+            await RevokeReusedGrantAsync(grant, refreshToken, now, cancellationToken);
             throw invalidToken;
         }
 
@@ -274,10 +279,45 @@ public sealed class IssueTokenService(
     ///     OAuth 2.1, Section 4.3.1: a rotated Refresh Token that is used again was probably stolen, and the server
     ///     cannot tell whether the attacker or the Client used it first. So the whole Grant is revoked.
     /// </summary>
-    private async Task RevokeReusedGrantAsync(RefreshToken refreshToken, DateTime now, CancellationToken cancellationToken)
+    private async Task RevokeReusedGrantAsync(
+        Grant grant,
+        RefreshToken refreshToken,
+        DateTime now,
+        CancellationToken cancellationToken)
     {
         await tokenRepository.RevokeGrant(refreshToken.GrantId, now, cancellationToken);
         logger.RefreshTokenReused(refreshToken.Id, refreshToken.GrantId);
+
+        await auditLog.RecordNowAsync(
+            new AuditEntry(
+                AuditEventTypes.OAuth.RefreshTokenReused,
+                AuditTargetTypes.User,
+                grant.UserId.ToString(),
+                $"Refresh Token {refreshToken.Id}, Grant {grant.Id} revoked")
+            {
+                Outcome = AuditOutcome.Failed,
+                ClientId = grant.ClientId
+            },
+            cancellationToken);
+    }
+
+    private async Task RecordCodeReusedAsync(
+        Client client,
+        AuthorizationCode authorizationCode,
+        int revokedGrants,
+        CancellationToken cancellationToken)
+    {
+        await auditLog.RecordNowAsync(
+            new AuditEntry(
+                AuditEventTypes.OAuth.AuthorizationCodeReused,
+                AuditTargetTypes.User,
+                authorizationCode.UserId.ToString(),
+                $"Authorization Code {authorizationCode.Id}, {revokedGrants} Grant(s) revoked")
+            {
+                Outcome = AuditOutcome.Failed,
+                ClientId = client.Id
+            },
+            cancellationToken);
     }
 
     /// <summary>

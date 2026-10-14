@@ -22,7 +22,7 @@ public sealed class AdminApiAccessTests(AuthoraApiFactory factory) : IClassFixtu
     private const string Endpoint = "/api/users";
     private const string RequiredPermission = PermissionNames.Users.Read;
 
-    private readonly HttpClient _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    private readonly HttpClient _client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = AuthoraApiFactory.BaseAddress, AllowAutoRedirect = false });
 
     [Fact]
     public async Task RequestWithoutCredentials_IsUnauthorized()

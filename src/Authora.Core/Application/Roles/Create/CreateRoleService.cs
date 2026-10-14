@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Roles.Create;
 ///     The Service to create a new Role.
 /// </summary>
 /// <param name="roleRepository">An Instance of a IRoleRepository to create a new Role.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the creation.</param>
 public sealed class CreateRoleService(
     IRoleRepository roleRepository,
+    IAuditLog auditLog,
     ILogger<CreateRoleService> logger)
 {
     /// <summary>
@@ -36,6 +39,8 @@ public sealed class CreateRoleService(
         {
             throw new ConflictException("The Name is already used by another Role.");
         }
+
+        auditLog.Record(AuditEntry.ForRole(AuditEventTypes.Roles.Created, role.Id, $"Name '{role.Name}'"));
 
         await roleRepository.CreateRole(role, cancellationToken);
 

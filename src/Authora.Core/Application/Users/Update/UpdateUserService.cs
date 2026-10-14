@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
@@ -12,7 +13,8 @@ namespace Authora.Core.Application.Users.Update;
 ///     The Service to update an existing User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to update a User.</param>
-public sealed class UpdateUserService(IUserRepository userRepository)
+/// <param name="auditLog">The audit log to record the change.</param>
+public sealed class UpdateUserService(IUserRepository userRepository, IAuditLog auditLog)
 {
     /// <summary>
     ///     Updates an existing User.
@@ -56,6 +58,19 @@ public sealed class UpdateUserService(IUserRepository userRepository)
         {
             user.SetLastName(request.LastName);
         }
+
+        string?[] fields =
+        [
+            request.Email is null ? null : "Email",
+            request.FirstName is null ? null : "First Name",
+            request.LastName is null ? null : "Last Name"
+        ];
+        var sentFields = fields.OfType<string>().ToList();
+
+        auditLog.Record(AuditEntry.ForUser(
+            AuditEventTypes.Users.Updated,
+            user.Id,
+            sentFields.Count == 0 ? null : $"Fields: {string.Join(", ", sentFields)}"));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await userRepository.SaveChangesAsync(cancellationToken);

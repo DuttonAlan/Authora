@@ -3,10 +3,14 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.AdminUi;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -17,8 +21,8 @@ namespace Authora.Infrastructure.Seeding;
 
 /// <summary>
 ///     Seeds the data Authora needs at startup: the Permissions of <see cref="PermissionNames"/>, the administrator
-///     Role with all Permissions, the <see cref="AdminApiScope"/>, the <see cref="OidcScopes"/>, and the first
-///     administrator (US-003).
+///     Role with all Permissions, the <see cref="AdminApiScope"/>, the <see cref="OidcScopes"/>, the first
+///     administrator (US-003), and the Clients for the admin API and the admin interface (US-033).
 /// </summary>
 /// <remarks>
 ///     Idempotent: only what is missing is created, so it runs on every start. It runs at runtime instead of
@@ -27,11 +31,17 @@ namespace Authora.Infrastructure.Seeding;
 /// <param name="context">The DbContext to seed.</param>
 /// <param name="passwordHasher">The hasher for the password of the first administrator.</param>
 /// <param name="options">The settings of the first administrator.</param>
+/// <param name="adminUiOptions">Whether the Client of the admin interface is created.</param>
+/// <param name="oauthOptions">The OAuth settings with the Issuer, for the Redirect URI of the admin interface.</param>
+/// <param name="auditLog">The audit log to record what was created. Saved with the seeded data.</param>
 /// <param name="logger">The Logger to record what was created.</param>
 public sealed class IdentitySeeder(
     AuthoraContext context,
     IPasswordHasher passwordHasher,
     IOptions<BootstrapOptions> options,
+    IOptions<AdminUiOptions> adminUiOptions,
+    IOptions<OAuthOptions> oauthOptions,
+    IAuditLog auditLog,
     ILogger<IdentitySeeder> logger)
 {
     /// <summary>
@@ -63,6 +73,7 @@ public sealed class IdentitySeeder(
 
         await BootstrapAdministratorAsync(administratorRole, cancellationToken);
         await BootstrapAdminClientAsync(adminApiScope, cancellationToken);
+        await SeedAdminUiClientAsync(adminApiScope, cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -195,6 +206,7 @@ public sealed class IdentitySeeder(
         user.AssignRole(administratorRole);
         context.Users.Add(user);
 
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.System.AdministratorBootstrapped, user.Id));
         logger.AdministratorBootstrapped(user.Id);
     }
 
@@ -209,8 +221,12 @@ public sealed class IdentitySeeder(
             return;
         }
 
+        // The Client of the admin interface does not count: it only works from the admin interface.
+        var adminUiRedirectUri = AdminUiOptions.GetRedirectUri(oauthOptions.Value.Issuer);
+
         var adminClientExists = await context.Clients
             .Where(client => client.Status == ClientStatus.Enabled)
+            .Where(client => !client.RedirectUris.Any(redirectUri => redirectUri.Value == adminUiRedirectUri))
             .AnyAsync(client => client.AllowedScopes.Any(scope => scope.Id == adminApiScope.Id), cancellationToken);
 
         if (adminClientExists)
@@ -228,6 +244,46 @@ public sealed class IdentitySeeder(
         client.AllowScope(adminApiScope);
         context.Clients.Add(client);
 
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.System.ClientBootstrapped, client.Id, $"Name '{client.Name}'"));
         logger.AdminClientBootstrapped(client.Id, client.Name);
+    }
+
+    // The Client is found by its Redirect URI. If any Client has it, nothing is created, so an administrator can
+    // disable the admin interface by disabling its Client, and a deleted Client comes back on the next start.
+    private async Task SeedAdminUiClientAsync(Scope adminApiScope, CancellationToken cancellationToken)
+    {
+        if (!adminUiOptions.Value.Enabled)
+        {
+            return;
+        }
+
+        var redirectUri = AdminUiOptions.GetRedirectUri(oauthOptions.Value.Issuer);
+
+        if (await context.Clients.AnyAsync(
+            client => client.RedirectUris.Any(existing => existing.Value == redirectUri),
+            cancellationToken))
+        {
+            return;
+        }
+
+        var client = Client.Create(AdminUiOptions.ClientName, ClientType.Public);
+
+        try
+        {
+            client.AddRedirectUri(redirectUri);
+        }
+        catch (DomainValidationException exception)
+        {
+            // E.g. an Issuer "http://localhost:5000", which is valid for development, but a Redirect URI over HTTP
+            // must use a loopback IP address.
+            logger.AdminUiClientNotCreated(redirectUri, exception.Message);
+            return;
+        }
+
+        client.AllowScope(adminApiScope);
+        context.Clients.Add(client);
+
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.System.ClientBootstrapped, client.Id, $"Name '{client.Name}'"));
+        logger.AdminUiClientCreated(client.Id, redirectUri);
     }
 }

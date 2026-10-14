@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Roles.Update;
 ///     The Service to update an existing Role.
 /// </summary>
 /// <param name="roleRepository">An Instance of a IRoleRepository to update a Role.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateRoleService(
     IRoleRepository roleRepository,
+    IAuditLog auditLog,
     ILogger<UpdateRoleService> logger)
 {
     /// <summary>
@@ -64,6 +67,8 @@ public sealed class UpdateRoleService(
         {
             role.SetDescription(request.Description);
         }
+
+        auditLog.Record(AuditEntry.ForRole(AuditEventTypes.Roles.Updated, role.Id, $"Name '{role.Name}'"));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await roleRepository.SaveChangesAsync(cancellationToken);
