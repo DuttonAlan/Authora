@@ -11,7 +11,7 @@ namespace Authora.Core.Application.Groups.Update;
 /// <summary>
 ///     Represents the request to update a Group.
 /// </summary>
-/// <param name="Name" example="support-team">New technical Name of the Group, or null to leave it unchanged. Must be unique.</param>
+/// <param name="Name" example="support-team">New technical Name of the Group, or null to leave it unchanged. Must be unique. Only lowercase letters, digits, '.', '_' and '-', without leading or trailing whitespace.</param>
 /// <param name="DisplayName" example="Support Team">New human-readable Name of the Group, or null to leave it unchanged.</param>
 /// <param name="Description" example="Everyone who answers customer requests.">New Description of the Group, null to leave it unchanged, or an empty string to remove it.</param>
 public sealed record UpdateGroupRequest(

@@ -144,6 +144,42 @@ public sealed class GroupTests(AuthoraApiFactory factory) : IClassFixture<Author
     }
 
     [Fact]
+    public async Task ConcurrentIdenticalAssignments_AllSucceed()
+    {
+        const int Requests = 8;
+
+        var adminToken = await IssueAdministratorTokenAsync();
+        var (memberId, _) = await CreateUserWithoutPermissionsAsync();
+        var roleId = await CreateRoleAsync(GroupPermission);
+        var groupId = await CreateGroupAsync(adminToken);
+
+        await AssertAllStatusAsync(HttpStatusCode.NoContent, Requests, HttpMethod.Put, $"/api/groups/{groupId}/roles/{roleId}", adminToken);
+        await AssertAllStatusAsync(HttpStatusCode.NoContent, Requests, HttpMethod.Put, $"/api/groups/{groupId}/members/{memberId}", adminToken);
+
+        var roles = await GetAsync<List<EffectiveRoleResponse>>($"/api/users/{memberId}/roles", adminToken);
+        Assert.Equal(groupId, Assert.Single(Assert.Single(roles, role => role.Id == roleId).Groups).Id);
+
+        await AssertAllStatusAsync(HttpStatusCode.NoContent, Requests, HttpMethod.Delete, $"/api/groups/{groupId}/members/{memberId}", adminToken);
+        await AssertAllStatusAsync(HttpStatusCode.NoContent, Requests, HttpMethod.Delete, $"/api/groups/{groupId}/roles/{roleId}", adminToken);
+
+        Assert.Empty(await GetAsync<List<UserGroupResponse>>($"/api/users/{memberId}/groups", adminToken));
+    }
+
+    [Fact]
+    public async Task CreateGroupWithPaddedName_IsBadRequest()
+    {
+        var adminToken = await IssueAdministratorTokenAsync();
+
+        using var response = await SendAsync(
+            HttpMethod.Post,
+            "/api/groups",
+            adminToken,
+            new { Name = $" group-{Guid.NewGuid():N} ", DisplayName = "Padded" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AddUnknownUserOrToUnknownGroup_IsNotFound()
     {
         var adminToken = await IssueAdministratorTokenAsync();
@@ -255,6 +291,23 @@ public sealed class GroupTests(AuthoraApiFactory factory) : IClassFixture<Author
         using var response = await SendAsync(method, uri, accessToken);
 
         Assert.Equal(expected, response.StatusCode);
+    }
+
+    private async Task AssertAllStatusAsync(HttpStatusCode expected, int count, HttpMethod method, string uri, string accessToken)
+    {
+        var responses = await Task.WhenAll(Enumerable.Range(0, count).Select(_ => SendAsync(method, uri, accessToken)));
+
+        try
+        {
+            Assert.All(responses, response => Assert.Equal(expected, response.StatusCode));
+        }
+        finally
+        {
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string uri, string accessToken, object? body = null)

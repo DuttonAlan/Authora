@@ -11,7 +11,7 @@ namespace Authora.Core.Application.Groups.Create;
 /// <summary>
 ///     Represents the request to create a Group.
 /// </summary>
-/// <param name="Name" example="support-team">Unique technical Name of the Group. Only lowercase letters, digits, '.', '_' and '-'.</param>
+/// <param name="Name" example="support-team">Unique technical Name of the Group. Only lowercase letters, digits, '.', '_' and '-', without leading or trailing whitespace.</param>
 /// <param name="DisplayName" example="Support Team">Human-readable Name of the Group.</param>
 /// <param name="Description" example="Everyone who answers customer requests.">Optional Description of the Group.</param>
 public sealed record CreateGroupRequest(

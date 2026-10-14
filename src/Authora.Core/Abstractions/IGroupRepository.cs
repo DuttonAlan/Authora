@@ -77,9 +77,28 @@ public interface IGroupRepository
     public Task DeleteGroup(Group group, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Checks in the database whether a Group has a Role, ignoring unsaved changes.
+    /// </summary>
+    /// <param name="groupId">Id of the Group.</param>
+    /// <param name="roleId">Id of the Role.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if the Role is assigned to the Group.</returns>
+    public Task<bool> HasRole(Guid groupId, Guid roleId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Checks in the database whether a User is a member of a Group, ignoring unsaved changes.
+    /// </summary>
+    /// <param name="groupId">Id of the Group.</param>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if the User is a member of the Group.</returns>
+    public Task<bool> IsMember(Guid groupId, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Saves all changes made to tracked Groups.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the changes are saved.</returns>
+    /// <exception cref="Application.Exceptions.ConflictException">Thrown when a concurrent request made a conflicting change, e.g. assigned the same Role first.</exception>
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

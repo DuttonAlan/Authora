@@ -50,7 +50,20 @@ public sealed class AddGroupMemberService(
 
         user.JoinGroup(group);
 
-        await userRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await userRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            // A concurrent request may have added the same membership first, which is the requested result.
+            if (await groupRepository.IsMember(group.Id, user.Id, cancellationToken))
+            {
+                return;
+            }
+
+            throw;
+        }
 
         logger.MemberAdded(group.Id, group.Name, user.Id);
     }

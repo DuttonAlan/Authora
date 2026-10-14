@@ -53,7 +53,20 @@ public sealed class AssignGroupRoleService(
 
         group.AssignRole(role);
 
-        await groupRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await groupRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            // A concurrent request may have assigned the same Role first, which is the requested result.
+            if (await groupRepository.HasRole(group.Id, role.Id, cancellationToken))
+            {
+                return;
+            }
+
+            throw;
+        }
 
         logger.GroupRoleAssigned(group.Id, group.Name, role.Id, role.Name);
     }
