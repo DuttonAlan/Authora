@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -16,11 +17,13 @@ namespace Authora.Core.Application.Clients.Disable;
 /// <param name="clientRepository">An Instance of a IClientRepository to disable a Client.</param>
 /// <param name="tokenRepository">An Instance of a ITokenRepository to revoke the tokens of the Client.</param>
 /// <param name="timeProvider">The TimeProvider for the revocation time.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the change.</param>
 public sealed class DisableClientService(
     IClientRepository clientRepository,
     ITokenRepository tokenRepository,
     TimeProvider timeProvider,
+    IAuditLog auditLog,
     ILogger<DisableClientService> logger)
 {
     /// <summary>
@@ -49,6 +52,7 @@ public sealed class DisableClientService(
         var revokedGrants = await tokenRepository.RevokeGrantsOfClient(client.Id, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
 
         client.Disable();
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Disabled, client.Id, $"Name '{client.Name}'"));
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

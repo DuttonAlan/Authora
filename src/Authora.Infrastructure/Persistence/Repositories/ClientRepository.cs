@@ -58,6 +58,19 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
     }
 
     /// <inheritdoc/>
+    public async Task<Guid?> GetEnabledPublicClientIdByRedirectUri(string redirectUri, CancellationToken cancellationToken = default)
+    {
+        return await context.Clients
+            .AsNoTracking()
+            .Where(client => client.Status == ClientStatus.Enabled && client.Type == ClientType.Public)
+            .Where(client => client.RedirectUris.Any(uri => uri.Value == redirectUri))
+            .OrderBy(client => client.CreatedAt)
+            .ThenBy(client => client.Id)
+            .Select(client => (Guid?)client.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> IsClientDisabled(Guid id, CancellationToken cancellationToken = default)
     {
         return !await context.Clients

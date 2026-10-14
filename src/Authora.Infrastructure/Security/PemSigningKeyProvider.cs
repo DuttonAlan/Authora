@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
-using System.Security.Cryptography;
-
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Oidc;
 
@@ -14,15 +12,32 @@ using Microsoft.Extensions.Options;
 namespace Authora.Infrastructure.Security;
 
 /// <summary>
-///     Loads the signing keys from the PEM files of <see cref="OidcOptions"/> once, when it is first used.
+///     Loads the signing keys from the PEM files of <see cref="OidcOptions"/>, and loads them again when the files or
+///     the settings change (US-035).
 /// </summary>
 /// <remarks>
-///     The files are read only at startup, so rotating keys needs a restart. <see cref="OidcSigningKeysValidator"/>
-///     loads them at startup too, so a missing or invalid file stops the start instead of failing the first request.
-///     The provider owns the keys and disposes them when it is disposed.
+///     <para>
+///         The keys are loaded when the provider is created, so a missing or invalid file stops the start.
+///         <see cref="OidcSigningKeysValidator"/> checks them at startup too. Afterwards
+///         <see cref="SigningKeyReloadService"/> calls <see cref="Reload"/> every
+///         <see cref="OidcOptions.KeyReloadInterval"/>. A reload that fails keeps the previous keys, so a half-written
+///         file never stops sign-ins.
+///     </para>
+///     <para>
+///         Replaced keys are only disposed with the provider, because a request may still be signing with them.
+///         Rotations are rare, so they use little memory.
+///     </para>
 /// </remarks>
 public sealed class PemSigningKeyProvider : ISigningKeyProvider, IDisposable
 {
+    private readonly IOptionsMonitor<OidcOptions> _options;
+    private readonly string _contentRootPath;
+    private readonly ILogger<PemSigningKeyProvider> _logger;
+    private readonly Lock _reloadLock = new();
+    private readonly List<SigningKeySet> _replacedSets = [];
+
+    private volatile SigningKeySet _current;
+
     /// <summary>
     ///     Loads the keys.
     /// </summary>
@@ -31,107 +46,105 @@ public sealed class PemSigningKeyProvider : ISigningKeyProvider, IDisposable
     /// <param name="logger">The Logger to record the loaded keys.</param>
     /// <exception cref="InvalidOperationException">Thrown when a key file is missing or invalid.</exception>
     public PemSigningKeyProvider(
-        IOptions<OidcOptions> options,
+        IOptionsMonitor<OidcOptions> options,
         IHostEnvironment environment,
         ILogger<PemSigningKeyProvider> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(logger);
 
-        var settings = options.Value;
+        _options = options;
+        _contentRootPath = environment.ContentRootPath;
+        _logger = logger;
 
-        SigningKey = Load(settings.SigningKeyPath, environment.ContentRootPath, mustSign: true);
+        var files = SigningKeySet.ReadFiles(options.CurrentValue, _contentRootPath);
+        _current = SigningKeySet.Parse(files);
 
-        var publishedKeys = new List<SigningKey> { SigningKey };
-
-        try
-        {
-            foreach (var path in settings.AdditionalKeyPaths)
-            {
-                var key = Load(path, environment.ContentRootPath, mustSign: false);
-
-                if (publishedKeys.Any(existing => existing.KeyId == key.KeyId))
-                {
-                    key.Dispose();
-                    throw new InvalidOperationException($"The key in '{path}' is configured more than once.");
-                }
-
-                publishedKeys.Add(key);
-            }
-        }
-        catch
-        {
-            // The constructor fails, so nobody else can dispose the keys loaded so far.
-            publishedKeys.ForEach(key => key.Dispose());
-            throw;
-        }
-
-        PublishedKeys = publishedKeys;
-
+        WarnIfReadableByOthers(files[0].FullPath);
         logger.SigningKeysLoaded(SigningKey.KeyId, PublishedKeys.Count);
     }
 
     /// <inheritdoc/>
-    public SigningKey SigningKey { get; }
+    public SigningKey SigningKey => _current.SigningKey;
 
     /// <inheritdoc/>
-    public IReadOnlyList<SigningKey> PublishedKeys { get; }
+    public IReadOnlyList<SigningKey> PublishedKeys => _current.PublishedKeys;
 
     /// <summary>
-    ///     Disposes all keys.
+    ///     The reason the last reload failed, or <see langword="null"/> if it succeeded. Reported by the health check.
     /// </summary>
-    public void Dispose()
+    public string? ReloadFailure { get; private set; }
+
+    /// <summary>
+    ///     Loads the key files again and uses the new keys if a file or a path changed.
+    /// </summary>
+    /// <returns>True if the keys changed.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when a key file is missing or invalid. The previous keys stay in use.
+    /// </exception>
+    /// <exception cref="OptionsValidationException">
+    ///     Thrown when the changed settings are invalid. The previous keys stay in use.
+    /// </exception>
+    public bool Reload()
     {
-        foreach (var key in PublishedKeys)
+        lock (_reloadLock)
         {
-            key.Dispose();
+            try
+            {
+                var files = SigningKeySet.ReadFiles(_options.CurrentValue, _contentRootPath);
+
+                if (SigningKeySet.ComputeFingerprint(files) == _current.Fingerprint)
+                {
+                    ReloadFailure = null;
+                    return false;
+                }
+
+                var loaded = SigningKeySet.Parse(files);
+
+                _replacedSets.Add(_current);
+                _current = loaded;
+                ReloadFailure = null;
+
+                WarnIfReadableByOthers(files[0].FullPath);
+                _logger.SigningKeysReloaded(SigningKey.KeyId, PublishedKeys.Count);
+
+                return true;
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or OptionsValidationException)
+            {
+                ReloadFailure = exception.Message;
+                throw;
+            }
         }
     }
 
-    private static SigningKey Load(string path, string contentRootPath, bool mustSign)
+    /// <summary>
+    ///     Disposes all keys, including replaced ones.
+    /// </summary>
+    public void Dispose()
     {
-        var fullPath = Path.Combine(contentRootPath, path);
-
-        string pem;
-
-        try
+        lock (_reloadLock)
         {
-            pem = File.ReadAllText(fullPath);
+            _current.Dispose();
+            _replacedSets.ForEach(set => set.Dispose());
+            _replacedSets.Clear();
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            throw new InvalidOperationException($"The key file '{fullPath}' cannot be read: {exception.Message}", exception);
-        }
+    }
 
-        RSA? rsa = RSA.Create();
-        SigningKey key;
-
-        try
+    // Only the owner of Authora should be able to read the private key. Windows uses ACLs, which are not checked.
+    private void WarnIfReadableByOthers(string path)
+    {
+        if (OperatingSystem.IsWindows())
         {
-            rsa.ImportFromPem(pem);
-
-            key = new SigningKey(rsa);
-            rsa = null;
-        }
-        catch (Exception exception) when (exception is ArgumentException or CryptographicException)
-        {
-            // The message of ImportFromPem never contains key material.
-            throw new InvalidOperationException(
-                $"The key file '{fullPath}' must contain one unencrypted RSA key of at least {SigningKey.MinKeySize} bits in PEM format: {exception.Message}",
-                exception);
-        }
-        finally
-        {
-            rsa?.Dispose();
+            return;
         }
 
-        if (mustSign && !key.CanSign)
-        {
-            key.Dispose();
-            throw new InvalidOperationException(
-                $"The key file '{fullPath}' contains only a public key, but the signing key needs the private key.");
-        }
+        var mode = File.GetUnixFileMode(path);
 
-        return key;
+        if ((mode & (UnixFileMode.GroupRead | UnixFileMode.OtherRead | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite)) != 0)
+        {
+            _logger.SigningKeyFileReadableByOthers(path);
+        }
     }
 }

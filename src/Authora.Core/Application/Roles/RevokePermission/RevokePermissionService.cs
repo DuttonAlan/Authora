@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Roles.RevokePermission;
 ///     The Service to revoke a Permission from a Role.
 /// </summary>
 /// <param name="roleRepository">An Instance of a IRoleRepository to change the Role.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the revocation.</param>
 public sealed class RevokePermissionService(
     IRoleRepository roleRepository,
+    IAuditLog auditLog,
     ILogger<RevokePermissionService> logger)
 {
     /// <summary>
@@ -48,6 +51,7 @@ public sealed class RevokePermissionService(
         }
 
         role.RevokePermission(permission.Id);
+        auditLog.Record(AuditEntry.ForRole(AuditEventTypes.Roles.PermissionRevoked, role.Id, $"Permission '{permission.Name}'"));
 
         await roleRepository.SaveChangesAsync(cancellationToken);
 

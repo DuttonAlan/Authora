@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,11 +15,13 @@ namespace Authora.Core.Application.Account.SignOut;
 /// <param name="sessionRepository">An Instance of a ISessionRepository to revoke the Session.</param>
 /// <param name="secretHasher">The hasher to look up the Session token.</param>
 /// <param name="timeProvider">The TimeProvider for the revocation time.</param>
+/// <param name="auditLog">The audit log to record the sign-out.</param>
 /// <param name="logger">The Logger to record the sign-out.</param>
 public sealed class SignOutService(
     ISessionRepository sessionRepository,
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
+    IAuditLog auditLog,
     ILogger<SignOutService> logger)
 {
     /// <summary>
@@ -42,6 +45,7 @@ public sealed class SignOutService(
         }
 
         session.Revoke(timeProvider.GetUtcNow().UtcDateTime);
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.SignedOut, session.UserId, $"Session {session.Id}"));
         await sessionRepository.SaveChangesAsync(cancellationToken);
 
         logger.SignedOut(session.UserId, session.Id);

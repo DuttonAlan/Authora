@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Authora.Core.Application.Users.AssignRole;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="roleRepository">An Instance of a IRoleRepository to get the Role.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the assignment.</param>
 public sealed class AssignRoleService(
     IUserRepository userRepository,
     IRoleRepository roleRepository,
+    IAuditLog auditLog,
     ILogger<AssignRoleService> logger)
 {
     /// <summary>
@@ -48,6 +51,7 @@ public sealed class AssignRoleService(
             ?? throw new NotFoundException($"Role '{roleId}' was not found.");
 
         user.AssignRole(role);
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.RoleAssigned, user.Id, $"Role '{role.Name}' ({role.Id})"));
 
         await userRepository.SaveChangesAsync(cancellationToken);
 

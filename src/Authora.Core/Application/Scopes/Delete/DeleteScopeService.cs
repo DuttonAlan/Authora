@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Scopes.Delete;
 ///     The Service to delete a Scope.
 /// </summary>
 /// <param name="scopeRepository">An Instance of a IScopeRepository to delete a Scope.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteScopeService(
     IScopeRepository scopeRepository,
+    IAuditLog auditLog,
     ILogger<DeleteScopeService> logger)
 {
     /// <summary>
@@ -50,6 +53,11 @@ public sealed class DeleteScopeService(
             throw new ConflictException(
                 $"The Scope is used by {clientCount} Clients. Remove it from these Clients first, or delete it with force.");
         }
+
+        auditLog.Record(AuditEntry.ForScope(
+            AuditEventTypes.Scopes.Deleted,
+            scope.Id,
+            $"Name '{scope.Name}', removed from {clientCount} Client(s)"));
 
         await scopeRepository.DeleteScope(scope, cancellationToken);
 

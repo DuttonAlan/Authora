@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Users;
 
@@ -15,10 +16,12 @@ namespace Authora.Core.Application.Groups.RemoveMember;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="groupRepository">An Instance of a IGroupRepository to check the membership after a conflict.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the removal.</param>
 public sealed class RemoveGroupMemberService(
     IUserRepository userRepository,
     IGroupRepository groupRepository,
+    IAuditLog auditLog,
     ILogger<RemoveGroupMemberService> logger)
 {
     /// <summary>
@@ -49,6 +52,7 @@ public sealed class RemoveGroupMemberService(
         }
 
         user.LeaveGroup(group.Id);
+        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.MemberRemoved, group.Id, $"User {user.Id}"));
 
         try
         {

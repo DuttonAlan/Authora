@@ -68,6 +68,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     /// </summary>
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    /// <summary>
+    ///     The Audit Events Table in the <c>audit</c> schema.
+    /// </summary>
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

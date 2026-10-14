@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Domain.Entities;
@@ -15,9 +16,11 @@ namespace Authora.Core.Application.Users.Create;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to create a new User.</param>
 /// <param name="passwordHasher">The hasher for the initial password.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 public sealed class CreateUserService(
     IUserRepository userRepository,
-    IPasswordHasher passwordHasher)
+    IPasswordHasher passwordHasher,
+    IAuditLog auditLog)
 {
     /// <summary>
     ///     Creates a new User with an initial password.
@@ -42,6 +45,8 @@ public sealed class CreateUserService(
         }
 
         var user = User.Create(request.Email, request.FirstName, request.LastName, passwordHasher.Hash(request.Password));
+
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Created, user.Id));
 
         await userRepository.CreateUser(user, cancellationToken);
 

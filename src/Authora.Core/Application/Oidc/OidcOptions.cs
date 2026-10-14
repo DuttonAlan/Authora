@@ -22,7 +22,8 @@ public sealed class OidcOptions
     /// <summary>
     ///     Path of a PEM file with the RSA private key (at least 2048 bits) that signs ID Tokens. Relative paths are
     ///     resolved against the content root. Required. The key is kept out of the database, so a copy of the
-    ///     database cannot be used to forge ID Tokens.
+    ///     database cannot be used to forge ID Tokens. The file is reloaded when it changes, see
+    ///     <see cref="KeyReloadInterval"/>.
     /// </summary>
     public string SigningKeyPath { get; set; } = string.Empty;
 
@@ -38,4 +39,21 @@ public sealed class OidcOptions
     ///     meant to be validated right after sign-in, not kept as a session.
     /// </summary>
     public TimeSpan IdTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    ///     Smallest allowed <see cref="KeyReloadInterval"/>.
+    /// </summary>
+    public static readonly TimeSpan MinKeyReloadInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    ///     Largest allowed <see cref="KeyReloadInterval"/>.
+    /// </summary>
+    public static readonly TimeSpan MaxKeyReloadInterval = TimeSpan.FromHours(1);
+
+    /// <summary>
+    ///     How often the key files are checked for changes (US-035). A changed file or path is used from the next
+    ///     check on, without a restart. Defaults to 1 minute, between <see cref="MinKeyReloadInterval"/> and
+    ///     <see cref="MaxKeyReloadInterval"/>. Changing the interval itself needs a restart.
+    /// </summary>
+    public TimeSpan KeyReloadInterval { get; set; } = TimeSpan.FromMinutes(1);
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Users.RevokeSessions;
 ///     The Service to sign a User out everywhere.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to revoke the Sessions of a User.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the revocation.</param>
 public sealed class RevokeUserSessionsService(
     IUserRepository userRepository,
+    IAuditLog auditLog,
     ILogger<RevokeUserSessionsService> logger)
 {
     /// <summary>
@@ -36,6 +39,7 @@ public sealed class RevokeUserSessionsService(
         DeletedUserGuard.EnsureNotDeleted(user);
 
         user.RotateSecurityStamp();
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.SessionsRevoked, user.Id));
 
         await userRepository.SaveChangesAsync(cancellationToken);
 

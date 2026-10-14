@@ -33,6 +33,19 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public const string Issuer = "https://localhost";
 
     /// <summary>
+    ///     The address of the test clients. HTTPS, like in production: the antiforgery cookie is only issued over HTTPS.
+    /// </summary>
+    public static readonly Uri BaseAddress = new(Issuer);
+
+    /// <summary>
+    ///     Creates the factory. Clients created without options use <see cref="BaseAddress"/>.
+    /// </summary>
+    public AuthoraApiFactory()
+    {
+        ClientOptions.BaseAddress = BaseAddress;
+    }
+
+    /// <summary>
     ///     Path of the PEM file with the private key that signs ID Tokens.
     /// </summary>
     public string SigningKeyPath => Path.Combine(_keyDirectory, "signing-key.pem");

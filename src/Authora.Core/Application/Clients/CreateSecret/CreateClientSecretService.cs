@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -17,10 +18,12 @@ namespace Authora.Core.Application.Clients.CreateSecret;
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="clientSecretIssuer">The issuer for the new Secret.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the creation.</param>
 public sealed class CreateClientSecretService(
     IClientRepository clientRepository,
     ClientSecretIssuer clientSecretIssuer,
+    IAuditLog auditLog,
     ILogger<CreateClientSecretService> logger)
 {
     /// <summary>
@@ -49,6 +52,10 @@ public sealed class CreateClientSecretService(
         }
 
         var secret = clientSecretIssuer.Issue(client, request.ExpiresAt?.UtcDateTime);
+        auditLog.Record(AuditEntry.ForClient(
+            AuditEventTypes.Clients.SecretCreated,
+            client.Id,
+            $"Secret {secret.Id}, expires {secret.ExpiresAt:O}"));
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

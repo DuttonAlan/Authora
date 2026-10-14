@@ -1,6 +1,6 @@
 # Authora – OpenID Connect
 
-This document describes the OpenID Connect provider of Authora (Phase 5, US-022 – US-026): discovery, ID Tokens, signing keys, UserInfo and the identity claims. It builds on the OAuth 2.1 server described in [oauth-core.md](oauth-core.md).
+This document describes the OpenID Connect provider of Authora (Phase 5, US-022 – US-026): discovery, ID Tokens, signing keys and their rotation (US-035), UserInfo and the identity claims. It builds on the OAuth 2.1 server described in [oauth-core.md](oauth-core.md).
 
 - Application logic: `src/Authora.Core/Application/Oidc/`
 - Endpoints: `src/Authora.Api/Controllers/OidcController.cs` and `src/Authora.Api/Pages/OAuth/Authorize.cshtml.cs`
@@ -97,18 +97,33 @@ ID Tokens are signed with an RSA key (at least 2048 bits) from a PEM file. Keys 
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out signing-key.pem
 ```
 
-Mount it into the container (e.g. as a Docker or Kubernetes secret) and point `Authora:Oidc:SigningKeyPath` at it. `*.pem` is in `.gitignore`; never commit a key. For development, `appsettings.Development.json` uses `signing-key.pem` in `src/Authora.Api`.
+Mount it into the container (e.g. as a Docker or Kubernetes secret) and point `Authora:Oidc:SigningKeyPath` at it. Keys can be replaced while Authora is running, see [Key rotation](#key-rotation-us-035). `*.pem` is in `.gitignore`; never commit a key. For development, `appsettings.Development.json` uses `signing-key.pem` in `src/Authora.Api`.
 
 The `kid` of every key is its JWK Thumbprint (RFC 7638), so it is unique per key and the same on every instance and after restarts. The JWKS only contains `kty`, `use`, `alg`, `kid`, `n` and `e`; the type used for it has no members for private parameters.
 
-### Key rotation
+### Key rotation (US-035)
 
-Keys are read at startup, so every step needs a restart of all instances.
+Every instance checks the key files and the paths every `Authora:Oidc:KeyReloadInterval` (default 1 minute) and uses changed keys from then on, without a restart. Only a hash of the files is compared, so unchanged files are not parsed again. If a changed file cannot be loaded (e.g. it is only half written, or the new signing key has no private part), the instance keeps the previous keys, logs event 9003 and reports the health check `signing-keys` as `Degraded` until the files are fixed. A restart with an invalid file fails, as before.
 
-1. Add the new key to `Authora:Oidc:AdditionalKeyPaths`. It is published, but does not sign.
-2. Wait at least one hour (the cache duration of the JWKS), so Clients know the new key.
+Routine rotation:
+
+1. Create the new key and add it to `Authora:Oidc:AdditionalKeyPaths`. It is published, but does not sign.
+2. Wait at least `KeyReloadInterval` plus one hour (the cache duration of the JWKS), so all instances publish the new key and Clients know it.
 3. Make the new key the `SigningKeyPath`, and move the old key to `AdditionalKeyPaths`. A file with only the public key is enough for it.
-4. Wait at least `IdTokenLifetime`, then remove the old key.
+4. Wait at least `KeyReloadInterval` plus `IdTokenLifetime`, then remove the old key.
+
+Change files by writing a new file and renaming it over the old one (Kubernetes does this for mounted secrets), so no instance reads a half-written file. Changing the paths in `appsettings.json` is picked up as well; environment variables are only read at startup.
+
+Every change of the signing key or the published keys is recorded in the audit log as `system.signing-keys-changed`, with the `kid` of the signing key as target and the `kid`s of all published keys in the details. Each instance compares its keys with the newest such event, so a rotation by restart is recorded too, and several instances record the same change once (unless they check at the same moment).
+
+**Already issued tokens:**
+
+- **ID Tokens** stay verifiable as long as the key that signed them is published. Step 4 keeps the old key until every ID Token it signed has expired. Clients that cache the JWKS longer than one hour, or that verify ID Tokens later than `IdTokenLifetime` after issue, can reject tokens after the old key is removed.
+- **Access and Refresh Tokens** are opaque and not signed, so rotation does not affect them.
+
+**Compromised key:** remove it from `SigningKeyPath` and `AdditionalKeyPaths` at once (skip steps 1, 2 and 4), with a new signing key. ID Tokens signed with the compromised key fail verification as soon as Clients refresh the JWKS (at most one hour); Clients that still accept them meanwhile have to be told directly. Consider revoking the Sessions of all Users (`POST /api/users/{id}/revoke-sessions`) if forged ID Tokens may have been accepted.
+
+**Storing private keys:** keys never go into the database or the image. Mount them as a secret (Docker or Kubernetes secret, or a file readable only by the user that runs Authora, e.g. `chmod 600`). On Linux and macOS, Authora logs event 9004 if the signing key file can be read or written by other users. Back up the private key separately from the database, see [operations.md](operations.md#backup-and-recovery).
 
 ## UserInfo (US-025)
 
@@ -129,18 +144,23 @@ Responses are sent with `Cache-Control: no-store`.
 | `Authora:Oidc:SigningKeyPath` | – (required) | PEM file with the RSA private key that signs ID Tokens. Relative paths are resolved against the content root. Startup fails if it is missing, unreadable, encrypted, not RSA, shorter than 2048 bits or only a public key. |
 | `Authora:Oidc:AdditionalKeyPaths` | `[]` | PEM files with RSA keys that are only published, for key rotation. Public keys are enough. Environment variables: `Authora__Oidc__AdditionalKeyPaths__0`, … |
 | `Authora:Oidc:IdTokenLifetime` | `00:05:00` | Lifetime of ID Tokens, at most 1 hour. |
+| `Authora:Oidc:KeyReloadInterval` | `00:01:00` | How often the key files are checked for changes, 10 seconds to 1 hour. Changing it needs a restart. |
 
 ## Logging
 
 | Event Id | Message |
 |---|---|
 | 9001 | The `kid` of the signing key and the number of published keys, at startup. |
+| 9002 | The key files changed; the new signing key and the number of published keys. |
+| 9003 | Changed key files could not be loaded; the previous keys stay in use. |
+| 9004 | The signing key file can be read or written by other users of the system (not checked on Windows). |
+| 9005 | A change of the keys could not be recorded in the audit log; retried with the next check. |
 
 Key material, ID Tokens and nonces are never logged.
 
 ## Known limitations
 
-- Keys are only read at startup, see [Key rotation](#key-rotation).
+- Keys are files that the operator creates and replaces; Authora does not generate or rotate keys on a schedule itself.
 - `email_verified` is always `false` until Emails can be verified.
 - Only public subject identifiers, no pairwise ones.
 - No RP-initiated logout, session management or front-/back-channel logout.

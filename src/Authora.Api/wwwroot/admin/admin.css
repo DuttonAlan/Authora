@@ -1,0 +1,485 @@
+/*
+    Copyright(c) Alan Dutton.
+    Licensed under the MIT License.
+    See the LICENSE file in the project root for license information.
+*/
+
+:root {
+    --background: #f4f5f7;
+    --surface: #ffffff;
+    --text: #1d2330;
+    --muted: #5d6576;
+    --border: #d9dce3;
+    --primary: #2f5bea;
+    --primary-text: #ffffff;
+    --danger: #c62828;
+    --danger-text: #ffffff;
+    --error-background: #fdecec;
+    --error-text: #9b1c1c;
+    --success-background: #e7f6ec;
+    --success-text: #1b5e33;
+    --badge-background: #eceff4;
+    color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #14171d;
+        --surface: #1e222b;
+        --text: #e7e9ee;
+        --muted: #a2a9b8;
+        --border: #343a47;
+        --primary: #6f8ff5;
+        --primary-text: #0f1218;
+        --danger: #ef6b6b;
+        --danger-text: #0f1218;
+        --error-background: #3a1d1f;
+        --error-text: #f4b4b4;
+        --success-background: #18321f;
+        --success-text: #a7e3b7;
+        --badge-background: #2a303c;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+}
+
+a {
+    color: var(--primary);
+}
+
+h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+h2 {
+    margin: 0 0 12px;
+    font-size: 1.1rem;
+}
+
+p {
+    margin: 0 0 12px;
+}
+
+code, .mono {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 0.9em;
+    word-break: break-all;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+/* Layout */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.brand {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+}
+
+.brand span {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.layout {
+    display: flex;
+    min-height: calc(100vh - 57px);
+}
+
+.sidebar {
+    flex: 0 0 200px;
+    padding: 16px 12px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+}
+
+.sidebar a {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+}
+
+.sidebar a:hover {
+    background: var(--background);
+}
+
+.sidebar a.active {
+    background: var(--primary);
+    color: var(--primary-text);
+}
+
+main {
+    flex: 1;
+    min-width: 0;
+    padding: 24px;
+    outline: none;
+}
+
+@media (max-width: 760px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+
+    main {
+        padding: 16px;
+    }
+}
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.page-header .subtitle {
+    margin: 4px 0 0;
+    color: var(--muted);
+}
+
+.panel {
+    margin-bottom: 20px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.grid > .panel {
+    margin-bottom: 0;
+}
+
+.stack > * + * {
+    margin-top: 20px;
+}
+
+/* Tables */
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+tr.clickable {
+    cursor: pointer;
+}
+
+tr.clickable:hover td {
+    background: var(--background);
+}
+
+td.actions-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.empty {
+    padding: 16px 0;
+    color: var(--muted);
+}
+
+dl.details {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 0;
+}
+
+dl.details dt {
+    color: var(--muted);
+}
+
+dl.details dd {
+    margin: 0;
+}
+
+/* Forms */
+
+form.form {
+    display: grid;
+    gap: 12px;
+}
+
+.field label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.field .help {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--text);
+    font: inherit;
+}
+
+input[type="checkbox"] {
+    width: auto;
+}
+
+input:disabled, select:disabled, textarea:disabled {
+    opacity: 0.6;
+}
+
+textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 6px 16px;
+}
+
+.checks label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 400;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 16px;
+}
+
+.inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.inline > input, .inline > select {
+    flex: 1;
+    min-width: 180px;
+    width: auto;
+}
+
+/* Buttons */
+
+button {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+button.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-text);
+}
+
+button.danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: var(--danger-text);
+}
+
+button.small {
+    padding: 4px 10px;
+    font-size: 0.85rem;
+}
+
+button.link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary);
+    font-weight: 400;
+    text-decoration: underline;
+}
+
+.button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Badges, messages and toasts */
+
+.badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--badge-background);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge.ok {
+    background: var(--success-background);
+    color: var(--success-text);
+}
+
+.badge.bad {
+    background: var(--error-background);
+    color: var(--error-text);
+}
+
+.error {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--error-background);
+    color: var(--error-text);
+}
+
+.notice {
+    padding: 12px;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+}
+
+.secret {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--background);
+}
+
+.secret code {
+    flex: 1;
+}
+
+.toasts {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: grid;
+    gap: 8px;
+    max-width: min(420px, calc(100vw - 32px));
+    z-index: 10;
+}
+
+.toast {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--success-background);
+    color: var(--success-text);
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+}
+
+.toast.error {
+    background: var(--error-background);
+    color: var(--error-text);
+}
+
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    color: var(--muted);
+}
+
+.spaced {
+    margin-top: 16px;
+}
+
+fieldset.field {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+fieldset.field legend {
+    margin-bottom: 4px;
+    padding: 0;
+    font-weight: 600;
+    font-size: 0.9rem;
+}

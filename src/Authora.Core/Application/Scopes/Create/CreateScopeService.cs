@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Scopes.Create;
 ///     The Service to create a new Scope.
 /// </summary>
 /// <param name="scopeRepository">An Instance of a IScopeRepository to create a new Scope.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the creation.</param>
 public sealed class CreateScopeService(
     IScopeRepository scopeRepository,
+    IAuditLog auditLog,
     ILogger<CreateScopeService> logger)
 {
     /// <summary>
@@ -36,6 +39,8 @@ public sealed class CreateScopeService(
         {
             throw new ConflictException("The Name is already used by another Scope.");
         }
+
+        auditLog.Record(AuditEntry.ForScope(AuditEventTypes.Scopes.Created, scope.Id, $"Name '{scope.Name}'"));
 
         await scopeRepository.CreateScope(scope, cancellationToken);
 

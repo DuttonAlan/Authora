@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 
 using Microsoft.Extensions.Logging;
 
@@ -12,9 +13,11 @@ namespace Authora.Core.Application.Groups.Delete;
 ///     The Service to delete a Group.
 /// </summary>
 /// <param name="groupRepository">An Instance of a IGroupRepository to delete a Group.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteGroupService(
     IGroupRepository groupRepository,
+    IAuditLog auditLog,
     ILogger<DeleteGroupService> logger)
 {
     /// <summary>
@@ -36,6 +39,11 @@ public sealed class DeleteGroupService(
         }
 
         var memberCount = await groupRepository.CountMembers(group.Id, cancellationToken);
+
+        auditLog.Record(AuditEntry.ForGroup(
+            AuditEventTypes.Groups.Deleted,
+            group.Id,
+            $"Name '{group.Name}', {memberCount} membership(s) ended"));
 
         await groupRepository.DeleteGroup(group, cancellationToken);
 

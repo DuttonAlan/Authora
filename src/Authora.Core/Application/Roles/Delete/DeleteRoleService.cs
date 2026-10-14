@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Roles.Delete;
 ///     The Service to delete a Role.
 /// </summary>
 /// <param name="roleRepository">An Instance of a IRoleRepository to delete a Role.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteRoleService(
     IRoleRepository roleRepository,
+    IAuditLog auditLog,
     ILogger<DeleteRoleService> logger)
 {
     /// <summary>
@@ -43,6 +46,11 @@ public sealed class DeleteRoleService(
         }
 
         var userCount = await roleRepository.CountUsersWithRole(role.Id, cancellationToken);
+
+        auditLog.Record(AuditEntry.ForRole(
+            AuditEventTypes.Roles.Deleted,
+            role.Id,
+            $"Name '{role.Name}', removed from {userCount} User(s)"));
 
         await roleRepository.DeleteRole(role, cancellationToken);
 
