@@ -15,6 +15,7 @@ using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.RemoveRole;
@@ -39,6 +40,7 @@ namespace Authora.Api.Controllers;
 /// <param name="deleteUserService">The Service to delete the User.</param>
 /// <param name="getAllUsersService">The Service to get all Users.</param>
 /// <param name="getEffectivePermissionsService">The Service to get the effective Permissions of the User.</param>
+/// <param name="getUserGroupsService">The Service to get the Groups of the User.</param>
 /// <param name="getUserRolesService">The Service to get the Roles of the User.</param>
 /// <param name="getUserService">The Service to get the User.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
@@ -58,6 +60,7 @@ public sealed class UsersController(
     DeleteUserService deleteUserService,
     GetAllUsersService getAllUsersService,
     GetEffectivePermissionsService getEffectivePermissionsService,
+    GetUserGroupsService getUserGroupsService,
     GetUserRolesService getUserRolesService,
     GetUserService getUserService,
     RemoveRoleService removeRoleService,
@@ -171,7 +174,7 @@ public sealed class UsersController(
     /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>200 OK with the User, or 404 Not Found if the User does not exist.</returns>
-    /// <response code="200">Responds with the User matching the given Id, including its Roles.</response>
+    /// <response code="200">Responds with the User matching the given Id, including its directly assigned Roles.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpGet("{id:guid}")]
@@ -379,8 +382,12 @@ public sealed class UsersController(
     }
 
     /// <summary>
-    ///     Gets the Roles of the User based on the given Id.
+    ///     Gets the effective Roles of the User based on the given Id.
     /// </summary>
+    /// <remarks>
+    ///     Returns the Roles assigned to the User directly and the Roles of the Groups of the User.
+    ///     For each Role, <c>isDirect</c> and <c>groups</c> tell where the User has it from.
+    /// </remarks>
     /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>200 OK with the Roles of the User.</returns>
@@ -388,7 +395,7 @@ public sealed class UsersController(
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpGet("{id:guid}/roles")]
-    [ProducesResponseType<IReadOnlyList<UserRoleResponse>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<IReadOnlyList<EffectiveRoleResponse>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Users.Read)]
@@ -466,8 +473,8 @@ public sealed class UsersController(
     ///     Gets the effective Permissions of the User.
     /// </summary>
     /// <remarks>
-    ///     Returns the union of the Permissions of all Roles of the User,
-    ///     and for each Permission the Roles it comes from.
+    ///     Returns the union of the Permissions of all Roles of the User, assigned directly or through a Group,
+    ///     and for each Permission the Roles it comes from and where the User has each of these Roles from.
     /// </remarks>
     /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -487,5 +494,31 @@ public sealed class UsersController(
         var permissions = await getEffectivePermissionsService.ExecuteAsync(id, cancellationToken);
 
         return Ok(permissions);
+    }
+
+    /// <summary>
+    ///     Gets the Groups of the User based on the given Id.
+    /// </summary>
+    /// <remarks>
+    ///     Memberships are managed through <c>/api/groups/{id}/members</c>.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>200 OK with the Groups of the User.</returns>
+    /// <response code="200">Responds with the Groups of the User ordered by their Name, or an empty list if the User is in no Group.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpGet("{id:guid}/groups")]
+    [ProducesResponseType<IReadOnlyList<UserGroupResponse>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
+    public async Task<IActionResult> GetGroups(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var groups = await getUserGroupsService.ExecuteAsync(id, cancellationToken);
+
+        return Ok(groups);
     }
 }

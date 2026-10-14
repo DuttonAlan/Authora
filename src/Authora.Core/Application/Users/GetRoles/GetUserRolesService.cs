@@ -14,22 +14,22 @@ namespace Authora.Core.Application.Users.GetRoles;
 public sealed class GetUserRolesService(IUserRepository userRepository)
 {
     /// <summary>
-    ///     Gets the Roles assigned to a User, ordered by their Name.
+    ///     Gets the effective Roles of a User, ordered by their Name: the Roles assigned directly and the Roles of the
+    ///     Groups of the User, together with where each Role comes from.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The Roles of the User.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
-    public async Task<IReadOnlyList<UserRoleResponse>> ExecuteAsync(
+    public async Task<IReadOnlyList<EffectiveRoleResponse>> ExecuteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var user = await userRepository.GetUserById(id, cancellationToken)
+        var user = await userRepository.GetUserWithPermissionsById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
 
-        return user.Roles
-            .OrderBy(role => role.Name, StringComparer.Ordinal)
-            .Select(role => new UserRoleResponse(role.Id, role.Name, role.DisplayName))
+        return EffectiveRoles.Resolve(user)
+            .Select(x => x.Response)
             .ToList();
     }
 }

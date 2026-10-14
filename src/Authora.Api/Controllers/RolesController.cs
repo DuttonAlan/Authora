@@ -78,7 +78,7 @@ public sealed class RolesController(
     ///     Deletes the Role based on the given Id.
     /// </summary>
     /// <remarks>
-    ///     The Role is also removed from all Users that have it.
+    ///     The Role is also removed from all Users and Groups that have it.
     ///     This operation is idempotent: deleting a Role that does not exist also succeeds.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-2c963f66afa6">Id of the Role.</param>

@@ -14,8 +14,8 @@ namespace Authora.Core.Application.Users.GetPermissions;
 public sealed class GetEffectivePermissionsService(IUserRepository userRepository)
 {
     /// <summary>
-    ///     Gets the union of the Permissions of all Roles of a User, ordered by their Name,
-    ///     together with the Roles each Permission comes from.
+    ///     Gets the union of the Permissions of all Roles of a User, assigned directly or through a Group, ordered by
+    ///     their Name, together with the Roles each Permission comes from.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -28,16 +28,14 @@ public sealed class GetEffectivePermissionsService(IUserRepository userRepositor
         var user = await userRepository.GetUserWithPermissionsById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
 
-        return user.Roles
-            .SelectMany(role => role.Permissions, (role, permission) => (Role: role, Permission: permission))
+        // Resolve orders the Roles by Name, so the Roles of each Permission stay in that order.
+        return EffectiveRoles.Resolve(user)
+            .SelectMany(role => role.Role.Permissions, (role, permission) => (role.Response, Permission: permission))
             .GroupBy(grant => grant.Permission.Id)
             .Select(grants => new GetEffectivePermissionsResponse(
                 grants.Key,
                 grants.First().Permission.Name,
-                grants
-                    .Select(grant => new UserRoleResponse(grant.Role.Id, grant.Role.Name, grant.Role.DisplayName))
-                    .OrderBy(role => role.Name, StringComparer.Ordinal)
-                    .ToList()))
+                grants.Select(grant => grant.Response).ToList()))
             .OrderBy(permission => permission.Name, StringComparer.Ordinal)
             .ToList();
     }
