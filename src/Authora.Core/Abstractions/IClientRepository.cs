@@ -46,6 +46,14 @@ public interface IClientRepository
     public Task<IReadOnlyList<string>> GetRedirectUrisOfEnabledClients(CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Gets the oldest enabled Public Client that has exactly the given Redirect URI.
+    /// </summary>
+    /// <param name="redirectUri">The Redirect URI, compared character by character.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The Id of the Client, or null if there is none.</returns>
+    public Task<Guid?> GetEnabledPublicClientIdByRedirectUri(string redirectUri, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Checks in the database whether a Client is disabled, ignoring any tracked (possibly outdated) instance.
     /// </summary>
     /// <param name="id">Id of the Client.</param>

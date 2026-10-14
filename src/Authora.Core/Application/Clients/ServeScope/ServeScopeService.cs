@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -15,10 +16,12 @@ namespace Authora.Core.Application.Clients.ServeScope;
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="scopeRepository">An Instance of a IScopeRepository to get the Scope.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the change.</param>
 public sealed class ServeScopeService(
     IClientRepository clientRepository,
     IScopeRepository scopeRepository,
+    IAuditLog auditLog,
     ILogger<ServeScopeService> logger)
 {
     /// <summary>
@@ -58,6 +61,7 @@ public sealed class ServeScopeService(
         }
 
         client.ServeScope(scope);
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.ScopeServed, client.Id, $"Scope '{scope.Name}'"));
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

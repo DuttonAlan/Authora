@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Users;
 
@@ -15,10 +16,12 @@ namespace Authora.Core.Application.Groups.AddMember;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="groupRepository">An Instance of a IGroupRepository to get the Group.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the new membership.</param>
 public sealed class AddGroupMemberService(
     IUserRepository userRepository,
     IGroupRepository groupRepository,
+    IAuditLog auditLog,
     ILogger<AddGroupMemberService> logger)
 {
     /// <summary>
@@ -49,6 +52,7 @@ public sealed class AddGroupMemberService(
         }
 
         user.JoinGroup(group);
+        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.MemberAdded, group.Id, $"User {user.Id}"));
 
         try
         {

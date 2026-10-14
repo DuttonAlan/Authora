@@ -39,6 +39,11 @@ Discovery, ID Tokens, JWKS and UserInfo are described in [openid-connect.md](ope
 | `Authora:Cleanup:Interval` | `01:00:00` | How often expired Authorization Codes, Grants, tokens and Sessions are deleted. 1 minute to 1 day. The first run is one interval after startup. |
 | `Authora:Cleanup:Retention` | `7.00:00:00` | How long rows are kept after they expired or were revoked, at least 1 day. Reuse of a consumed code or Refresh Token is only detected (and revokes the Grant) while the row exists. |
 | `Authora:Cleanup:BatchSize` | `1000` | Rows deleted per statement, 1 to 10000. |
+| `Authora:Cleanup:AuditRetention` | `365.00:00:00` | How long audit events are kept, at least 30 days. See [admin.md](admin.md#audit-log-us-034). |
+| `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | Sign-in attempts per minute and IP address. |
+| `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | Requests to `/oauth/token` and `/oauth/revoke` per minute and IP address. `/oauth/introspect` is not limited. |
+
+Settings for production operation (HTTPS, reverse proxies, host filtering) are described in [operations.md](operations.md).
 
 Environment variables use `__` as separator, e.g. `Authora__OAuth__Issuer`.
 
@@ -192,11 +197,12 @@ The authorization endpoint needs a signed-in User, so Phase 4 includes a minimal
 - Passwords are hashed with PBKDF2-HMAC-SHA512 and 210,000 iterations (ASP.NET Core Identity password hasher, V3 format). Older hashes are upgraded on the next sign-in.
 - Every failure shows the same message. Unknown Emails still verify a password, so the response time does not reveal whether an Email exists.
 - After `MaxFailedAttempts` failures in a row, the User is locked out for `LockoutDuration`. `POST /api/users/{id}/unlock` ends it early.
-- Sign-in attempts are limited to 10 per minute per IP address (`429 Too Many Requests`). Behind a reverse proxy, the forwarded headers must be configured.
+- Sign-in attempts are limited to 10 per minute per IP address (`429 Too Many Requests`), requests to `/oauth/token` and `/oauth/revoke` to 300. Behind a reverse proxy, `Authora:ForwardedHeaders` must be configured, see [operations.md](operations.md#reverse-proxy).
 - Every sign-in creates a new Session and ends the previous Session of the browser.
 - The cookie `__Host-authora_session` is `Secure`, `HttpOnly`, `SameSite=Lax` and has no expiry. The server enforces the idle timeout and the absolute lifetime and checks the `SecurityStamp` on every request.
 - Signing out revokes the Session on the server and deletes the cookie.
-- The pages send a Content Security Policy with `frame-ancestors 'none'` and `X-Frame-Options: DENY` against clickjacking, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. All forms use antiforgery tokens.
+- The pages send a Content Security Policy with `frame-ancestors 'none'` and `X-Frame-Options: DENY` against clickjacking, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. All forms use antiforgery tokens. The antiforgery cookie `__Host-authora_antiforgery` is `Secure`, `HttpOnly` and `SameSite=Strict`, so the pages only work over HTTPS.
+- Sign-ins, failed sign-ins, lockouts and sign-outs are recorded in the audit log, see [admin.md](admin.md#audit-log-us-034).
 
 `POST /api/users` requires an initial password, and an administrator can replace it with `PUT /api/users/{id}/password`. Users cannot choose their own password until the reset flow (US-010) exists. Passwords must be 12 to 128 characters long.
 
@@ -206,13 +212,13 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 
 | Range | Area |
 |---|---|
-| 5001 – 5006 | Sign-in, sign-out, lockout, invalidated Sessions |
+| 5001 – 5007 | Sign-in, sign-out, lockout, invalidated Sessions |
 | 6001 – 6012 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
-| 7001 – 7007 | Seeding at startup |
-| 8001 – 8002 | Cleanup of expired codes, Grants, tokens and Sessions |
-| 9001 | Signing keys loaded |
+| 7001 – 7009 | Seeding at startup, including the Client of the admin interface |
+| 8001 – 8003 | Cleanup of expired codes, Grants, tokens, Sessions and audit events |
+| 9001 – 9005 | Signing keys loaded, reloaded or not reloadable, see [openid-connect.md](openid-connect.md#logging) |
 
-Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings.
+Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings. Reuse is also recorded in the audit log (`oauth.authorization-code-reused`, `oauth.refresh-token-reused`).
 
 ## Known limitations
 

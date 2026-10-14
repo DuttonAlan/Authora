@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Users.Deactivate;
 ///     The Service to deactivate a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to deactivate a User.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deactivation.</param>
 public sealed class DeactivateUserService(
     IUserRepository userRepository,
+    IAuditLog auditLog,
     ILogger<DeactivateUserService> logger)
 {
     /// <summary>
@@ -53,6 +56,7 @@ public sealed class DeactivateUserService(
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
         user.Deactivate();
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Deactivated, user.Id));
 
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

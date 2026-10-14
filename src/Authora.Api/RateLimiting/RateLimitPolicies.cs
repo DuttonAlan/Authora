@@ -5,11 +5,12 @@
 using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Api.RateLimiting;
 
 /// <summary>
-///     Rate limiting policies of Authora.
+///     Rate limiting policies of Authora, with the limits of <see cref="RateLimitOptions"/>.
 /// </summary>
 internal static class RateLimitPolicies
 {
@@ -19,7 +20,10 @@ internal static class RateLimitPolicies
     /// </summary>
     public const string SignIn = "sign-in";
 
-    private const int SignInPermitsPerMinute = 10;
+    /// <summary>
+    ///     Limits requests to the token and revocation endpoints per client IP address (US-036).
+    /// </summary>
+    public const string Token = "token";
 
     /// <summary>
     ///     Registers the policies.
@@ -37,14 +41,26 @@ internal static class RateLimitPolicies
 
         // Only POST submits credentials, so showing the page is not limited.
         options.AddPolicy(SignIn, context => HttpMethods.IsPost(context.Request.Method)
-            ? RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = SignInPermitsPerMinute,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0
-                })
+            ? PerIpAddress(context, SignIn, GetOptions(context).SignInPermitsPerMinute)
             : RateLimitPartition.GetNoLimiter(string.Empty));
+
+        options.AddPolicy(Token, context => PerIpAddress(context, Token, GetOptions(context).TokenPermitsPerMinute));
+    }
+
+    private static RateLimitOptions GetOptions(HttpContext context)
+    {
+        return context.RequestServices.GetRequiredService<IOptions<RateLimitOptions>>().Value;
+    }
+
+    private static RateLimitPartition<string> PerIpAddress(HttpContext context, string policy, int permitsPerMinute)
+    {
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"{policy}:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitsPerMinute,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
     }
 }

@@ -142,7 +142,7 @@ internal static partial class AuthorizationCodeFlow
         var token = WebUtility.HtmlDecode(AntiforgeryTokenPattern().Match(html).Groups[1].Value);
         var cookie = page.Headers.GetValues("Set-Cookie")
             .Select(cookie => cookie.Split(';')[0])
-            .Single(cookie => cookie.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
+            .Single(cookie => cookie.StartsWith("__Host-authora_antiforgery=", StringComparison.Ordinal));
 
         return (token, cookie);
     }

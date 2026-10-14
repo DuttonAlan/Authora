@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Clients.Update;
 ///     The Service to update an existing Client.
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to update a Client.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateClientService(
     IClientRepository clientRepository,
+    IAuditLog auditLog,
     ILogger<UpdateClientService> logger)
 {
     /// <summary>
@@ -50,6 +53,8 @@ public sealed class UpdateClientService(
         client.SetTokenLifetimes(
             request.AccessTokenTTL ?? client.AccessTokenTTL,
             request.RefreshTokenTTL ?? client.RefreshTokenTTL);
+
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Updated, client.Id, $"Name '{client.Name}'"));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await clientRepository.SaveChangesAsync(cancellationToken);

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Authora.Core.Application.Clients.AllowScope;
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="scopeRepository">An Instance of a IScopeRepository to get the Scope.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the change.</param>
 public sealed class AllowScopeService(
     IClientRepository clientRepository,
     IScopeRepository scopeRepository,
+    IAuditLog auditLog,
     ILogger<AllowScopeService> logger)
 {
     /// <summary>
@@ -45,6 +48,7 @@ public sealed class AllowScopeService(
             ?? throw new NotFoundException($"Scope '{scopeId}' was not found.");
 
         client.AllowScope(scope);
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.ScopeAllowed, client.Id, $"Scope '{scope.Name}'"));
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

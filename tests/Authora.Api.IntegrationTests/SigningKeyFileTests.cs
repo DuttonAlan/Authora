@@ -16,7 +16,8 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that the settings and key files of OpenID Connect are validated at startup (US-024), so a missing, weak
-///     or wrong key stops the start instead of failing sign-ins. Needs no database.
+///     or wrong key stops the start instead of failing sign-ins, and that changed key files are reloaded without a
+///     restart (US-035). Needs no database.
 /// </summary>
 public sealed class SigningKeyFileTests : IDisposable
 {
@@ -187,10 +188,101 @@ public sealed class SigningKeyFileTests : IDisposable
         Assert.Contains("IdTokenLifetime", result.FailureMessage, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Reload_WithUnchangedFiles_KeepsKeys()
+    {
+        using var rsa = RSA.Create(2048);
+        var path = WriteKey("signing.pem", rsa.ExportPkcs8PrivateKeyPem());
+
+        using var provider = CreateProvider(new OidcOptions { SigningKeyPath = path });
+        var signingKey = provider.SigningKey;
+
+        Assert.False(provider.Reload());
+        Assert.Same(signingKey, provider.SigningKey);
+        Assert.Null(provider.ReloadFailure);
+    }
+
+    [Fact]
+    public void Reload_WithReplacedSigningKeyFile_SignsWithNewKey()
+    {
+        using var oldRsa = RSA.Create(2048);
+        using var newRsa = RSA.Create(2048);
+        var path = WriteKey("signing.pem", oldRsa.ExportPkcs8PrivateKeyPem());
+
+        using var provider = CreateProvider(new OidcOptions { SigningKeyPath = path });
+        var oldKeyId = provider.SigningKey.KeyId;
+
+        WriteKey("signing.pem", newRsa.ExportPkcs8PrivateKeyPem());
+
+        Assert.True(provider.Reload());
+        Assert.NotEqual(oldKeyId, provider.SigningKey.KeyId);
+        Assert.True(provider.SigningKey.CanSign);
+        Assert.Single(provider.PublishedKeys);
+    }
+
+    [Fact]
+    public void Reload_WithChangedSettings_PublishesAdditionalKey()
+    {
+        using var signingRsa = RSA.Create(2048);
+        using var nextRsa = RSA.Create(2048);
+        var signingPath = WriteKey("signing.pem", signingRsa.ExportPkcs8PrivateKeyPem());
+        var nextPath = WriteKey("next.pem", nextRsa.ExportSubjectPublicKeyInfoPem());
+        var options = new TestOptionsMonitor(new OidcOptions { SigningKeyPath = signingPath });
+
+        using var provider = CreateProvider(options);
+        var signingKeyId = provider.SigningKey.KeyId;
+
+        options.CurrentValue = new OidcOptions { SigningKeyPath = signingPath, AdditionalKeyPaths = [nextPath] };
+
+        Assert.True(provider.Reload());
+        Assert.Equal(signingKeyId, provider.SigningKey.KeyId);
+        Assert.Equal(2, provider.PublishedKeys.Count);
+    }
+
+    [Fact]
+    public void Reload_WithInvalidFile_KeepsPreviousKeysAndReportsFailure()
+    {
+        using var rsa = RSA.Create(2048);
+        var path = WriteKey("signing.pem", rsa.ExportPkcs8PrivateKeyPem());
+
+        using var provider = CreateProvider(new OidcOptions { SigningKeyPath = path });
+        var signingKey = provider.SigningKey;
+
+        // E.g. a file that is only half written.
+        WriteKey("signing.pem", "-----BEGIN PRIVATE KEY-----\nMIIE");
+
+        Assert.Throws<InvalidOperationException>(() => provider.Reload());
+        Assert.Same(signingKey, provider.SigningKey);
+        Assert.NotNull(provider.ReloadFailure);
+
+        WriteKey("signing.pem", rsa.ExportPkcs8PrivateKeyPem());
+
+        Assert.False(provider.Reload());
+        Assert.Null(provider.ReloadFailure);
+    }
+
+    [Theory]
+    [InlineData("00:00:09")]
+    [InlineData("01:00:01")]
+    public void OptionsValidator_RejectsKeyReloadIntervalOutOfRange(string interval)
+    {
+        var result = new OidcOptionsValidator().Validate(
+            null,
+            new OidcOptions { SigningKeyPath = "signing.pem", KeyReloadInterval = TimeSpan.Parse(interval, System.Globalization.CultureInfo.InvariantCulture) });
+
+        Assert.True(result.Failed);
+        Assert.Contains("KeyReloadInterval", result.FailureMessage, StringComparison.Ordinal);
+    }
+
     private PemSigningKeyProvider CreateProvider(OidcOptions options)
     {
+        return CreateProvider(new TestOptionsMonitor(options));
+    }
+
+    private PemSigningKeyProvider CreateProvider(TestOptionsMonitor options)
+    {
         return new PemSigningKeyProvider(
-            Options.Create(options),
+            options,
             new TestHostEnvironment(_contentRoot),
             NullLogger<PemSigningKeyProvider>.Instance);
     }
@@ -201,6 +293,15 @@ public sealed class SigningKeyFileTests : IDisposable
         File.WriteAllText(path, pem);
 
         return path;
+    }
+
+    private sealed class TestOptionsMonitor(OidcOptions options) : IOptionsMonitor<OidcOptions>
+    {
+        public OidcOptions CurrentValue { get; set; } = options;
+
+        public OidcOptions Get(string? name) => CurrentValue;
+
+        public IDisposable? OnChange(Action<OidcOptions, string?> listener) => null;
     }
 
     private sealed class TestHostEnvironment(string contentRootPath) : IHostEnvironment

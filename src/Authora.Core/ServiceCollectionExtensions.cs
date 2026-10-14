@@ -6,6 +6,8 @@ using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
+using Authora.Core.Application.AdminUi.GetSettings;
+using Authora.Core.Application.Audit.Search;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddRedirectUri;
@@ -61,6 +63,7 @@ using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetCurrent;
 using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
@@ -94,6 +97,10 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<ValidateSessionService>();
 
         serviceCollection.AddTransient<PermissionEvaluator>();
+
+        serviceCollection.AddTransient<SearchAuditEventsService>();
+
+        serviceCollection.AddTransient<GetAdminUiSettingsService>();
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OAuthOptions>, OAuthOptionsValidator>());
         serviceCollection.AddTransient<AccessTokenValidator>();
@@ -159,6 +166,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<DeactivateUserService>();
         serviceCollection.AddTransient<DeleteUserService>();
         serviceCollection.AddTransient<GetEffectivePermissionsService>();
+        serviceCollection.AddTransient<GetCurrentUserService>();
         serviceCollection.AddTransient<GetUserService>();
         serviceCollection.AddTransient<GetUserGroupsService>();
         serviceCollection.AddTransient<GetUserRolesService>();

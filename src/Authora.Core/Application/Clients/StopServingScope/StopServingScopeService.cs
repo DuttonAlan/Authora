@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Clients.StopServingScope;
 ///     The Service to stop a Client from serving a Scope as a resource server.
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the change.</param>
 public sealed class StopServingScopeService(
     IClientRepository clientRepository,
+    IAuditLog auditLog,
     ILogger<StopServingScopeService> logger)
 {
     /// <summary>
@@ -42,6 +45,7 @@ public sealed class StopServingScopeService(
         }
 
         client.StopServingScope(scope.Id);
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.ScopeNoLongerServed, client.Id, $"Scope '{scope.Name}'"));
 
         await clientRepository.SaveChangesAsync(cancellationToken);
 

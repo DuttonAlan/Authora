@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Core.Domain.Exceptions;
@@ -17,11 +18,13 @@ namespace Authora.Core.Application.Clients.Register;
 /// <param name="clientRepository">An Instance of a IClientRepository to create the Client.</param>
 /// <param name="scopeRepository">An Instance of a IScopeRepository to get the allowed Scopes.</param>
 /// <param name="clientSecretIssuer">The issuer for the first Secret of a Confidential Client.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the registration.</param>
 public sealed class RegisterClientService(
     IClientRepository clientRepository,
     IScopeRepository scopeRepository,
     ClientSecretIssuer clientSecretIssuer,
+    IAuditLog auditLog,
     ILogger<RegisterClientService> logger)
 {
     /// <summary>
@@ -76,6 +79,19 @@ public sealed class RegisterClientService(
         var secret = client.Type == ClientType.Confidential
             ? clientSecretIssuer.Issue(client, expiresAt: null)
             : null;
+
+        auditLog.Record(AuditEntry.ForClient(
+            AuditEventTypes.Clients.Registered,
+            client.Id,
+            $"Name '{client.Name}', {client.Type}"));
+
+        if (secret is not null)
+        {
+            auditLog.Record(AuditEntry.ForClient(
+                AuditEventTypes.Clients.SecretCreated,
+                client.Id,
+                $"Secret {secret.Id}, expires {secret.ExpiresAt:O}"));
+        }
 
         await clientRepository.CreateClient(client, cancellationToken);
 

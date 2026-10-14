@@ -19,6 +19,13 @@ namespace Authora.Api.IntegrationTests;
 /// </summary>
 public sealed class AdminApiPolicyTests
 {
+    // Actions that only need an admin Access Token, each with the reason.
+    private static readonly HashSet<string> ActionsWithoutPermission =
+    [
+        // Returns only the caller's own User and Permissions, so a User without Permissions can see that they have none.
+        "MeController.Get"
+    ];
+
     public static TheoryData<string> AdminActions()
     {
         var data = new TheoryData<string>();
@@ -47,9 +54,18 @@ public sealed class AdminApiPolicyTests
             controller.GetCustomAttributes<AuthorizeAttribute>(),
             attribute => attribute.Policy == AuthorizationPolicies.AdminApi);
 
-        Assert.Contains(
-            action.GetCustomAttributes<AuthorizeAttribute>(),
-            attribute => PermissionNames.All.Contains(attribute.Policy));
+        if (ActionsWithoutPermission.Contains(actionName))
+        {
+            Assert.DoesNotContain(
+                action.GetCustomAttributes<AuthorizeAttribute>(),
+                attribute => PermissionNames.All.Contains(attribute.Policy));
+        }
+        else
+        {
+            Assert.Contains(
+                action.GetCustomAttributes<AuthorizeAttribute>(),
+                attribute => PermissionNames.All.Contains(attribute.Policy));
+        }
 
         Assert.False(controller.IsDefined(typeof(AllowAnonymousAttribute)));
         Assert.False(action.IsDefined(typeof(AllowAnonymousAttribute)));

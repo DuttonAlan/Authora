@@ -14,6 +14,8 @@ Built around **OAuth 2.0 and OpenID Connect (OIDC)**, Authora provides standardi
 - 👤 **Identity Management** — Centralized user and account management
 - 🛡️ **Access Management** — Manage roles, permissions, and access policies
 - 🔑 **Application Management** — Register and manage applications and OAuth clients
+- 🖥️ **Admin Interface** — Manage users, groups, roles and clients in the browser at `/admin`
+- 📜 **Audit Log** — Trace sign-ins and administrative changes
 - 🏠 **Self-Hosted** — Keep control over your infrastructure and identity data
 - 🪶 **Lightweight by Design** — Essential identity features without unnecessary complexity
 

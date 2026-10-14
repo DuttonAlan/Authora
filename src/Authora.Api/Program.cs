@@ -4,6 +4,7 @@
 
 using System.Text.Json.Serialization;
 
+using Authora.Api.Auditing;
 using Authora.Api.Authentication;
 using Authora.Api.Authorization;
 using Authora.Api.ExceptionHandling;
@@ -12,8 +13,11 @@ using Authora.Api.OAuth;
 using Authora.Api.OpenApi;
 using Authora.Api.Pages;
 using Authora.Api.RateLimiting;
+using Authora.Api.Security;
 using Authora.Core;
+using Authora.Core.Abstractions;
 using Authora.Core.Application.Account;
+using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
@@ -27,6 +31,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,6 +64,39 @@ builder.Services.AddControllers()
 
 builder.Services.AddRazorPages(options => options.Conventions.ConfigureFilter(new SecurityHeadersPageFilter()));
 
+// The antiforgery cookie of the sign-in and consent forms gets the same protection as the Session cookie: the
+// __Host- prefix keeps subdomains from setting it, and Strict keeps it out of cross-site requests.
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "__Host-authora_antiforgery";
+    options.Cookie.Path = "/";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.HttpOnly = true;
+});
+
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+});
+
+var forwardedHeaders = builder.Configuration.GetSection(ForwardedHeadersSettings.SectionName).Get<ForwardedHeadersSettings>()
+    ?? new ForwardedHeadersSettings();
+var startupFailures = forwardedHeaders.Validate().ToList();
+
+if (builder.Environment.IsProduction())
+{
+    startupFailures.AddRange(ProductionSettingsCheck.Validate(builder.Configuration));
+}
+
+if (startupFailures.Count > 0)
+{
+    throw new InvalidOperationException(
+        $"Authora is not configured securely:{Environment.NewLine}{string.Join(Environment.NewLine, startupFailures)}");
+}
+
+builder.Services.Configure<ForwardedHeadersOptions>(forwardedHeaders.Apply);
+
 builder.Services.AddOptions<OAuthOptions>()
     .Bind(builder.Configuration.GetSection(OAuthOptions.SectionName))
     .ValidateOnStart();
@@ -74,6 +112,17 @@ builder.Services.AddOptions<BootstrapOptions>()
 builder.Services.AddOptions<CleanupOptions>()
     .Bind(builder.Configuration.GetSection(CleanupOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<AdminUiOptions>()
+    .Bind(builder.Configuration.GetSection(AdminUiOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<RateLimitOptions>()
+    .Bind(builder.Configuration.GetSection(RateLimitOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<RateLimitOptions>, RateLimitOptionsValidator>());
+
+// The actor of audit events is taken from the current request.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IAuditActorAccessor, HttpContextAuditActorAccessor>();
 
 // The Session cookie is only used by the sign-in and authorization pages. The admin API only accepts Access Tokens,
 // see AuthorizationPolicies.
@@ -100,7 +149,41 @@ await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().SeedAsync();
 }
 
+// First, so the IP address and scheme of the client are known to everything after it, e.g. the rate limits and the
+// audit log.
+if (forwardedHeaders.IsEnabled)
+{
+    app.UseForwardedHeaders();
+}
+
 app.UseExceptionHandler();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
+var adminUiEnabled = app.Services.GetRequiredService<IOptions<AdminUiOptions>>().Value.Enabled;
+
+if (adminUiEnabled)
+{
+    // Serves /admin/index.html for "/admin/", and redirects "/admin" to "/admin/", the Redirect URI.
+    app.UseDefaultFiles();
+}
+else
+{
+    // The files stay in wwwroot, so they must be hidden explicitly.
+    app.UseWhen(
+        context => context.Request.Path.StartsWithSegments(AdminUiOptions.Path, StringComparison.OrdinalIgnoreCase),
+        branch => branch.Run(context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return Task.CompletedTask;
+        }));
+}
 
 app.UseStaticFiles();
 app.UseCors();
@@ -138,7 +221,5 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
     Predicate = _ => false,
     ResponseWriter = HealthReportWriter.WriteStatusAsync
 });
-
-app.UseHttpsRedirection();
 
 await app.RunAsync();

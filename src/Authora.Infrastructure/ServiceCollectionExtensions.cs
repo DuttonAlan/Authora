@@ -53,13 +53,20 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddHealthChecks()
             .AddDbContextCheck<AuthoraContext>("database", tags: [HealthCheckTags.Ready])
-            .AddCheck<MigrationsHealthCheck>("migrations", tags: [HealthCheckTags.Ready]);
+            .AddCheck<MigrationsHealthCheck>("migrations", tags: [HealthCheckTags.Ready])
+            .AddCheck<SigningKeysHealthCheck>("signing-keys", tags: [HealthCheckTags.Ready]);
 
         serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
         serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();
         serviceCollection.AddSingleton<IPasswordHasher, PasswordHasher>();
-        serviceCollection.AddSingleton<ISigningKeyProvider, PemSigningKeyProvider>();
+        serviceCollection.AddSingleton<PemSigningKeyProvider>();
+        serviceCollection.AddSingleton<ISigningKeyProvider>(serviceProvider => serviceProvider.GetRequiredService<PemSigningKeyProvider>());
+        serviceCollection.AddHostedService<SigningKeyReloadService>();
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OidcOptions>, OidcSigningKeysValidator>());
+
+        // The actor comes from the host, e.g. the HTTP request, see IAuditActorAccessor.
+        serviceCollection.AddScoped<IAuditLog, AuditLog>();
+        serviceCollection.AddTransient<IAuditEventRepository, AuditEventRepository>();
 
         serviceCollection.AddTransient<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
         serviceCollection.AddTransient<IClientRepository, ClientRepository>();

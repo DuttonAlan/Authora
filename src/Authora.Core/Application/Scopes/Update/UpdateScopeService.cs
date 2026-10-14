@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Scopes.Update;
 ///     The Service to update an existing Scope.
 /// </summary>
 /// <param name="scopeRepository">An Instance of a IScopeRepository to update a Scope.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateScopeService(
     IScopeRepository scopeRepository,
+    IAuditLog auditLog,
     ILogger<UpdateScopeService> logger)
 {
     /// <summary>
@@ -43,6 +46,8 @@ public sealed class UpdateScopeService(
         {
             scope.SetDescription(request.Description);
         }
+
+        auditLog.Record(AuditEntry.ForScope(AuditEventTypes.Scopes.Updated, scope.Id, $"Name '{scope.Name}'"));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await scopeRepository.SaveChangesAsync(cancellationToken);

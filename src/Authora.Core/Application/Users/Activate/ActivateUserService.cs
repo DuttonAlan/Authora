@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Users.Activate;
 ///     The Service to activate a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to activate a User.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the activation.</param>
 public sealed class ActivateUserService(
     IUserRepository userRepository,
+    IAuditLog auditLog,
     ILogger<ActivateUserService> logger)
 {
     /// <summary>
@@ -45,6 +48,7 @@ public sealed class ActivateUserService(
         }
 
         user.Activate();
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Activated, user.Id));
 
         await userRepository.SaveChangesAsync(cancellationToken);
 

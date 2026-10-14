@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Groups.Update;
 ///     The Service to update an existing Group.
 /// </summary>
 /// <param name="groupRepository">An Instance of a IGroupRepository to update a Group.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateGroupService(
     IGroupRepository groupRepository,
+    IAuditLog auditLog,
     ILogger<UpdateGroupService> logger)
 {
     /// <summary>
@@ -56,6 +59,8 @@ public sealed class UpdateGroupService(
         {
             group.SetDescription(request.Description);
         }
+
+        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.Updated, group.Id, $"Name '{group.Name}'"));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await groupRepository.SaveChangesAsync(cancellationToken);

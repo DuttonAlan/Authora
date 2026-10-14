@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Api.OAuth;
+using Authora.Api.RateLimiting;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Introspect;
 using Authora.Core.Application.OAuth.Revoke;
@@ -10,6 +11,7 @@ using Authora.Core.Application.OAuth.Token;
 
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Authora.Api.Controllers;
 
@@ -40,6 +42,7 @@ public sealed class OAuthController(
     /// <returns>200 OK with the tokens, or an OAuth error.</returns>
     [HttpPost("token")]
     [EnableCors(OAuthCorsPolicyProvider.PolicyName)]
+    [EnableRateLimiting(RateLimitPolicies.Token)]
     public async Task<IActionResult> Token(CancellationToken cancellationToken)
     {
         try
@@ -72,6 +75,7 @@ public sealed class OAuthController(
     /// <returns>200 OK, also for unknown tokens, or an OAuth error.</returns>
     [HttpPost("revoke")]
     [EnableCors(OAuthCorsPolicyProvider.PolicyName)]
+    [EnableRateLimiting(RateLimitPolicies.Token)]
     public async Task<IActionResult> Revoke(CancellationToken cancellationToken)
     {
         try

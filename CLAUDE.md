@@ -19,8 +19,9 @@ dotnet test --project tests/Authora.Api.IntegrationTests --filter-class "*IdToke
 dotnet test --project tests/Authora.Api.IntegrationTests --filter-method "*Details_WithPermission_ReturnsChecks"
 dotnet test --project tests/Authora.Api.IntegrationTests --list-tests
 
-# Run the API locally (Development: Swagger UI enabled, connection string and bootstrap admin in appsettings.Development.json)
-dotnet run --project src/Authora.Api
+# Run the API locally (Development: Swagger UI enabled, connection string and bootstrap admin in appsettings.Development.json).
+# Use the https profile: sign-in needs HTTPS. The admin interface is then at https://localhost:7178/admin/
+dotnet run --project src/Authora.Api --launch-profile https
 
 # EF Core migrations (Infrastructure holds the DbContext, Api is the startup project)
 dotnet ef migrations add <Name> --project src/Authora.Infrastructure --startup-project src/Authora.Api
@@ -44,8 +45,16 @@ Three projects with a strict dependency direction: `Authora.Api` → `Authora.Co
   - `Domain/` – rich entities (`User`, `Client`, `Role`, `Grant`, tokens, …) created through static `Create(...)` factories and changed through methods (`client.Enable()`, `user.AssignRole(...)`). Invalid input throws `DomainValidationException`. Timestamps are UTC (`UtcGuard`).
   - `Application/<Area>/<UseCase>/` – one service class per use case (`EnableClientService`, `IssueTokenService`, …) with a single `ExecuteAsync`, plus its `*Request`/`*Response` records. Each new service must be registered in `Core/ServiceCollectionExtensions.cs`.
   - `Abstractions/` – repository and security interfaces (`I*Repository`, `ISecretHasher`, `ISigningKeyProvider`, `ITransaction`) implemented in Infrastructure.
-- **Authora.Infrastructure** – `AuthoraContext` with `IEntityTypeConfiguration`s, repositories, migrations, hashing/key loading, `IdentitySeeder`, and the `ExpiredDataCleanupService` hosted service. Two PostgreSQL schemas: `identity` (users, groups, clients, roles, permissions, scopes) and `auth` (sessions, codes, grants, tokens). Concurrency-sensitive rules use transactions with `pg_advisory_xact_lock` (`AdvisoryLockKeys`).
-- **Authora.Api** – thin controllers that call Core services, Razor Pages for the browser flows (`/account/login`, `/account/logout`, `/oauth/authorize` consent), and `Program.cs` for wiring.
+- **Authora.Infrastructure** – `AuthoraContext` with `IEntityTypeConfiguration`s, repositories, migrations, hashing/key loading (`PemSigningKeyProvider`, reloaded by `SigningKeyReloadService`), `IdentitySeeder`, `AuditLog`, and the `ExpiredDataCleanupService` hosted service. Three PostgreSQL schemas: `identity` (users, groups, clients, roles, permissions, scopes), `auth` (sessions, codes, grants, tokens) and `audit` (audit events). Concurrency-sensitive rules use transactions with `pg_advisory_xact_lock` (`AdvisoryLockKeys`).
+- **Authora.Api** – thin controllers that call Core services, Razor Pages for the browser flows (`/account/login`, `/account/logout`, `/oauth/authorize` consent), the admin interface as static files in `wwwroot/admin` (plain JavaScript modules, no build step), `SecurityHeadersMiddleware`, and `Program.cs` for wiring.
+
+### Admin interface
+
+`wwwroot/admin` is a browser app that signs in through Authora's own Authorization Code flow with PKCE as the seeded Public Client `Authora Admin UI` (Redirect URI `{Issuer}/admin/`, found via `GET /admin/settings`) and then only calls `/api/*` with the Access Token, like any other Client. `GET /api/me` returns the User's Permissions so the UI can hide what they may not do; the API still checks every Permission. Its CSP forbids inline scripts and styles (no `style="…"` attributes or `innerHTML`; build DOM with `h()` from `js/dom.js`). See `docs/admin.md`.
+
+### Audit log
+
+Every state-changing service records an event through `IAuditLog` (`AuditEventTypes`, `AuditEntry.ForUser(...)` etc.). `Record` stages the event in the request's DbContext right before the repository saves, so it is committed atomically with the change; call it after early returns for no-ops. `RecordNowAsync` saves immediately in its own DbContext (failed sign-ins, token reuse). The actor (User, Client, IP) comes from `IAuditActorAccessor`. Never put secrets in `Details`. New state-changing services must record an event.
 
 ### Authentication and authorization
 
@@ -70,10 +79,11 @@ Admin controllers carry `[Authorize(AuthorizationPolicies.AdminApi)]` (token mus
 
 ### Tests
 
-Only integration tests exist (`tests/Authora.Api.IntegrationTests`). `AuthoraApiFactory` (`WebApplicationFactory<Program>`) starts a PostgreSQL container, migrates it, writes temporary signing keys, runs in environment `Testing`, and offers helpers to create users, administrators, sessions, access tokens and public clients directly in the database. `AuthorizationCodeFlow` drives the full browser flow. Test-wide build settings live in `tests/Directory.Build.props`.
+Only integration tests exist (`tests/Authora.Api.IntegrationTests`). `AuthoraApiFactory` (`WebApplicationFactory<Program>`) starts a PostgreSQL container, migrates it, writes temporary signing keys, runs in environment `Testing` with HTTPS clients (`AuthoraApiFactory.BaseAddress`; the antiforgery cookie is only issued over HTTPS, so clients created with own options must set it), and offers helpers to create users, administrators, sessions, access tokens and public clients directly in the database. `AuthorizationCodeFlow` drives the full browser flow. Test-wide build settings live in `tests/Directory.Build.props`.
 
 ## Docs
 
 - `docs/oauth-core.md`, `docs/openid-connect.md` – endpoint behavior, token model, configuration settings and security rules. Keep them in sync when changing those flows.
+- `docs/admin.md` – admin interface and audit log (event types, what is never recorded, search). `docs/operations.md` – production settings and startup checks, security boundaries, headers and cookies, reverse proxy, database permissions, backup and recovery.
 - `docs/Stories.md` – user stories (US-xxx) by phase; commits and docs reference these IDs.
 - `docs/tech-debt.md` – deliberate shortcuts (TD-xxx). Resolved entries are kept with a status and resolution; IDs are never reused (check the file for the next free ID).
