@@ -26,7 +26,7 @@ public interface IUserRepository
     public Task<Guid> CreateUser(User user, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Get a User by Id, including its Roles.
+    ///     Get a User by Id, including its Roles and Groups (without the Roles of the Groups).
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -42,7 +42,8 @@ public interface IUserRepository
     public Task<User?> GetUserByNormalizedEmail(string normalizedEmail, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Get a User by Id, including its Roles and their Permissions. The User is not tracked.
+    ///     Get a User by Id, including its Roles, its Groups with their Roles, and the Permissions of all these Roles.
+    ///     The User is not tracked.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -123,6 +124,6 @@ public interface IUserRepository
     /// </remarks>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the changes are saved.</returns>
-    /// <exception cref="Application.Exceptions.ConflictException">Thrown when another request changed a User meanwhile.</exception>
+    /// <exception cref="Application.Exceptions.ConflictException">Thrown when another request changed a User meanwhile, or a unique index was violated (e.g. a concurrent request added the same Group membership first).</exception>
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

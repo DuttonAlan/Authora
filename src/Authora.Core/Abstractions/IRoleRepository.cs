@@ -55,7 +55,7 @@ public interface IRoleRepository
     public Task<int> CountUsersWithRole(Guid roleId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Deletes a Role. It is also removed from all Users and its Permissions are no longer granted.
+    ///     Deletes a Role. It is also removed from all Users and Groups, and its Permissions are no longer granted.
     /// </summary>
     /// <param name="role">The tracked Role to delete.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

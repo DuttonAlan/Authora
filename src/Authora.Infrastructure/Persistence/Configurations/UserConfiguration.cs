@@ -76,5 +76,20 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Navigation(x => x.Roles)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(x => x.Groups)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "GroupMember",
+                right => right.HasOne<Group>().WithMany().HasForeignKey("GroupId").OnDelete(DeleteBehavior.Cascade),
+                left => left.HasOne<User>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade),
+                join =>
+                {
+                    join.ToTable("group_members", Schemas.Identity);
+                    join.HasKey("UserId", "GroupId");
+                });
+
+        builder.Navigation(x => x.Groups)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

@@ -13,7 +13,7 @@ namespace Authora.Core.Application.Users.Get;
 public sealed class GetUserService(IUserRepository userRepository)
 {
     /// <summary>
-    ///     Gets a User based on the Id, including its Roles.
+    ///     Gets a User based on the Id, including its directly assigned Roles.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
