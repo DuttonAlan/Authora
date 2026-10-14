@@ -12,7 +12,8 @@ namespace Authora.Infrastructure.Cleanup;
 
 /// <summary>
 ///     Deletes Authorization Codes, Grants, Access and Refresh Tokens and Sessions that expired or were revoked more
-///     than <see cref="CleanupOptions.Retention"/> ago.
+///     than <see cref="CleanupOptions.Retention"/> ago, and audit events older than
+///     <see cref="CleanupOptions.AuditRetention"/>.
 /// </summary>
 /// <remarks>
 ///     Rows are deleted in batches of <see cref="CleanupOptions.BatchSize"/>, each in its own statement, so a large
@@ -83,6 +84,15 @@ public sealed class ExpiredDataCleaner(
             cancellationToken);
 
         logger.ExpiredDataDeleted(authorizationCodes, accessTokens, refreshTokens, grants, sessions, cutoff);
+
+        var auditCutoff = now - options.Value.AuditRetention;
+
+        var auditEvents = await DeleteInBatchesAsync(
+            context.AuditEvents.Where(auditEvent => auditEvent.OccurredAt < auditCutoff).Select(auditEvent => auditEvent.Id),
+            ids => context.AuditEvents.Where(auditEvent => ids.Contains(auditEvent.Id)),
+            cancellationToken);
+
+        logger.AuditEventsDeleted(auditEvents, auditCutoff);
     }
 
     private async Task<int> DeleteInBatchesAsync<TEntity>(

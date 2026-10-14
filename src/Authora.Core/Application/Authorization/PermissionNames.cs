@@ -204,6 +204,17 @@ public static class PermissionNames
     }
 
     /// <summary>
+    ///     Permissions to read the audit log.
+    /// </summary>
+    public static class Audit
+    {
+        /// <summary>
+        ///     Search the audit log (US-034), including who signed in from which IP address.
+        /// </summary>
+        public const string Read = "audit.read";
+    }
+
+    /// <summary>
     ///     All Permission Names.
     /// </summary>
     public static IReadOnlyList<string> All { get; } =
@@ -236,6 +247,7 @@ public static class PermissionNames
         Clients.Update,
         Clients.Delete,
         Clients.ManageSecrets,
-        Health.Read
+        Health.Read,
+        Audit.Read
     ];
 }

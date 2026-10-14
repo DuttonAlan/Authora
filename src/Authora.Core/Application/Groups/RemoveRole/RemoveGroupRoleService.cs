@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,11 @@ namespace Authora.Core.Application.Groups.RemoveRole;
 ///     The Service to remove a Role from a Group.
 /// </summary>
 /// <param name="groupRepository">An Instance of a IGroupRepository to change the Group.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the removal.</param>
 public sealed class RemoveGroupRoleService(
     IGroupRepository groupRepository,
+    IAuditLog auditLog,
     ILogger<RemoveGroupRoleService> logger)
 {
     /// <summary>
@@ -43,6 +46,7 @@ public sealed class RemoveGroupRoleService(
         }
 
         group.RemoveRole(role.Id);
+        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.RoleRemoved, group.Id, $"Role '{role.Name}' ({role.Id})"));
 
         try
         {

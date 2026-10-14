@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 
 using Microsoft.Extensions.Logging;
 
@@ -12,9 +13,11 @@ namespace Authora.Core.Application.Clients.Delete;
 ///     The Service to delete a Client.
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to delete a Client.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteClientService(
     IClientRepository clientRepository,
+    IAuditLog auditLog,
     ILogger<DeleteClientService> logger)
 {
     /// <summary>
@@ -34,6 +37,8 @@ public sealed class DeleteClientService(
         {
             return;
         }
+
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Deleted, client.Id, $"Name '{client.Name}'"));
 
         await clientRepository.DeleteClient(client, cancellationToken);
 

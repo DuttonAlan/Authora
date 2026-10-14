@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Users.Delete;
 ///     The Service to delete a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to delete a User.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteUserService(
     IUserRepository userRepository,
+    IAuditLog auditLog,
     ILogger<DeleteUserService> logger)
 {
     /// <summary>
@@ -48,6 +51,7 @@ public sealed class DeleteUserService(
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
         user.MarkDeleted();
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Deleted, user.Id));
 
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

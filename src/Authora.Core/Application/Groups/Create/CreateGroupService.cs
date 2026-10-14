@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
@@ -14,9 +15,11 @@ namespace Authora.Core.Application.Groups.Create;
 ///     The Service to create a new Group.
 /// </summary>
 /// <param name="groupRepository">An Instance of a IGroupRepository to create a new Group.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the creation.</param>
 public sealed class CreateGroupService(
     IGroupRepository groupRepository,
+    IAuditLog auditLog,
     ILogger<CreateGroupService> logger)
 {
     /// <summary>
@@ -36,6 +39,8 @@ public sealed class CreateGroupService(
         {
             throw new ConflictException("The Name is already used by another Group.");
         }
+
+        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.Created, group.Id, $"Name '{group.Name}'"));
 
         await groupRepository.CreateGroup(group, cancellationToken);
 

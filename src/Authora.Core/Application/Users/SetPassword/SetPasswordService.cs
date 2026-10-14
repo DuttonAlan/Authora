@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Exceptions;
 
@@ -15,10 +16,12 @@ namespace Authora.Core.Application.Users.SetPassword;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="passwordHasher">The hasher for the new password.</param>
+/// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the change.</param>
 public sealed class SetPasswordService(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
+    IAuditLog auditLog,
     ILogger<SetPasswordService> logger)
 {
     /// <summary>
@@ -47,6 +50,7 @@ public sealed class SetPasswordService(
         DeletedUserGuard.EnsureNotDeleted(user);
 
         user.SetPasswordHash(passwordHasher.Hash(request.Password));
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.PasswordSet, user.Id));
 
         await userRepository.SaveChangesAsync(cancellationToken);
 
