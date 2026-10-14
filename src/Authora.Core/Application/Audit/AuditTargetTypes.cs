@@ -29,4 +29,7 @@ public static class AuditTargetTypes
 
     /// <summary>A signing key, by its <c>kid</c>.</summary>
     public const string SigningKey = "signing-key";
+
+    /// <summary>A link of the hash chain of the audit log, by its Sequence.</summary>
+    public const string AuditChainLink = "audit-chain-link";
 }

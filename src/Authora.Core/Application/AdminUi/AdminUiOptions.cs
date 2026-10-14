@@ -8,8 +8,9 @@ namespace Authora.Core.Application.AdminUi;
 ///     Settings of the admin interface at <see cref="Path"/> (US-033), bound from the section <see cref="SectionName"/>.
 /// </summary>
 /// <remarks>
-///     The admin interface is a browser app that signs in through Authora's own Authorization Code flow with PKCE as
-///     a Public Client, and then calls the admin API with the Access Token, like every other Client.
+///     The admin interface is a browser app with a backend for frontend (TD-014): Authora runs the Authorization Code
+///     flow with PKCE for it as a Public Client, keeps the tokens in an encrypted <c>HttpOnly</c> cookie, and the
+///     browser calls the admin API with that cookie, like every other Client calls it with the Access Token.
 /// </remarks>
 public sealed class AdminUiOptions
 {
@@ -22,6 +23,11 @@ public sealed class AdminUiOptions
     ///     The path the admin interface is served at, below the Issuer.
     /// </summary>
     public const string Path = "/admin";
+
+    /// <summary>
+    ///     The path of the Redirect URI, below the Issuer. The server handles it, never the browser app.
+    /// </summary>
+    public const string CallbackPath = $"{Path}/callback";
 
     /// <summary>
     ///     Name of the Client the admin interface is created with.
@@ -38,11 +44,11 @@ public sealed class AdminUiOptions
     ///     Gets the Redirect URI of the admin interface, which identifies its Client.
     /// </summary>
     /// <param name="issuer">The Issuer, see <see cref="OAuth.OAuthOptions.Issuer"/>.</param>
-    /// <returns>The Redirect URI, e.g. <c>https://auth.example.com/admin/</c>.</returns>
+    /// <returns>The Redirect URI, e.g. <c>https://auth.example.com/admin/callback</c>.</returns>
     public static string GetRedirectUri(string issuer)
     {
         ArgumentNullException.ThrowIfNull(issuer);
 
-        return $"{issuer}{Path}/";
+        return $"{issuer}{CallbackPath}";
     }
 }

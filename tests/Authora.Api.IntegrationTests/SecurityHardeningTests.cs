@@ -3,12 +3,17 @@
 // See the LICENSE file in the project root for license information.
 
 using System.Net;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 using Authora.Api.Security;
 
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting.Internal;
 
 namespace Authora.Api.IntegrationTests;
 
@@ -82,11 +87,13 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
         Assert.Equal([HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests], statusCodes);
     }
 
-    [Fact]
-    public void ProductionEnvironment_WithInsecureSettings_DoesNotStart()
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void DeployedEnvironment_WithInsecureSettings_DoesNotStart(string environmentName)
     {
         // appsettings.json allows every host.
-        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment(environmentName));
 
         var exception = Assert.ThrowsAny<Exception>(() => production.Server);
 
@@ -128,6 +135,99 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
 
         Assert.Empty(settings.Validate());
         Assert.True(settings.IsEnabled);
+    }
+
+    [Theory]
+    [InlineData("0.0.0.0/0")]
+    [InlineData("0.0.0.0/7")]
+    [InlineData("::/0")]
+    [InlineData("::/6")]
+    [InlineData("::/80")]
+    [InlineData("::ffff:0:0/96")]
+    [InlineData("::ffff:0:0/103")]
+    public void ForwardedHeaders_RejectNetworksThatTrustAlmostEveryone(string network)
+    {
+        var settings = new ForwardedHeadersSettings { KnownNetworks = [network] };
+
+        Assert.Contains(settings.Validate(), failure => failure.Contains("broader than", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("10.0.0.0/8")]
+    [InlineData("172.16.0.0/12")]
+    [InlineData("fc00::/7")]
+    [InlineData("2001:db8::/32")]
+    [InlineData("::ffff:10.0.0.0/104")]
+    public void ForwardedHeaders_AcceptPrivateNetworks(string network)
+    {
+        var settings = new ForwardedHeadersSettings { KnownNetworks = [network] };
+
+        Assert.Empty(settings.Validate());
+    }
+
+    [Theory]
+    [InlineData("Development", false)]
+    [InlineData("Testing", false)]
+    [InlineData("Production", true)]
+    [InlineData("Staging", true)]
+    [InlineData("Prod", true)]
+    public void ProductionCheck_AppliesToEveryEnvironmentExceptDevelopmentAndTesting(string environmentName, bool expected)
+    {
+        var environment = new HostingEnvironment { EnvironmentName = environmentName };
+
+        Assert.Equal(expected, ProductionSettingsCheck.AppliesTo(environment));
+    }
+
+    [Fact]
+    public void DataProtection_RejectsUnusableCertificate()
+    {
+        var withoutKeysPath = new DataProtectionSettings { CertificatePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pfx") };
+
+        var failures = withoutKeysPath.Validate().ToList();
+
+        Assert.Contains(failures, failure => failure.Contains("requires", StringComparison.Ordinal));
+        Assert.Contains(failures, failure => failure.Contains("cannot be loaded", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DataProtection_WithCertificate_EncryptsTheKeysAtRest()
+    {
+        var directory = Directory.CreateTempSubdirectory("authora-keys-");
+
+        try
+        {
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("CN=Authora Data Protection", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+                File.WriteAllBytes(Path.Combine(directory.FullName, "certificate.pfx"), certificate.Export(X509ContentType.Pkcs12, "secret"));
+            }
+
+            var settings = new DataProtectionSettings
+            {
+                KeysPath = Path.Combine(directory.FullName, "keys"),
+                CertificatePath = Path.Combine(directory.FullName, "certificate.pfx"),
+                CertificatePassword = "secret"
+            };
+
+            Assert.Empty(settings.Validate());
+
+            var services = new ServiceCollection();
+            settings.Apply(services.AddDataProtection().SetApplicationName("Authora"));
+
+            using var provider = services.BuildServiceProvider();
+            var protector = provider.GetRequiredService<IDataProtectionProvider>().CreateProtector("test");
+
+            Assert.Equal("payload", protector.Unprotect(protector.Protect("payload")));
+
+            var key = File.ReadAllText(Assert.Single(Directory.GetFiles(settings.KeysPath, "key-*.xml")));
+            Assert.Contains("<encryptedSecret", key, StringComparison.Ordinal);
+            Assert.DoesNotContain("<masterKey", key, StringComparison.Ordinal);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
     }
 
     private static IConfiguration Configuration(string issuer, string allowedHosts)

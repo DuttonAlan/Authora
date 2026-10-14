@@ -11,7 +11,8 @@ namespace Authora.Core.Domain.Entities;
 /// <remarks>
 ///     The Grant groups the tokens into one family, so they can be revoked together: when a Refresh Token is revoked
 ///     or reused, when an Authorization Code is used twice, or when the Client is disabled.
-///     A token is only valid while its Grant is not revoked.
+///     A token is only valid while its Grant is neither revoked nor expired. The Grant has an absolute lifetime, so
+///     rotating Refresh Tokens cannot keep it alive forever: no token of the Grant outlives <see cref="ExpiresAt"/>.
 /// </remarks>
 public sealed class Grant
 {
@@ -60,6 +61,12 @@ public sealed class Grant
     public DateTime CreatedAt { get; private set; }
 
     /// <summary>
+    ///     Point in time (UTC) when the Grant expires. No token of the Grant expires later, so the User has to approve
+    ///     the Client again afterwards.
+    /// </summary>
+    public DateTime ExpiresAt { get; private set; }
+
+    /// <summary>
     ///     Point in time (UTC) when the Grant was revoked, or <see langword="null"/> if it is not revoked.
     /// </summary>
     public DateTime? RevokedAt { get; private set; }
@@ -79,12 +86,15 @@ public sealed class Grant
     /// </summary>
     /// <param name="authorizationCode">The exchanged Authorization Code.</param>
     /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="lifetime">The absolute lifetime of the Grant.</param>
     /// <returns>The created Grant.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
-    public static Grant Create(AuthorizationCode authorizationCode, DateTime now)
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="lifetime"/> is not positive.</exception>
+    public static Grant Create(AuthorizationCode authorizationCode, DateTime now, TimeSpan lifetime)
     {
         ArgumentNullException.ThrowIfNull(authorizationCode);
         UtcGuard.EnsureUtc(now);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
 
         return new Grant
         {
@@ -93,7 +103,37 @@ public sealed class Grant
             SecurityStamp = authorizationCode.SecurityStamp,
             Scope = authorizationCode.Scope,
             AuthorizationCodeId = authorizationCode.Id,
-            CreatedAt = now
+            CreatedAt = now,
+            ExpiresAt = now + lifetime
         };
+    }
+
+    /// <summary>
+    ///     Checks whether the Grant has expired.
+    /// </summary>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <returns><see langword="true"/> if no token of the Grant can be used anymore.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
+    public bool IsExpired(DateTime now)
+    {
+        UtcGuard.EnsureUtc(now);
+
+        return ExpiresAt <= now;
+    }
+
+    /// <summary>
+    ///     Limits the lifetime of a new token of the Grant, so the token does not outlive the Grant.
+    /// </summary>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="lifetime">The lifetime the token would have.</param>
+    /// <returns>The lifetime, at most the time left until <see cref="ExpiresAt"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
+    public TimeSpan LimitTokenLifetime(DateTime now, TimeSpan lifetime)
+    {
+        UtcGuard.EnsureUtc(now);
+
+        var remaining = ExpiresAt - now;
+
+        return lifetime < remaining ? lifetime : remaining;
     }
 }

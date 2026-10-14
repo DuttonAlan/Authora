@@ -24,7 +24,7 @@ The document only lists what Authora supports: `response_type` `code`, `response
 
 ## Scopes and claims (US-026)
 
-`openid`, `profile` and `email` are seeded as System Scopes. Like every Scope, an administrator must allow them for a Client (`PUT /api/clients/{id}/scopes/{scopeId}`), and the User approves them on the consent screen. This is how administrators decide which identity attributes an application receives.
+`openid`, `profile` and `email` are seeded as System Scopes. Like every Scope, an administrator must allow them for a Client (`PUT /api/clients/{id}/scopes/{scopeId}`), and the User approves them on the consent screen (unless the Client is first-party). This is how administrators decide which identity attributes an application receives.
 
 The names are reserved from this version on. If a regular Scope named `openid`, `profile` or `email` already exists, Authora does not start, because promoting it would silently hand its Clients identity claims. Delete that Scope before upgrading (`DELETE /api/scopes/{id}?force=true` on the previous version, or in the database), then start the new version.
 
@@ -50,10 +50,10 @@ In addition to the parameters in [oauth-core.md](oauth-core.md#authorization-req
 
 | `prompt` | Behaviour |
 |---|---|
-| `none` | No page is shown: `login_required` if the User is not signed in or must sign in again, otherwise `consent_required`, because consent is asked on every request. |
+| `none` | No page is shown: `login_required` if the User is not signed in or must sign in again. Otherwise a first-party Client gets the code, every other Client `consent_required`, because consent is asked on every request (see [oauth-core.md](oauth-core.md#consent-policy)). |
 | `login` | The User signs in again, even if signed in. |
 | `select_account` | Same as `login`, there is no account chooser. |
-| `consent` | No change, consent is always asked. |
+| `consent` | The consent screen is shown, also for a first-party Client. Every other Client is asked anyway. |
 
 If the sign-in is older than `max_age`, the User signs in again. This is checked both when the consent screen is shown and when the User approves it, so a consent screen left open too long does not issue a code. After that sign-in, the request continues without `login`, `select_account` and `max_age`, so the User is not sent back to the sign-in page in a loop. The ID Token always contains `auth_time`, so Clients can check `max_age` themselves.
 

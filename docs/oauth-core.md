@@ -10,7 +10,7 @@ This document describes the OAuth 2.1 authorization server of Authora (Phase 4, 
 
 | Endpoint | Used by | Purpose |
 |---|---|---|
-| `GET /oauth/authorize` | Browser | Authorization endpoint. Validates the request, sends the User to sign in, asks for consent and redirects back with a code. |
+| `GET /oauth/authorize` | Browser | Authorization endpoint. Validates the request, sends the User to sign in, asks for consent (not for first-party Clients) and redirects back with a code. |
 | `POST /oauth/authorize` | Browser | Submits the consent form. Not called by Clients directly. |
 | `POST /oauth/token` | Client | Token endpoint. Grant types `authorization_code` and `refresh_token`. |
 | `POST /oauth/revoke` | Client | Revocation endpoint (RFC 7009). |
@@ -32,6 +32,7 @@ Discovery, ID Tokens, JWKS and UserInfo are described in [openid-connect.md](ope
 | `Authora:OAuth:Issuer` | – (required) | Issuer Identifier, e.g. `https://auth.example.com`. HTTPS (HTTP only for loopback hosts), no query or fragment, no trailing `/`. Returned as `iss`. Startup fails if it is missing or invalid. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | Lifetime of Authorization Codes, at most 10 minutes. |
 | `Authora:OAuth:CorsOriginsCacheDuration` | `00:01:00` | How long the CORS origins of `/oauth/token` and `/oauth/revoke` are cached, at most 1 hour. `00:00:00` disables the cache. |
+| `Authora:OAuth:GrantLifetime` | `90.00:00:00` | Absolute lifetime of a Grant from the exchange of the code, at most 365 days. No Access or Refresh Token of the Grant expires later, so rotating Refresh Tokens cannot keep it alive; afterwards the User has to approve the Client again. |
 | `Authora:SignIn:SessionIdleTimeout` | `02:00:00` | A Session ends after this time without use. At most 24 hours. |
 | `Authora:SignIn:SessionLifetime` | `12:00:00` | A Session ends after this time regardless of use. At most 7 days. |
 | `Authora:SignIn:MaxFailedAttempts` | `5` | Failed sign-ins in a row that lock a User out. 1 to 100. |
@@ -91,7 +92,13 @@ The request is validated before the User has to sign in, and again when the cons
 
 ### Consent policy
 
-The User is asked on every authorization request. The consent screen shows the Client Name, the Display Name and Description of every requested Scope, the signed-in User and where the browser will be sent. Decisions are not remembered. Denying sends `error=access_denied` to the Client.
+The User is asked on every authorization request of a third-party Client (the default). The consent screen shows the Client Name, the Display Name and Description of every requested Scope, the signed-in User and where the browser will be sent. Decisions are not remembered. Denying sends `error=access_denied` to the Client.
+
+**First-party Clients** (TD-012) are not asked: a signed-in User gets the code right away, also with `prompt=none`. `prompt=consent` still shows the consent screen. A first-party Client is one of the same deployment as Authora, e.g. the admin interface, which the seeder creates as first-party. Asking administrators on every sign-in to an application of their own would only train them to allow without reading.
+
+Marking a Client lets it obtain every Scope it is allowed without the User's approval, so it needs a Permission of its own, `clients.manage-first-party`, which only the administrator Role has by default: `PUT /api/clients/{id}/first-party` marks it, `DELETE` reverts it. Both are recorded in the audit log (`client.marked-first-party`, `client.marked-third-party`) and logged as events 4015 and 4016. `GET /api/clients/{id}` shows `isFirstParty`.
+
+While a Client is first-party, no Redirect URI and no Scope can be added to it (`409 Conflict`); removing them still works. Otherwise anyone with `clients.update` could register their own Redirect URI for e.g. the admin interface and receive the codes of every signed-in User who opens a link, without a click. To change it, mark it as third-party, change it, and mark it as first-party again, which needs `clients.manage-first-party`.
 
 ### Authorization response
 
@@ -148,21 +155,21 @@ erDiagram
 |---|---|---|
 | `Session` | `auth.sessions` | Browser Session of a signed-in User at Authora. The cookie holds the token, the table its hash. |
 | `AuthorizationCode` | `auth.authorization_codes` | Code issued by `/oauth/authorize`. Bound to the Client, User, `SecurityStamp`, Redirect URI, Scopes and PKCE code challenge. |
-| `Grant` | `auth.grants` | The approval of a User for a Client, created when a code is exchanged. All tokens issued from the code and its Refresh Tokens belong to it, so they can be revoked together. |
+| `Grant` | `auth.grants` | The approval of a User for a Client, created when a code is exchanged. All tokens issued from the code and its Refresh Tokens belong to it, so they can be revoked together. Expires after `Authora:OAuth:GrantLifetime`; no token of it expires later. |
 | `AccessToken` | `auth.access_tokens` | Access Token. Its Scopes can be narrower than the Grant's. |
 | `RefreshToken` | `auth.refresh_tokens` | Refresh Token. Always has the Scopes of its Grant. |
 
 A token is active only if all of these hold:
 
 1. It exists, is not expired and not revoked.
-2. Its Grant is not revoked.
+2. Its Grant is neither revoked nor expired.
 3. Its Client exists and is enabled.
 4. Its User can sign in (`Active` or `Inactive`, has a password) and still has the `SecurityStamp` the Grant was created with.
 
 ### Single use and rotation
 
 - **Authorization Codes** are consumed with a single atomic `UPDATE … WHERE "ConsumedAt" IS NULL` before any other check, so a code can only be used once, even by concurrent requests, and even if the first attempt fails (e.g. a wrong `code_verifier`). A code that is used again revokes the Grant created from it (OAuth 2.1, Section 4.1.3).
-- **Refresh Tokens** are rotated: every use consumes the token atomically and returns a new one. A consumed Refresh Token that is used again revokes the whole Grant, including the Access Tokens (OAuth 2.1, Section 4.3.1).
+- **Refresh Tokens** are rotated: every use consumes the token atomically and returns a new one, which expires after the Client's Refresh Token TTL or with the Grant, whichever is earlier. A consumed Refresh Token that is used again revokes the whole Grant, including the Access Tokens (OAuth 2.1, Section 4.3.1).
 - **Scopes** of a refresh can be narrowed, never widened. Scopes that an administrator disallowed for the Client in the meantime are dropped.
 
 ### Revocation (RFC 7009)
@@ -215,8 +222,10 @@ Codes, tokens, Secrets, passwords and Emails are never logged, only Ids. Event I
 | 5001 – 5007 | Sign-in, sign-out, lockout, invalidated Sessions |
 | 6001 – 6012 | Codes, Grants, refreshes, reuse detection, revocations, failed Client authentication, rejected authorization requests |
 | 7001 – 7009 | Seeding at startup, including the Client of the admin interface |
-| 8001 – 8003 | Cleanup of expired codes, Grants, tokens, Sessions and audit events |
+| 8001 – 8004 | Cleanup of expired codes, Grants, tokens, Sessions and audit events, including the new start of the audit chain |
 | 9001 – 9005 | Signing keys loaded, reloaded or not reloadable, see [openid-connect.md](openid-connect.md#logging) |
+| 11001 – 11011 | Hash chain of the audit log: checkpoints after sealing (11001), failed sealing (11002), broken chain (11011, critical), see [admin.md](admin.md#hash-chain-td-013) |
+| 12001 – 12002 | Failed sign-in and refresh of the admin interface's backend for frontend |
 
 Reuse of a code or Refresh Token (6004, 6005) and tokens presented by another Client (6006) indicate an attack and are logged as warnings. Reuse is also recorded in the audit log (`oauth.authorization-code-reused`, `oauth.refresh-token-reused`).
 

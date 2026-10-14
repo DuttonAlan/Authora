@@ -2,6 +2,10 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
+
+using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +17,7 @@ namespace Authora.Infrastructure.Cleanup;
 /// <summary>
 ///     Deletes Authorization Codes, Grants, Access and Refresh Tokens and Sessions that expired or were revoked more
 ///     than <see cref="CleanupOptions.Retention"/> ago, and audit events older than
-///     <see cref="CleanupOptions.AuditRetention"/>.
+///     <see cref="CleanupOptions.AuditRetention"/> with their links of the hash chain.
 /// </summary>
 /// <remarks>
 ///     Rows are deleted in batches of <see cref="CleanupOptions.BatchSize"/>, each in its own statement, so a large
@@ -21,10 +25,12 @@ namespace Authora.Infrastructure.Cleanup;
 /// </remarks>
 /// <param name="context">The DbContext to delete from.</param>
 /// <param name="options">The retention and batch size.</param>
+/// <param name="auditLog">The audit log to record where the hash chain starts after deleting its start.</param>
 /// <param name="logger">The Logger to record how many rows were deleted.</param>
 public sealed class ExpiredDataCleaner(
     AuthoraContext context,
     IOptions<CleanupOptions> options,
+    IAuditLog auditLog,
     ILogger<ExpiredDataCleaner> logger)
 {
     /// <summary>
@@ -86,18 +92,83 @@ public sealed class ExpiredDataCleaner(
         logger.ExpiredDataDeleted(authorizationCodes, accessTokens, refreshTokens, grants, sessions, cutoff);
 
         var auditCutoff = now - options.Value.AuditRetention;
-
-        var auditEvents = await DeleteInBatchesAsync(
-            context.AuditEvents.Where(auditEvent => auditEvent.OccurredAt < auditCutoff).Select(auditEvent => auditEvent.Id),
-            ids => context.AuditEvents.Where(auditEvent => ids.Contains(auditEvent.Id)),
-            cancellationToken);
+        var auditEvents = await DeleteAuditEventsAsync(auditCutoff, cancellationToken);
 
         logger.AuditEventsDeleted(auditEvents, auditCutoff);
     }
 
-    private async Task<int> DeleteInBatchesAsync<TEntity>(
+    /// <summary>
+    ///     Deletes the audit events that occurred before the cutoff, and their links of the hash chain (TD-013).
+    /// </summary>
+    /// <remarks>
+    ///     The chain is only cut from its start, up to the first link with an event that is kept, so the remaining
+    ///     links still verify. An expired event sealed after a newer one is therefore kept until that one expires.
+    ///     The last link is always kept, so the chain continues instead of starting again.
+    /// </remarks>
+    private async Task<int> DeleteAuditEventsAsync(DateTime cutoff, CancellationToken cancellationToken)
+    {
+        // Events that were never sealed, e.g. older than the first sealing looked back. Deleted before the cut is
+        // recorded below, so that record is never one of them.
+        var auditEvents = await DeleteInBatchesAsync(
+            context.AuditEvents
+                .Where(auditEvent => auditEvent.OccurredAt < cutoff)
+                .Where(auditEvent => !context.AuditChainLinks.Any(link => link.EventId == auditEvent.Id))
+                .Select(auditEvent => auditEvent.Id),
+            ids => context.AuditEvents.Where(auditEvent => ids.Contains(auditEvent.Id)),
+            cancellationToken);
+
+        var firstKept = await context.AuditChainLinks
+            .Where(link => context.AuditEvents.Any(auditEvent => auditEvent.Id == link.EventId && auditEvent.OccurredAt >= cutoff))
+            .OrderBy(link => link.Sequence)
+            .Select(link => (long?)link.Sequence)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? await context.AuditChainLinks.MaxAsync(link => (long?)link.Sequence, cancellationToken)
+            ?? 0;
+
+        var expiredLinks = context.AuditChainLinks.Where(link => link.Sequence < firstKept);
+
+        // Recorded before deleting and sealed into the chain like every event, so the verification can tell this cut
+        // from links deleted directly in the database. Recorded again if a cleanup stopped halfway.
+        if (await expiredLinks.AnyAsync(cancellationToken))
+        {
+            await auditLog.RecordNowAsync(
+                new AuditEntry(
+                    AuditEventTypes.System.AuditChainTruncated,
+                    AuditTargetTypes.AuditChainLink,
+                    firstKept.ToString(CultureInfo.InvariantCulture),
+                    $"Links before Sequence {firstKept} with events before {cutoff:O} deleted after the retention"),
+                cancellationToken);
+
+            logger.AuditChainTruncated(firstKept, cutoff);
+        }
+
+        // The events first: a link without its event would be reported as a deleted event if the cleanup stops here.
+        auditEvents += await DeleteInBatchesAsync(
+            context.AuditEvents
+                .Where(auditEvent => expiredLinks.Any(link => link.EventId == auditEvent.Id))
+                .Select(auditEvent => auditEvent.Id),
+            ids => context.AuditEvents.Where(auditEvent => ids.Contains(auditEvent.Id)),
+            cancellationToken);
+
+        await DeleteInBatchesAsync(
+            expiredLinks.Select(link => link.Sequence),
+            sequences => context.AuditChainLinks.Where(link => sequences.Contains(link.Sequence)),
+            cancellationToken);
+
+        return auditEvents;
+    }
+
+    private Task<int> DeleteInBatchesAsync<TEntity>(
         IQueryable<Guid> expiredIds,
         Func<IQueryable<Guid>, IQueryable<TEntity>> rowsWithIds,
+        CancellationToken cancellationToken)
+    {
+        return DeleteInBatchesAsync<TEntity, Guid>(expiredIds, rowsWithIds, cancellationToken);
+    }
+
+    private async Task<int> DeleteInBatchesAsync<TEntity, TKey>(
+        IQueryable<TKey> expiredIds,
+        Func<IQueryable<TKey>, IQueryable<TEntity>> rowsWithIds,
         CancellationToken cancellationToken)
     {
         var batchSize = options.Value.BatchSize;

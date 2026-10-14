@@ -6,7 +6,7 @@
 // of the current address (hash routing, e.g. #/users/{id}).
 
 import { api } from './api.js';
-import { completeSignIn, isSignedIn, loadSettings, signIn, signOut } from './auth.js';
+import { signIn, signOut, takeSignInError } from './auth.js';
 import { h, panel, replace, toast } from './dom.js';
 import * as audit from './views/audit.js';
 import * as clients from './views/clients.js';
@@ -48,19 +48,18 @@ let renderCount = 0;
 
 async function start() {
     try {
-        await loadSettings();
+        const signInError = takeSignInError();
 
-        if (!await completeSignIn() && !isSignedIn()) {
-            await signIn();
-            return;
+        if (signInError !== null) {
+            throw new Error(signInError);
         }
 
+        // Without a valid cookie, this signs in and comes back here.
         me = await api('GET', '/me');
     } catch (error) {
         replace(main, panel('The admin interface cannot be opened',
             h('p', { class: 'error', text: error.message }),
-            // Starts over without the parameters of a failed authorization response.
-            h('button', { type: 'button', class: 'primary', onClick: () => window.location.assign(window.location.pathname) }, 'Sign in again')));
+            h('button', { type: 'button', class: 'primary', onClick: () => signIn() }, 'Sign in again')));
         return;
     }
 

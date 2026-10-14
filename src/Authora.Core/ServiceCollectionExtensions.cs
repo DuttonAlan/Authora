@@ -7,7 +7,9 @@ using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
 using Authora.Core.Application.AdminUi.GetSettings;
+using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Audit.Search;
+using Authora.Core.Application.Audit.Verify;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddRedirectUri;
@@ -22,6 +24,7 @@ using Authora.Core.Application.Clients.GetAll;
 using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
+using Authora.Core.Application.Clients.SetFirstParty;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
@@ -98,7 +101,9 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddTransient<PermissionEvaluator>();
 
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<AuditChainOptions>, AuditChainOptionsValidator>());
         serviceCollection.AddTransient<SearchAuditEventsService>();
+        serviceCollection.AddTransient<VerifyAuditChainService>();
 
         serviceCollection.AddTransient<GetAdminUiSettingsService>();
 
@@ -126,6 +131,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<ServeScopeService>();
         serviceCollection.AddTransient<StopServingScopeService>();
         serviceCollection.AddTransient<EnableClientService>();
+        serviceCollection.AddTransient<SetFirstPartyService>();
         serviceCollection.AddTransient<GetAllClientsService>();
         serviceCollection.AddTransient<GetClientService>();
         serviceCollection.AddTransient<RegisterClientService>();
