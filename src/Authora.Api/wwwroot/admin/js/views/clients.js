@@ -158,6 +158,9 @@ function clientActions(context, client) {
     return actions.length > 0 ? h('div', { class: 'button-row spaced' }, actions) : null;
 }
 
+// A first-party Client gets codes without asking the User, so the server refuses new Redirect URIs and Scopes for it.
+const firstPartyLockedText = 'This Client is first-party, so no Redirect URIs or Scopes can be added. Mark it as third-party first to change them.';
+
 function redirectUrisPanel(context, client, canUpdate) {
     const input = h('input', { type: 'url', placeholder: 'https://app.example.com/callback', 'aria-label': 'Redirect URI' });
 
@@ -173,7 +176,10 @@ function redirectUrisPanel(context, client, canUpdate) {
                     : null
             }
         ], client.redirectUris, { empty: 'The Client has no Redirect URIs, so it cannot sign Users in.' }),
-        canUpdate
+        canUpdate && client.isFirstParty
+            ? h('p', { class: 'muted spaced', text: firstPartyLockedText })
+            : null,
+        canUpdate && !client.isFirstParty
             ? h('form', {
                 class: 'inline spaced', onSubmit: event => {
                     event.preventDefault();
@@ -201,6 +207,7 @@ function scopesPanel(context, client, scopes, canUpdate) {
 
     return panel('Scopes',
         h('p', { class: 'muted', text: 'Allowed: the Client may request the Scope. Served: the Client is a resource server for the Scope and may introspect tokens with it (Confidential Clients only).' }),
+        client.isFirstParty ? h('p', { class: 'muted', text: firstPartyLockedText }) : null,
         table([
             { label: 'Scope', render: scope => h('code', { text: scope.name }) },
             {
@@ -208,6 +215,8 @@ function scopesPanel(context, client, scopes, canUpdate) {
                     type: 'checkbox',
                     'aria-label': `Allow ${scope.name}`,
                     checked: allowed.has(scope.id),
+                    // Allowed Scopes of a first-party Client can be removed, but none added (the server rejects it).
+                    disabled: client.isFirstParty && !allowed.has(scope.id),
                     onChange: event => toggle('scopes', scope, event.target.checked, 'allowed')
                 })
             },

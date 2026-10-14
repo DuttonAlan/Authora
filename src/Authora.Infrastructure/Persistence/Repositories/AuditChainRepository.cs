@@ -2,7 +2,10 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
+
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Core.Domain.Entities;
 
 using Microsoft.EntityFrameworkCore;
@@ -48,5 +51,17 @@ public sealed class AuditChainRepository(AuthoraContext context) : IAuditChainRe
         return await context.AuditEvents
             .Where(auditEvent => auditEvent.OccurredAt < occurredBefore)
             .CountAsync(auditEvent => !context.AuditChainLinks.Any(link => link.EventId == auditEvent.Id), cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> IsTruncationRecorded(long firstSequence, CancellationToken cancellationToken = default)
+    {
+        var targetId = firstSequence.ToString(CultureInfo.InvariantCulture);
+
+        return await context.AuditEvents.AnyAsync(
+            auditEvent => auditEvent.Type == AuditEventTypes.System.AuditChainTruncated
+                && auditEvent.TargetType == AuditTargetTypes.AuditChainLink
+                && auditEvent.TargetId == targetId,
+            cancellationToken);
     }
 }

@@ -30,7 +30,7 @@ sequenceDiagram
 ```
 
 - **Client:** at startup, Authora creates the first-party Public Client `Authora Admin UI` with the Redirect URI `{Issuer}/admin/callback` and the allowed Scope `authora.admin`, unless a Client with this Redirect URI already exists. The backend uses the oldest enabled Public Client with this Redirect URI. Disabling that Client disables the admin interface; deleting it recreates it on the next start. With an Issuer like `http://localhost:5000`, the Client cannot be created (HTTP Redirect URIs need a loopback IP address), and event 7009 is logged. A Client created by an older version with the Redirect URI `{Issuer}/admin/` is no longer used and can be deleted.
-- **Consent:** the Client is first-party (TD-012), so administrators are not asked for consent on every sign-in; a signed-in administrator comes right back from `/oauth/authorize`. See [oauth-core.md](oauth-core.md#consent-policy).
+- **Consent:** the Client is first-party (TD-012), so administrators are not asked for consent on every sign-in; a signed-in administrator comes right back from `/oauth/authorize`. Redirect URIs and Scopes cannot be added to it while it is first-party, so `clients.update` alone cannot send its codes elsewhere. See [oauth-core.md](oauth-core.md#consent-policy).
 - **Permissions:** the Access Token only says that the User signed in to the admin interface. Every action still needs the User's Permission, checked by the admin API. `GET /api/me` returns the User and their Permissions, and the interface hides what the User may not do; this is only for convenience, not a security boundary.
 - **Tokens:** kept only in the cookie `__Host-authora_admin`, encrypted with ASP.NET Core Data Protection, `HttpOnly`, `Secure`, `SameSite=Strict`, without expiry (it ends when the browser closes). Several tabs share it. On `401`, the interface calls `POST /admin/session/refresh` once, in one tab at a time (Web Locks), because a Refresh Token used twice revokes the whole Grant; the server skips the refresh if another tab did it in the last 10 seconds. If that fails, the interface signs in again.
 - **Sign-out:** `POST /admin/session/signout` revokes the Refresh Token (and with it the Grant and its Access Tokens) and deletes the cookie; the interface then opens `/account/logout`, which ends the Session.
@@ -38,7 +38,7 @@ sequenceDiagram
 | Endpoint | Purpose |
 |---|---|
 | `GET /admin/signin?returnTo=#/…` | Starts the sign-in: a new `state` and PKCE verifier in the sign-in cookie `__Host-authora_admin_signin` (encrypted, `HttpOnly`, `SameSite=Lax`, 10 minutes), then a redirect to `/oauth/authorize`. `returnTo` must be a view of the admin interface (`#/…`). |
-| `GET /admin/callback` | The Redirect URI. Takes the sign-in cookie (single use), checks `state` and `iss`, exchanges the code on the server and sets the cookie with the tokens. Errors are sent to `/admin/?error=…` (`access_denied`, `unavailable`, `invalid_response`, `sign_in_failed`); the interface only shows fixed texts for these codes. Rate limit of the token endpoint. |
+| `GET /admin/callback` | The Redirect URI. Takes the sign-in cookie (single use), checks `state` and `iss` and that the browser still has a valid Session, exchanges the code on the server and sets the cookie with the tokens, bound to that Session. Errors are sent to `/admin/?error=…` (`access_denied`, `unavailable`, `invalid_response`, `sign_in_failed`); the interface only shows fixed texts for these codes. Rate limit of the token endpoint. |
 | `POST /admin/session/refresh` | Refreshes the tokens in the cookie (`204`), or deletes it (`401`). Needs `X-Authora-Admin: 1`. Rate limit of the token endpoint. |
 | `POST /admin/session/signout` | Revokes the Grant and deletes the cookie (`204`). Needs `X-Authora-Admin: 1`. |
 
@@ -51,7 +51,7 @@ These endpoints are for the browser of the admin interface, not for Clients, so 
 | Tokens only in an encrypted `HttpOnly` cookie (backend for frontend, TD-014) | A script that runs on the admin interface cannot read the tokens and use them elsewhere. |
 | `state` and the PKCE `code_verifier` stay on the server; the callback only redeems codes of sign-ins it started | A script that starts its own authorization request cannot redeem the code: it is sent to `/admin/callback`, which rejects a foreign `state` without redeeming the code and redirects without it. |
 | The admin API only uses the cookie with the header `X-Authora-Admin: 1`, and the cookie is `SameSite=Strict`. A request whose `Sec-Fetch-Site` is present and not `same-origin` is also ignored; a missing `Sec-Fetch-Site` is accepted, because older browsers do not send it | No CSRF: a cross-site request cannot send the header without a CORS preflight, which `/api/*` never allows. The session endpoints need the header too. The Fetch Metadata check is only defense in depth. |
-| The admin interface stays signed in for at most `Authora:SignIn:SessionLifetime` after signing in to it; then `POST /admin/session/refresh` revokes the Grant and answers `401` | Rotating Refresh Tokens cannot keep an administrator signed in longer than a Session may last. Signing in again needs the password once the Session has ended. |
+| The tokens are bound to the Session the administrator signed in with. `POST /admin/session/refresh` only refreshes while the browser still sends that Session and it is valid; otherwise it revokes the Grant and answers `401` | The admin interface ends with its Session: after `Authora:SignIn:SessionLifetime` from entering the password, after `SessionIdleTimeout` without activity, on signing out of Authora in another tab, on revoking the User's Sessions, or when the User can no longer sign in. Signing in again then needs the password. The Access Token already in the cookie stays usable until it expires, like every Access Token. A refresh counts as activity of the Session, so keep `SessionIdleTimeout` longer than the Access Token lifetime of the admin interface's Client (default 1 hour), or active administrators are asked for their password once it has passed. |
 | Content Security Policy `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` | No inline or foreign scripts or styles can run. No framing (clickjacking). |
 | All text is inserted as text nodes, never as HTML; sign-in errors are fixed texts for known codes | Names and descriptions from the API cannot inject markup, and a link cannot put its own text into the admin interface. |
 | `Cross-Origin-Opener-Policy: same-origin` | Other windows cannot reach the admin interface through `window.opener`. |
@@ -95,7 +95,7 @@ Security-relevant events are stored in the table `audit.events` (schema `audit`)
 | Roles | `role.created`, `role.updated`, `role.deleted`, `role.permission-granted`, `role.permission-revoked` |
 | Scopes | `scope.created`, `scope.updated`, `scope.deleted` |
 | Clients | `client.registered`, `client.updated`, `client.deleted`, `client.enabled`, `client.disabled`, `client.redirect-uri-added`, `client.redirect-uri-removed`, `client.scope-allowed`, `client.scope-disallowed`, `client.scope-served`, `client.scope-no-longer-served`, `client.secret-created`, `client.secret-revoked`, `client.marked-first-party`, `client.marked-third-party` |
-| Authora | `system.administrator-bootstrapped`, `system.client-bootstrapped`, `system.signing-keys-changed` |
+| Authora | `system.administrator-bootstrapped`, `system.client-bootstrapped`, `system.signing-keys-changed`, `system.audit-chain-truncated` |
 
 Each event has:
 
@@ -142,12 +142,13 @@ Every few seconds (`Authora:Audit:SealInterval`, default `00:00:05`, at most 5 m
 | Missing links | Links were deleted in the database. |
 | A link does not continue the previous hash, or its event hashes differently | A sealed event or link was changed. |
 | The event of a link was deleted | A sealed event was deleted. |
+| The links before the first one were deleted, but no cleanup recorded it | The start of the chain was deleted in the database instead of by the cleanup. |
 | `unsealedEvents` > 0 | Events older than the sealing interval plus a minute are not in the chain, e.g. inserted directly into the database with an old time (the sealing only looks one hour behind its last run, except on its first run). |
 | `checkpointMatches: false` | Pass `checkpointSequence` and `checkpointHash` from a logged checkpoint: a different hash means the chain was rebuilt after a change, a Sequence beyond the end means the end of the chain was cut off. |
 
 A broken chain is also logged as critical event 11011. Someone with write access to the database can still rebuild the whole chain after a change; only the checkpoints in a separate log system show that, so ship the application logs elsewhere and compare a recent checkpoint now and then. Until an event is sealed (a few seconds), it can be changed without a trace.
 
-The cleanup deletes events after the retention together with their links, only from the start of the chain, so the rest still verifies; the last link is always kept, so the chain continues. The verification trusts the first remaining link.
+The cleanup deletes events after the retention together with their links, only from the start of the chain, so the rest still verifies; the last link is always kept, so the chain continues. Before cutting, it records the new first Sequence as `system.audit-chain-truncated` (target: that Sequence) and logs event 8004. That event is sealed into the chain like any other, and a chain that does not start at Sequence 1 only verifies if such an event names its first link. Someone with write access to the database could still insert a matching event with a current time, which then gets sealed; compare `system.audit-chain-truncated` events with the logged events 8004, which only the cleanup writes.
 
 | Setting | Default | Description |
 |---|---|---|

@@ -2,6 +2,10 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
+
+using Authora.Core.Abstractions;
+using Authora.Core.Application.Audit;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +25,12 @@ namespace Authora.Infrastructure.Cleanup;
 /// </remarks>
 /// <param name="context">The DbContext to delete from.</param>
 /// <param name="options">The retention and batch size.</param>
+/// <param name="auditLog">The audit log to record where the hash chain starts after deleting its start.</param>
 /// <param name="logger">The Logger to record how many rows were deleted.</param>
 public sealed class ExpiredDataCleaner(
     AuthoraContext context,
     IOptions<CleanupOptions> options,
+    IAuditLog auditLog,
     ILogger<ExpiredDataCleaner> logger)
 {
     /// <summary>
@@ -101,6 +107,16 @@ public sealed class ExpiredDataCleaner(
     /// </remarks>
     private async Task<int> DeleteAuditEventsAsync(DateTime cutoff, CancellationToken cancellationToken)
     {
+        // Events that were never sealed, e.g. older than the first sealing looked back. Deleted before the cut is
+        // recorded below, so that record is never one of them.
+        var auditEvents = await DeleteInBatchesAsync(
+            context.AuditEvents
+                .Where(auditEvent => auditEvent.OccurredAt < cutoff)
+                .Where(auditEvent => !context.AuditChainLinks.Any(link => link.EventId == auditEvent.Id))
+                .Select(auditEvent => auditEvent.Id),
+            ids => context.AuditEvents.Where(auditEvent => ids.Contains(auditEvent.Id)),
+            cancellationToken);
+
         var firstKept = await context.AuditChainLinks
             .Where(link => context.AuditEvents.Any(auditEvent => auditEvent.Id == link.EventId && auditEvent.OccurredAt >= cutoff))
             .OrderBy(link => link.Sequence)
@@ -111,8 +127,23 @@ public sealed class ExpiredDataCleaner(
 
         var expiredLinks = context.AuditChainLinks.Where(link => link.Sequence < firstKept);
 
+        // Recorded before deleting and sealed into the chain like every event, so the verification can tell this cut
+        // from links deleted directly in the database. Recorded again if a cleanup stopped halfway.
+        if (await expiredLinks.AnyAsync(cancellationToken))
+        {
+            await auditLog.RecordNowAsync(
+                new AuditEntry(
+                    AuditEventTypes.System.AuditChainTruncated,
+                    AuditTargetTypes.AuditChainLink,
+                    firstKept.ToString(CultureInfo.InvariantCulture),
+                    $"Links before Sequence {firstKept} with events before {cutoff:O} deleted after the retention"),
+                cancellationToken);
+
+            logger.AuditChainTruncated(firstKept, cutoff);
+        }
+
         // The events first: a link without its event would be reported as a deleted event if the cleanup stops here.
-        var auditEvents = await DeleteInBatchesAsync(
+        auditEvents += await DeleteInBatchesAsync(
             context.AuditEvents
                 .Where(auditEvent => expiredLinks.Any(link => link.EventId == auditEvent.Id))
                 .Select(auditEvent => auditEvent.Id),
@@ -122,15 +153,6 @@ public sealed class ExpiredDataCleaner(
         await DeleteInBatchesAsync(
             expiredLinks.Select(link => link.Sequence),
             sequences => context.AuditChainLinks.Where(link => sequences.Contains(link.Sequence)),
-            cancellationToken);
-
-        // Events that were never sealed, e.g. older than the first sealing looked back.
-        auditEvents += await DeleteInBatchesAsync(
-            context.AuditEvents
-                .Where(auditEvent => auditEvent.OccurredAt < cutoff)
-                .Where(auditEvent => !context.AuditChainLinks.Any(link => link.EventId == auditEvent.Id))
-                .Select(auditEvent => auditEvent.Id),
-            ids => context.AuditEvents.Where(auditEvent => ids.Contains(auditEvent.Id)),
             cancellationToken);
 
         return auditEvents;

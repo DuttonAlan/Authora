@@ -31,6 +31,7 @@ public sealed class AllowScopeService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Scope is allowed.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client or the Scope does not exist.</exception>
+    /// <exception cref="ConflictException">Thrown when the Client is first-party.</exception>
     public async Task ExecuteAsync(
         Guid clientId,
         Guid scopeId,
@@ -42,6 +43,14 @@ public sealed class AllowScopeService(
         if (client.AllowedScopes.Any(scope => scope.Id == scopeId))
         {
             return;
+        }
+
+        // A first-party Client obtains its Scopes without asking the User. Marking it as third-party first needs the
+        // Permission to manage first-party Clients.
+        if (client.IsFirstParty)
+        {
+            throw new ConflictException(
+                $"Client '{clientId}' is first-party, so no Scope can be allowed. Mark it as third-party first.");
         }
 
         var scope = await scopeRepository.GetScopeById(scopeId, cancellationToken)

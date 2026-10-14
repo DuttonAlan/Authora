@@ -10,15 +10,16 @@ namespace Authora.Api.AdminUi;
 /// <param name="AccessToken">The Access Token.</param>
 /// <param name="RefreshToken">The Refresh Token, or null if the Client gets none.</param>
 /// <param name="IssuedAt">When the tokens were issued (UTC).</param>
-/// <param name="SignedInAt">
-///     When the User signed in to the admin interface (UTC). Refreshes keep it, so the tokens are not refreshed
-///     beyond the lifetime of a Session. A cookie without it reads as long ago, so the User signs in again.
+/// <param name="SessionId">
+///     The Authora Session the User signed in to the admin interface with. Refreshes keep it, and the tokens are only
+///     refreshed while this Session is still valid in the same browser. A cookie without it reads as
+///     <see cref="Guid.Empty"/>, so the User signs in again.
 /// </param>
-public sealed record AdminUiTokens(string AccessToken, string? RefreshToken, DateTimeOffset IssuedAt, DateTimeOffset SignedInAt)
+public sealed record AdminUiTokens(string AccessToken, string? RefreshToken, DateTimeOffset IssuedAt, Guid SessionId)
 {
     /// <summary>
     ///     Returns a description without the tokens, so they are not written to logs by accident.
     /// </summary>
     /// <returns>A description of the tokens.</returns>
-    public override string ToString() => $"AdminUiTokens({IssuedAt:O}, {SignedInAt:O})";
+    public override string ToString() => $"AdminUiTokens({IssuedAt:O}, {SessionId})";
 }
