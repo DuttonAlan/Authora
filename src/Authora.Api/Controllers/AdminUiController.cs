@@ -16,6 +16,7 @@ using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.AdminUi.GetSettings;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.ClientAuthentication;
+using Authora.Core.Application.OAuth.Introspect;
 using Authora.Core.Application.OAuth.Revoke;
 using Authora.Core.Application.OAuth.Token;
 using Authora.Core.Domain.Enums;
@@ -46,6 +47,7 @@ namespace Authora.Api.Controllers;
 /// <param name="secretGenerator">Generates the <c>state</c> and the <c>code_verifier</c>.</param>
 /// <param name="oauthOptions">The OAuth settings with the Issuer.</param>
 /// <param name="validateSessionService">The Service to check the Session the tokens are bound to.</param>
+/// <param name="accessTokenValidator">Finds the User of the tokens, which must be the User of the Session.</param>
 /// <param name="timeProvider">The clock for the issue time of the tokens.</param>
 /// <param name="logger">The Logger to record failed sign-ins.</param>
 [ApiController]
@@ -59,6 +61,7 @@ public sealed partial class AdminUiController(
     ISecretGenerator secretGenerator,
     IOptions<OAuthOptions> oauthOptions,
     ValidateSessionService validateSessionService,
+    AccessTokenValidator accessTokenValidator,
     TimeProvider timeProvider,
     ILogger<AdminUiController> logger) : ControllerBase
 {
@@ -182,8 +185,8 @@ public sealed partial class AdminUiController(
             return RedirectToAdminUi(signIn.ReturnTo, UnavailableError);
         }
 
-        // The code was just issued for the Session of this browser. The tokens are bound to it, so they are not
-        // refreshed once it ends, see RefreshSession.
+        // The tokens are bound to the Session of this browser, so they are not refreshed once it ends, see
+        // RefreshSession.
         var session = await GetSessionAsync(cancellationToken);
 
         if (session is null)
@@ -214,7 +217,21 @@ public sealed partial class AdminUiController(
         }
 
         var now = timeProvider.GetUtcNow();
-        cookies.AppendTokens(Response, new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, session.SessionId));
+        var issued = new AdminUiTokens(tokens.AccessToken, tokens.RefreshToken, now, session.SessionId);
+
+        // The code may have been issued to another User, e.g. before another tab switched the account. Bound to this
+        // Session, its tokens would then be refreshed as long as the Session of the new User lasts.
+        var accessToken = await accessTokenValidator.ValidateAsync(tokens.AccessToken, cancellationToken);
+
+        if (accessToken is null || accessToken.UserId != session.UserId)
+        {
+            logger.AdminUiSignInFailed("session changed");
+            await RevokeAsync(settings, issued, cancellationToken);
+
+            return RedirectToAdminUi(signIn.ReturnTo, SignInFailedError);
+        }
+
+        cookies.AppendTokens(Response, issued);
 
         return RedirectToAdminUi(signIn.ReturnTo, error: null);
     }

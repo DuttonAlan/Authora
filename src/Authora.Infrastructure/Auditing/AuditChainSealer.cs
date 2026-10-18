@@ -22,9 +22,9 @@ namespace Authora.Infrastructure.Auditing;
 ///         <c>audit.chain</c>. Until it runs, a new event can be changed without a trace.
 ///     </para>
 ///     <para>
-///         Only events since the last sealing minus <see cref="AuditChainOptions.LateEventWindow"/> are considered,
-///         so the lookup stays small. The first run seals all existing events. Safe to run on several instances at
-///         the same time: they take turns under a lock.
+///         Only events since the newest sealed event minus <see cref="AuditChainOptions.LateEventWindow"/> are
+///         considered, so the lookup stays small. The first run seals all existing events. Safe to run on several
+///         instances at the same time: they take turns under a lock, which the cleanup of old events takes too.
 ///     </para>
 ///     <para>
 ///         Every batch is logged as a checkpoint with its last Sequence and hash. Shipped to a separate system, the
@@ -80,7 +80,16 @@ public sealed class AuditChainSealer(
 
         if (last is not null)
         {
-            var since = last.SealedAt - AuditChainOptions.LateEventWindow;
+            // Counted back from the newest sealed event, not from the time of sealing: a backlog larger than one
+            // batch, e.g. on the first run or after an outage, otherwise falls out of the window after the first batch.
+            var lastOccurredAt = await context.AuditEvents
+                .AsNoTracking()
+                .Where(auditEvent => auditEvent.Id == last.EventId)
+                .Select(auditEvent => (DateTime?)auditEvent.OccurredAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var newest = lastOccurredAt is { } occurredAt && occurredAt < last.SealedAt ? occurredAt : last.SealedAt;
+            var since = newest - AuditChainOptions.LateEventWindow;
             unsealed = unsealed.Where(auditEvent => auditEvent.OccurredAt >= since);
         }
 

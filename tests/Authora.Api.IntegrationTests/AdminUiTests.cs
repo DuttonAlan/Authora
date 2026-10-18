@@ -208,6 +208,32 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
     }
 
     [Fact]
+    public async Task Callback_AfterAccountSwitch_RevokesTheTokensOfTheCode()
+    {
+        var administratorId = await factory.CreateAdministratorAsync();
+        var sessionToken = await factory.CreateSessionAsync(administratorId);
+        var otherSessionToken = await factory.CreateSessionAsync(await factory.CreateAdministratorAsync());
+
+        using var start = await _client.GetAsync("/admin/signin", TestContext.Current.CancellationToken);
+        using var authorization = await SendAsync(HttpMethod.Get, start.Headers.Location!.OriginalString, $"{SessionCookie.Name}={sessionToken}");
+
+        // Another tab signed in as another User before the callback, so the browser now sends that User's Session.
+        using var callback = await SendAsync(
+            HttpMethod.Get,
+            authorization.Headers.Location!.PathAndQuery,
+            $"{CookiePair(GetSetCookie(start, AdminUiCookies.SignInName))}; {SessionCookie.Name}={otherSessionToken}");
+
+        Assert.Equal($"/admin/?error={AdminUiController.SignInFailedError}", callback.Headers.Location!.OriginalString);
+        Assert.False(callback.Headers.TryGetValues("Set-Cookie", out var cookies) && cookies.Any(cookie => cookie.StartsWith($"{AdminUiCookies.TokensName}=", StringComparison.Ordinal)));
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var grant = await context.Grants.SingleAsync(grant => grant.UserId == administratorId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(grant.RevokedAt);
+    }
+
+    [Fact]
     public async Task SignIn_WithForeignReturnTo_ReturnsToStartPage()
     {
         var sessionToken = await factory.CreateSessionAsync(await factory.CreateAdministratorAsync());

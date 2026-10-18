@@ -8,6 +8,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Audit.Verify;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Domain.Entities;
@@ -19,6 +20,7 @@ using Authora.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Api.IntegrationTests;
 
@@ -123,6 +125,39 @@ public sealed class AuditChainTests(AuthoraApiFactory factory) : IClassFixture<A
 
         await ExecuteAsync(context => context.AuditEvents.Where(auditEvent => auditEvent.Id == forged.Id).ExecuteDeleteAsync());
         Assert.True((await VerifyAsync(token)).IsIntact);
+    }
+
+    [Fact]
+    public async Task BacklogOfSeveralBatches_IsSealedCompletely()
+    {
+        var token = await CreateVerifierTokenAsync();
+        await SealAsync();
+
+        // E.g. after an outage of the sealing: the events are older than the window counted back from now.
+        var now = DateTime.UtcNow;
+        var backlog = Enumerable.Range(0, 5)
+            .Select(minute => AuditEvent.Create("user.created", AuditOutcome.Succeeded, now.AddMinutes(-40 + minute), null, null, null, null, null, null))
+            .ToList();
+        await ExecuteAsync(context =>
+        {
+            context.AuditEvents.AddRange(backlog);
+            return context.SaveChangesAsync();
+        });
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var sealer = ActivatorUtilities.CreateInstance<AuditChainSealer>(
+                scope.ServiceProvider,
+                Options.Create(new AuditChainOptions { BatchSize = 2 }),
+                new FixedTimeProvider(new DateTimeOffset(now.AddMinutes(25))));
+
+            Assert.Equal(backlog.Count, await sealer.SealAsync(TestContext.Current.CancellationToken));
+        }
+
+        var result = await VerifyAsync(token);
+
+        Assert.True(result.IsIntact, result.Problem);
+        Assert.Equal(0, result.UnsealedEvents);
     }
 
     [Fact]
@@ -357,5 +392,10 @@ public sealed class AuditChainTests(AuthoraApiFactory factory) : IClassFixture<A
         }
 
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }
