@@ -21,7 +21,8 @@ namespace Authora.Infrastructure.Cleanup;
 /// </summary>
 /// <remarks>
 ///     Rows are deleted in batches of <see cref="CleanupOptions.BatchSize"/>, each in its own statement, so a large
-///     backlog does not lock a table for long. Safe to run on several instances at the same time.
+///     backlog does not lock a table for long. The audit events are deleted in one transaction under the lock of
+///     <see cref="Auditing.AuditChainSealer"/>. Safe to run on several instances at the same time.
 /// </remarks>
 /// <param name="context">The DbContext to delete from.</param>
 /// <param name="options">The retention and batch size.</param>
@@ -107,6 +108,11 @@ public sealed class ExpiredDataCleaner(
     /// </remarks>
     private async Task<int> DeleteAuditEventsAsync(DateTime cutoff, CancellationToken cancellationToken)
     {
+        // Under the lock of the sealing, so it cannot link an event that is deleted here, or add links while the
+        // first kept link is determined. Sealing waits meanwhile.
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        await context.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.AuditChain})", cancellationToken);
+
         // Events that were never sealed, e.g. older than the first sealing looked back. Deleted before the cut is
         // recorded below, so that record is never one of them.
         var auditEvents = await DeleteInBatchesAsync(
@@ -154,6 +160,8 @@ public sealed class ExpiredDataCleaner(
             expiredLinks.Select(link => link.Sequence),
             sequences => context.AuditChainLinks.Where(link => sequences.Contains(link.Sequence)),
             cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
 
         return auditEvents;
     }

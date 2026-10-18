@@ -143,7 +143,7 @@ Every few seconds (`Authora:Audit:SealInterval`, default `00:00:05`, at most 5 m
 | A link does not continue the previous hash, or its event hashes differently | A sealed event or link was changed. |
 | The event of a link was deleted | A sealed event was deleted. |
 | The links before the first one were deleted, but no cleanup recorded it | The start of the chain was deleted in the database instead of by the cleanup. |
-| `unsealedEvents` > 0 | Events older than the sealing interval plus a minute are not in the chain, e.g. inserted directly into the database with an old time (the sealing only looks one hour behind its last run, except on its first run). |
+| `unsealedEvents` > 0 | Events older than the sealing interval plus a minute are not in the chain, e.g. inserted directly into the database with an old time (the sealing only looks one hour behind the newest sealed event, except on its first run). |
 | `checkpointMatches: false` | Pass `checkpointSequence` and `checkpointHash` from a logged checkpoint: a different hash means the chain was rebuilt after a change, a Sequence beyond the end means the end of the chain was cut off. |
 
 A broken chain is also logged as critical event 11011. Someone with write access to the database can still rebuild the whole chain after a change; only the checkpoints in a separate log system show that, so ship the application logs elsewhere and compare a recent checkpoint now and then. Until an event is sealed (a few seconds), it can be changed without a trace.
