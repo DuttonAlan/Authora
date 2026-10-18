@@ -54,4 +54,10 @@ internal static partial class ClientLog
 
     [LoggerMessage(EventId = 4014, Level = LogLevel.Information, Message = "Client {ClientId} no longer serves Scope {ScopeId} ({ScopeName}).")]
     public static partial void ScopeNoLongerServed(this ILogger logger, Guid clientId, Guid scopeId, string scopeName);
+
+    [LoggerMessage(EventId = 4015, Level = LogLevel.Warning, Message = "Client {ClientId} ({ClientName}) was marked as first-party. Users are no longer asked for consent.")]
+    public static partial void ClientMarkedFirstParty(this ILogger logger, Guid clientId, string clientName);
+
+    [LoggerMessage(EventId = 4016, Level = LogLevel.Information, Message = "Client {ClientId} ({ClientName}) was marked as third-party.")]
+    public static partial void ClientMarkedThirdParty(this ILogger logger, Guid clientId, string clientName);
 }

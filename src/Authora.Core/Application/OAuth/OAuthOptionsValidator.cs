@@ -60,6 +60,13 @@ public sealed class OAuthOptionsValidator : IValidateOptions<OAuthOptions>
                 + $"and at most {OAuthOptions.MaxCorsOriginsCacheDuration}.");
         }
 
+        if (options.GrantLifetime <= TimeSpan.Zero || options.GrantLifetime > OAuthOptions.MaxGrantLifetime)
+        {
+            failures.Add(
+                $"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.GrantLifetime)}' must be greater than 0 "
+                + $"and at most {OAuthOptions.MaxGrantLifetime}. Use the format d.hh:mm:ss, e.g. 90.00:00:00.");
+        }
+
         return failures.Count > 0 ? ValidateOptionsResult.Fail(failures) : ValidateOptionsResult.Success;
     }
 }

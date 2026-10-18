@@ -38,7 +38,9 @@ public sealed class AccessTokenValidator(
 
         var accessToken = await tokenRepository.GetAccessTokenByHash(secretHasher.Hash(token), cancellationToken);
 
-        if (accessToken is null || !accessToken.IsActive(timeProvider.GetUtcNow().UtcDateTime) || accessToken.Grant!.IsRevoked)
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        if (accessToken is null || !accessToken.IsActive(now) || accessToken.Grant!.IsRevoked || accessToken.Grant.IsExpired(now))
         {
             return null;
         }

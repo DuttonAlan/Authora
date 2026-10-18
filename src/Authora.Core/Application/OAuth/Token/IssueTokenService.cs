@@ -11,6 +11,7 @@ using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Core.Application.OAuth.Token;
 
@@ -27,6 +28,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="secretHasher">The hasher to look up codes and tokens.</param>
 /// <param name="timeProvider">The TimeProvider for expiry checks and new tokens.</param>
 /// <param name="auditLog">The audit log to record attacks.</param>
+/// <param name="options">The OAuth settings with the lifetime of new Grants.</param>
 /// <param name="logger">The Logger to record issued tokens and attacks.</param>
 public sealed class IssueTokenService(
     ClientAuthenticator clientAuthenticator,
@@ -39,6 +41,7 @@ public sealed class IssueTokenService(
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
     IAuditLog auditLog,
+    IOptions<OAuthOptions> options,
     ILogger<IssueTokenService> logger)
 {
     /// <summary>
@@ -152,8 +155,8 @@ public sealed class IssueTokenService(
 
         var scopes = GetScopesStillAllowed(client, authorizationCode.Scopes);
 
-        var grant = Grant.Create(authorizationCode, now);
-        var tokens = tokenIssuer.Issue(grant.Id, client, scopes, now);
+        var grant = Grant.Create(authorizationCode, now, options.Value.GrantLifetime);
+        var tokens = tokenIssuer.Issue(grant, client, scopes, now);
 
         await tokenRepository.CreateGrant(grant, tokens.AccessToken, tokens.RefreshToken, cancellationToken);
 
@@ -229,7 +232,8 @@ public sealed class IssueTokenService(
             throw invalidToken;
         }
 
-        if (refreshToken.IsExpired(now))
+        // Refresh Tokens are issued to expire with their Grant at the latest, but the Grant's expiry is what counts.
+        if (refreshToken.IsExpired(now) || grant.IsExpired(now))
         {
             throw invalidToken;
         }
@@ -266,7 +270,7 @@ public sealed class IssueTokenService(
             throw invalidToken;
         }
 
-        var tokens = tokenIssuer.Issue(grant.Id, client, accessTokenScopes, now);
+        var tokens = tokenIssuer.Issue(grant, client, accessTokenScopes, now);
 
         await tokenRepository.AddTokens(tokens.AccessToken, tokens.RefreshToken, cancellationToken);
 

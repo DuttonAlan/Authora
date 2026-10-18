@@ -190,6 +190,14 @@ public static class PermissionNames
         ///     Create and revoke Client Secrets.
         /// </summary>
         public const string ManageSecrets = "clients.manage-secrets";
+
+        /// <summary>
+        ///     Mark Clients as first-party, so Users are not asked for consent, and as third-party again. Redirect URIs
+        ///     and Scopes cannot be added to a first-party Client, so <see cref="Update"/> alone cannot send its codes
+        ///     elsewhere, e.g. those of the admin interface. Whoever has this Permission and <see cref="Update"/> can
+        ///     let any Client obtain the Scopes it is allowed without asking the User.
+        /// </summary>
+        public const string ManageFirstParty = "clients.manage-first-party";
     }
 
     /// <summary>
@@ -212,6 +220,11 @@ public static class PermissionNames
         ///     Search the audit log (US-034), including who signed in from which IP address.
         /// </summary>
         public const string Read = "audit.read";
+
+        /// <summary>
+        ///     Verify the hash chain of the audit log (TD-013). Reads every event, so it is a Permission of its own.
+        /// </summary>
+        public const string Verify = "audit.verify";
     }
 
     /// <summary>
@@ -247,7 +260,9 @@ public static class PermissionNames
         Clients.Update,
         Clients.Delete,
         Clients.ManageSecrets,
+        Clients.ManageFirstParty,
         Health.Read,
-        Audit.Read
+        Audit.Read,
+        Audit.Verify
     ];
 }

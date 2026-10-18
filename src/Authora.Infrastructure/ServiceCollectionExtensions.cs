@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Oidc;
+using Authora.Infrastructure.Auditing;
 using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
@@ -67,6 +68,9 @@ public static class ServiceCollectionExtensions
         // The actor comes from the host, e.g. the HTTP request, see IAuditActorAccessor.
         serviceCollection.AddScoped<IAuditLog, AuditLog>();
         serviceCollection.AddTransient<IAuditEventRepository, AuditEventRepository>();
+        serviceCollection.AddTransient<IAuditChainRepository, AuditChainRepository>();
+        serviceCollection.AddTransient<AuditChainSealer>();
+        serviceCollection.AddHostedService<AuditChainSealingService>();
 
         serviceCollection.AddTransient<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
         serviceCollection.AddTransient<IClientRepository, ClientRepository>();

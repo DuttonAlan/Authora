@@ -20,4 +20,9 @@ internal static class AdvisoryLockKeys
     ///     until the change is committed.
     /// </summary>
     public const long Administrators = 0x4144_4D49_4E53; // "ADMINS"
+
+    /// <summary>
+    ///     Serializes the sealing of audit events, so the Sequence of the chain has no gaps or forks.
+    /// </summary>
+    public const long AuditChain = 0x4155_4443_4841_494E; // "AUDCHAIN"
 }

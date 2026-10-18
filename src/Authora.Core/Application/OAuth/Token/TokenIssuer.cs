@@ -19,22 +19,30 @@ public sealed class TokenIssuer(ISecretGenerator secretGenerator, ISecretHasher 
     /// <summary>
     ///     Generates a new Access Token and, if the Client may use Refresh Tokens, a new Refresh Token.
     /// </summary>
-    /// <param name="grantId">The Id of the Grant the tokens belong to.</param>
+    /// <param name="grant">The Grant the tokens belong to. No token expires after it.</param>
     /// <param name="client">The Client the tokens are issued to. Its TTLs are used.</param>
     /// <param name="scopes">The Scope Names of the Access Token.</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <returns>The new tokens and the response for the Client.</returns>
-    public IssuedTokens Issue(Guid grantId, Client client, IReadOnlyList<string> scopes, DateTime now)
+    /// <exception cref="InvalidOperationException">Thrown when the Grant has expired, which the caller checks first.</exception>
+    public IssuedTokens Issue(Grant grant, Client client, IReadOnlyList<string> scopes, DateTime now)
     {
+        ArgumentNullException.ThrowIfNull(grant);
         ArgumentNullException.ThrowIfNull(client);
 
+        if (grant.IsExpired(now))
+        {
+            throw new InvalidOperationException($"The Grant {grant.Id} has expired, so no tokens can be issued for it.");
+        }
+
+        var accessTokenLifetime = grant.LimitTokenLifetime(now, TimeSpan.FromSeconds(client.AccessTokenTTL));
         var accessTokenValue = secretGenerator.Generate();
         var accessToken = AccessToken.Create(
-            grantId,
+            grant.Id,
             secretHasher.Hash(accessTokenValue),
             scopes,
             now,
-            TimeSpan.FromSeconds(client.AccessTokenTTL));
+            accessTokenLifetime);
 
         string? refreshTokenValue = null;
         RefreshToken? refreshToken = null;
@@ -43,16 +51,16 @@ public sealed class TokenIssuer(ISecretGenerator secretGenerator, ISecretHasher 
         {
             refreshTokenValue = secretGenerator.Generate();
             refreshToken = RefreshToken.Create(
-                grantId,
+                grant.Id,
                 secretHasher.Hash(refreshTokenValue),
                 now,
-                TimeSpan.FromSeconds(client.RefreshTokenTTL));
+                grant.LimitTokenLifetime(now, TimeSpan.FromSeconds(client.RefreshTokenTTL)));
         }
 
         var response = new TokenResponse(
             accessTokenValue,
             TokenResponse.BearerTokenType,
-            client.AccessTokenTTL,
+            (int)accessTokenLifetime.TotalSeconds,
             refreshTokenValue,
             ScopeList.Format(scopes));
 

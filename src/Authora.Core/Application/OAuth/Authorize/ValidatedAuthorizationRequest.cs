@@ -30,6 +30,12 @@ public sealed record ValidatedAuthorizationRequest(
     TimeSpan? MaxAge)
 {
     /// <summary>
+    ///     Whether the User must be asked for consent: always, unless the Client is first-party (TD-012) and did not
+    ///     send <c>prompt=consent</c>.
+    /// </summary>
+    public bool RequiresConsent => !Client.IsFirstParty || Prompts.Contains(PromptValues.Consent);
+
+    /// <summary>
     ///     Whether the User must sign in again, even if signed in: <c>prompt=login</c> or <c>prompt=select_account</c>
     ///     was sent, or the sign-in was longer ago than <see cref="MaxAge"/>.
     /// </summary>

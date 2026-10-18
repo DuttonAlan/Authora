@@ -19,6 +19,7 @@ using Authora.Core.Application.Clients.GetAll;
 using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
+using Authora.Core.Application.Clients.SetFirstParty;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
@@ -45,6 +46,7 @@ namespace Authora.Api.Controllers;
 /// <param name="removeRedirectUriService">The Service to remove a Redirect URI.</param>
 /// <param name="revokeClientSecretService">The Service to revoke a Secret.</param>
 /// <param name="serveScopeService">The Service to serve a Scope as a resource server.</param>
+/// <param name="setFirstPartyService">The Service to mark the Client as first-party or third-party.</param>
 /// <param name="stopServingScopeService">The Service to stop serving a Scope.</param>
 /// <param name="updateClientService">The Service to update the Client.</param>
 [ApiController]
@@ -65,6 +67,7 @@ public sealed class ClientsController(
     RemoveRedirectUriService removeRedirectUriService,
     RevokeClientSecretService revokeClientSecretService,
     ServeScopeService serveScopeService,
+    SetFirstPartyService setFirstPartyService,
     StopServingScopeService stopServingScopeService,
     UpdateClientService updateClientService) : ControllerBase
 {
@@ -261,10 +264,66 @@ public sealed class ClientsController(
     }
 
     /// <summary>
+    ///     Marks the Client as first-party, so Users are no longer asked for consent.
+    /// </summary>
+    /// <remarks>
+    ///     Only for Clients of the same deployment as Authora, e.g. the admin interface: the Client obtains every
+    ///     Scope it is allowed without asking the User, unless it sends <c>prompt=consent</c>. Marking a Client that
+    ///     is already first-party also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Client is first-party.</returns>
+    /// <response code="204">Responds with no content once the Client was marked as first-party.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpPut("{id:guid}/first-party")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.ManageFirstParty)]
+    public async Task<IActionResult> MarkFirstParty(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await setFirstPartyService.ExecuteAsync(id, isFirstParty: true, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Marks the Client as third-party again, so Users are asked for consent.
+    /// </summary>
+    /// <remarks>
+    ///     Marking a Client that is already third-party also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Client is third-party.</returns>
+    /// <response code="204">Responds with no content once the Client was marked as third-party.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/first-party")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.ManageFirstParty)]
+    public async Task<IActionResult> MarkThirdParty(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await setFirstPartyService.ExecuteAsync(id, isFirstParty: false, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
     ///     Registers a Redirect URI for the Client.
     /// </summary>
     /// <remarks>
     ///     This operation is idempotent: registering a Redirect URI that is already registered also succeeds.
+    ///     A first-party Client gets no new Redirect URIs, because it gets codes without asking the User: mark it as
+    ///     third-party first.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
     /// <param name="request">The request with the Redirect URI.</param>
@@ -273,12 +332,14 @@ public sealed class ClientsController(
     /// <response code="204">Responds with no content once the Redirect URI was registered.</response>
     /// <response code="400">Responds with problem details if the Redirect URI is not absolute, contains a fragment or does not use HTTPS.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is first-party.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/redirect-uris")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AddRedirectUri(
@@ -327,6 +388,8 @@ public sealed class ClientsController(
     /// </summary>
     /// <remarks>
     ///     This operation is idempotent: allowing a Scope that is already allowed also succeeds.
+    ///     A first-party Client is allowed no new Scopes, because it obtains them without asking the User: mark it as
+    ///     third-party first.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
     /// <param name="scopeId" example="0199d1a2-7c3e-7b4a-9f10-4c963f66afa6">Id of the Scope.</param>
@@ -334,10 +397,12 @@ public sealed class ClientsController(
     /// <returns>204 No Content once the Scope is allowed.</returns>
     /// <response code="204">Responds with no content once the Scope was allowed.</response>
     /// <response code="404">Responds with problem details if no Client or no Scope with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is first-party.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/scopes/{scopeId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AllowScope(

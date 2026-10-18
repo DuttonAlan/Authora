@@ -23,13 +23,15 @@ namespace Authora.Api.Pages.OAuth;
 /// <remarks>
 ///     <para>
 ///         Consent policy: the User is asked on every authorization request, and decisions are not remembered.
-///         The consent form repeats the request parameters, so they are validated again when it is submitted.
-///         The antiforgery token binds the form to the signed-in User.
+///         Only first-party Clients, e.g. the admin interface, get the code without asking, unless they send
+///         <c>prompt=consent</c> (TD-012). The consent form repeats the request parameters, so they are validated
+///         again when it is submitted. The antiforgery token binds the form to the signed-in User.
 ///     </para>
 ///     <para>
 ///         OpenID Connect: <c>prompt=login</c>, <c>prompt=select_account</c> and an exceeded <c>max_age</c> send a
-///         signed-in User to the sign-in page again. <c>prompt=none</c> never shows a page, so it is always answered
-///         with <c>login_required</c> or <c>consent_required</c>.
+///         signed-in User to the sign-in page again. <c>prompt=none</c> never shows a page: a signed-in User gets the
+///         code from a first-party Client, otherwise it is answered with <c>login_required</c> or
+///         <c>consent_required</c>.
 ///     </para>
 /// </remarks>
 /// <param name="validateAuthorizationRequestService">The Service to validate the request.</param>
@@ -97,7 +99,12 @@ public sealed class AuthorizeModel(
 
         if (validated.Prompts.Contains(PromptValues.None))
         {
-            // Consent is asked on every request, so a signed-in User still needs a page.
+            if (!mustSignIn && !validated.RequiresConsent)
+            {
+                return await IssueCodeAsync(validated, cancellationToken);
+            }
+
+            // Consent is asked on every request of a third-party Client, so a signed-in User still needs a page.
             return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
             {
                 ["error"] = mustSignIn ? OAuthErrors.LoginRequired : OAuthErrors.ConsentRequired,
@@ -109,6 +116,11 @@ public sealed class AuthorizeModel(
         if (mustSignIn)
         {
             return SignIn(request);
+        }
+
+        if (!validated.RequiresConsent)
+        {
+            return await IssueCodeAsync(validated, cancellationToken);
         }
 
         return ShowConsent(request, validated);
@@ -148,17 +160,23 @@ public sealed class AuthorizeModel(
             });
         }
 
-        var authenticatedAt = GetAuthenticatedAt();
-
         // Checked again, because the consent screen may have been open for longer than max_age allows. Denying needs
         // no recent sign-in, so only approving is checked.
-        if (validated.RequiresSignIn(authenticatedAt, timeProvider.GetUtcNow().UtcDateTime))
+        if (validated.RequiresSignIn(GetAuthenticatedAt(), timeProvider.GetUtcNow().UtcDateTime))
         {
             return SignIn(request);
         }
 
+        return await IssueCodeAsync(validated, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Issues the Authorization Code for the signed-in User and sends it to the Client.
+    /// </summary>
+    private async Task<StatusCodeResult> IssueCodeAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
+    {
         var userId = Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
-        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, authenticatedAt, cancellationToken);
+        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, GetAuthenticatedAt(), cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
         {

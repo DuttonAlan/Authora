@@ -61,6 +61,37 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.ToTable("access_tokens", "auth");
                 });
 
+            modelBuilder.Entity("Authora.Core.Domain.Entities.AuditChainLink", b =>
+                {
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("PreviousHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("SealedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Sequence");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("chain", "audit");
+                });
+
             modelBuilder.Entity("Authora.Core.Domain.Entities.AuditEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -192,6 +223,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsFirstParty")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -255,6 +289,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("RevokedAt")

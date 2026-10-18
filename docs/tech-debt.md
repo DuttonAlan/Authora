@@ -2,7 +2,7 @@
 
 Shortcuts and temporary decisions that were taken on purpose and must be resolved later. Bugs (unintended behaviour) are tracked as GitHub issues.
 
-When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and replace "To resolve" with a short "Resolution". IDs are never reused, so the next entry is **TD-015**.
+When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and replace "To resolve" with a short "Resolution". IDs are never reused, so the next entry is **TD-016**.
 
 | ID | Title | Status |
 |---|---|---|
@@ -17,9 +17,10 @@ When an entry is resolved, keep it: add `**Status:** Resolved (<date>)` and repl
 | [TD-009](#td-009-every-confidential-client-can-introspect-every-access-token) | Every Confidential Client can introspect every Access Token | Resolved (2026-10-12) |
 | [TD-010](#td-010-the-health-endpoint-reveals-the-schema-version) | The health endpoint reveals the schema version | Resolved (2026-10-12) |
 | [TD-011](#td-011-signing-keys-are-only-read-at-startup) | Signing keys are only read at startup | Resolved (2026-10-14) |
-| [TD-012](#td-012-the-admin-interface-asks-for-consent-on-every-sign-in) | The admin interface asks for consent on every sign-in | Open |
-| [TD-013](#td-013-audit-events-can-be-changed-with-database-access) | Audit events can be changed with database access | Open |
-| [TD-014](#td-014-the-admin-interface-keeps-its-tokens-in-the-browser) | The admin interface keeps its tokens in the browser | Open |
+| [TD-012](#td-012-the-admin-interface-asks-for-consent-on-every-sign-in) | The admin interface asks for consent on every sign-in | Resolved (2026-10-14) |
+| [TD-013](#td-013-audit-events-can-be-changed-with-database-access) | Audit events can be changed with database access | Resolved (2026-10-14) |
+| [TD-014](#td-014-the-admin-interface-keeps-its-tokens-in-the-browser) | The admin interface keeps its tokens in the browser | Resolved (2026-10-14) |
+| [TD-015](#td-015-data-protection-keys-are-stored-unencrypted) | Data Protection keys are stored unencrypted | Resolved (2026-10-14) |
 
 ## TD-001: Users can be created without a password
 
@@ -111,24 +112,32 @@ The ID Token signing key and the keys published for rotation are read from PEM f
 
 ## TD-012: The admin interface asks for consent on every sign-in
 
-**Status:** Open · **Area:** Admin interface, consent (`/oauth/authorize`)
+**Status:** Resolved (2026-10-14) · **Area:** Admin interface, consent (`/oauth/authorize`)
 
 Authora asks for consent on every authorization request and does not remember decisions (see [oauth-core.md](oauth-core.md#consent-policy)). The admin interface is part of Authora, but it is an ordinary Public Client, so administrators see the consent screen every time they sign in to it, which trains them to click "Allow" without reading.
 
-**To resolve:** remember consent per User, Client and Scopes (with a way to withdraw it), or mark Clients as first-party so they skip the consent screen. First-party must not be settable through the admin API without a dedicated Permission, because it would let a Client skip consent for any Scope.
+**Resolution:** Clients can be marked as first-party (`Client.IsFirstParty`). A signed-in User gets the code of a first-party Client without the consent screen, also with `prompt=none`; `prompt=consent` still shows it. The seeder creates the Client of the admin interface as first-party. Through the admin API, only the new Permission `clients.manage-first-party` can mark a Client (`PUT`/`DELETE /api/clients/{id}/first-party`), and both directions are recorded in the audit log. Remembering consent per User, Client and Scopes was not built: it would help third-party Clients too, but needs its own storage and a way to withdraw it, and the admin interface would still ask once.
 
 ## TD-013: Audit events can be changed with database access
 
-**Status:** Open · **Area:** Audit log (`audit.events`)
+**Status:** Resolved (2026-10-14) · **Area:** Audit log (`audit.events`)
 
 The audit log (US-034) is stored in Authora's own database. The API cannot change or delete events, but anyone with write access to the database, including the application's database user if `UPDATE` is not revoked, can change or delete them without a trace. There is also no export to an external system.
 
-**To resolve:** chain the events with hashes (each event stores the hash of the previous one) so changes are detectable, or forward them to an append-only external store (e.g. a SIEM or object storage with retention locks). Until then, ship the application logs to a separate system and restrict the database permissions as described in [operations.md](operations.md#database).
+**Resolution:** a background service seals new events every few seconds into a SHA-256 hash chain in the insert-only table `audit.chain` (Sequence, event Id, previous hash, hash over every field of the event), so `audit.events` still needs no `UPDATE`, and logs a checkpoint (Sequence and hash) after every batch. `GET /api/audit-events/verification` (Permission `audit.verify`) detects changed, deleted and unsealed events, missing links, and with a checkpoint from the logs also a rebuilt or shortened chain. The cleanup cuts the chain only from its start. Sealing after the commit instead of in the saving transaction keeps audited changes from being serialized behind one lock, at the price of a few seconds in which a new event is not yet protected. The chain is not keyed, so someone with database access can rebuild it; only the checkpoints in a separate log system detect that, see [admin.md](admin.md#hash-chain-td-013). There is still no export to an external store.
 
 ## TD-014: The admin interface keeps its tokens in the browser
 
-**Status:** Open · **Area:** Admin interface (`wwwroot/admin/js/auth.js`)
+**Status:** Resolved (2026-10-14) · **Area:** Admin interface (`wwwroot/admin/js/auth.js`)
 
 The admin interface keeps its Access and Refresh Token in `sessionStorage`. A script that runs on the admin interface could read them and use them from elsewhere until they expire or the Grant is revoked. The strict Content Security Policy (no inline or foreign scripts) and inserting all text as text nodes make such a script unlikely, but do not rule it out (e.g. a compromised dependency of the browser).
 
-**To resolve:** a backend for frontend: a server-side part of the admin interface that holds the tokens and gives the browser only an `HttpOnly` cookie, or sender-constrained tokens (DPoP, RFC 9449), which a stolen token cannot be used without.
+**Resolution:** a backend for frontend (`AdminUiController`, `src/Authora.Api/AdminUi/`). Authora runs the Authorization Code flow with PKCE for the admin interface on the server: the `state` and the `code_verifier` stay in an encrypted sign-in cookie, the Redirect URI `{Issuer}/admin/callback` is handled by the server, which only redeems codes of sign-ins it started, and the tokens are kept in the encrypted `HttpOnly`, `SameSite=Strict` cookie `__Host-authora_admin`. `AdminUiTokenMiddleware` turns the cookie into a Bearer token for `/api/*` only with the header `X-Authora-Admin: 1` from the same origin, so the admin API still checks Access Tokens like those of every other Client and stays safe from CSRF. Refreshes run on the server, one tab at a time. DPoP was not chosen: a script on the page could still start its own flow with its own key while the page is open. What remains for any web application: such a script can act as the administrator while the page is open, but can no longer take the tokens elsewhere. The cookies need shared Data Protection keys with several instances, see TD-015.
+
+## TD-015: Data Protection keys are stored unencrypted
+
+**Status:** Resolved (2026-10-14) · **Area:** Admin interface, antiforgery (`DataProtectionSettings`, `Authora:DataProtection`)
+
+The Data Protection keys encrypt the antiforgery tokens and the cookie with the admin interface's tokens (TD-014). With `Authora:DataProtection:KeysPath`, they were stored as plain XML files in that directory. Whoever could read them, together with a stolen admin cookie, could decrypt the Access and Refresh Token. Without the setting, the keys may only live in memory, so restarts sign administrators out and several instances cannot read each other's cookies.
+
+**Resolution:** `Authora:DataProtection:CertificatePath` (and `CertificatePassword`) names a PKCS#12 certificate with which new keys are encrypted at rest (`ProtectKeysWithCertificate`). Authora does not start if it is set without `KeysPath` or cannot be loaded with its private key. It stays optional, because a single instance with a protected home directory works without it; the operations checklist asks for it. A key vault (Azure Key Vault, AWS KMS) is not built in. See [operations.md](operations.md#data-protection-keys).

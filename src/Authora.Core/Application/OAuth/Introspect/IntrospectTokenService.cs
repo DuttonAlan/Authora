@@ -115,12 +115,14 @@ public sealed class IntrospectTokenService(
     private async Task<IntrospectionResponse?> IntrospectRefreshTokenAsync(Guid callerId, string token, CancellationToken cancellationToken)
     {
         var refreshToken = await tokenRepository.GetRefreshTokenByHash(secretHasher.Hash(token), cancellationToken);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
 
         if (refreshToken is null
             || refreshToken.Grant!.ClientId != callerId
             || refreshToken.Grant.IsRevoked
+            || refreshToken.Grant.IsExpired(now)
             || refreshToken.ConsumedAt is not null
-            || refreshToken.IsExpired(timeProvider.GetUtcNow().UtcDateTime))
+            || refreshToken.IsExpired(now))
         {
             return null;
         }

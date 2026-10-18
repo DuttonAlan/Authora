@@ -7,15 +7,34 @@ using Authora.Core.Application.OAuth;
 namespace Authora.Api.Security;
 
 /// <summary>
-///     Checks at startup that a Production environment is configured securely (US-036). Authora does not start
+///     Checks at startup that a deployed environment is configured securely (US-036). Authora does not start
 ///     otherwise, so an insecure setting cannot go unnoticed.
 /// </summary>
 /// <remarks>
-///     Only settings that are always wrong in Production are checked. Further requirements are described in
+///     Only settings that are always wrong outside development are checked. Further requirements are described in
 ///     <c>docs/operations.md</c>.
 /// </remarks>
 internal static class ProductionSettingsCheck
 {
+    /// <summary>
+    ///     The environment of the integration tests, which run with a loopback Issuer like Development.
+    /// </summary>
+    public const string TestingEnvironment = "Testing";
+
+    /// <summary>
+    ///     Whether the check applies to an environment: to every environment except Development and Testing. Listing
+    ///     the exceptions instead of Production means an environment named e.g. <c>Staging</c> or <c>Prod</c> is
+    ///     checked too, instead of silently starting with insecure settings.
+    /// </summary>
+    /// <param name="environment">The environment of the host.</param>
+    /// <returns><see langword="true"/> if <see cref="Validate"/> must run.</returns>
+    public static bool AppliesTo(IHostEnvironment environment)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+
+        return !environment.IsDevelopment() && !environment.IsEnvironment(TestingEnvironment);
+    }
+
     /// <summary>
     ///     Checks the configuration.
     /// </summary>
@@ -33,7 +52,7 @@ internal static class ProductionSettingsCheck
 
         if (Uri.TryCreate(issuer, UriKind.Absolute, out var issuerUri) && issuerUri.Scheme != Uri.UriSchemeHttps)
         {
-            failures.Add($"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.Issuer)}' must use HTTPS in Production.");
+            failures.Add($"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.Issuer)}' must use HTTPS outside Development.");
         }
 
         // Host filtering rejects requests for other host names, e.g. a forged Host header that ends up in a link.
@@ -42,7 +61,7 @@ internal static class ProductionSettingsCheck
         if (string.IsNullOrWhiteSpace(allowedHosts) || allowedHosts.Split(';').Any(host => host.Trim() == "*"))
         {
             failures.Add(
-                "'AllowedHosts' must list the host names of Authora in Production, e.g. 'auth.example.com', not '*'.");
+                "'AllowedHosts' must list the host names of Authora outside Development, e.g. 'auth.example.com', not '*'.");
         }
 
         return failures;

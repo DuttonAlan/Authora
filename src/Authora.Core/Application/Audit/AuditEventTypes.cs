@@ -190,6 +190,12 @@ public static class AuditEventTypes
 
         /// <summary>A Client Secret was revoked.</summary>
         public const string SecretRevoked = "client.secret-revoked";
+
+        /// <summary>A Client was marked as first-party, so Users are no longer asked for consent.</summary>
+        public const string MarkedFirstParty = "client.marked-first-party";
+
+        /// <summary>A Client was marked as third-party again, so Users are asked for consent.</summary>
+        public const string MarkedThirdParty = "client.marked-third-party";
     }
 
     /// <summary>
@@ -208,5 +214,12 @@ public static class AuditEventTypes
         ///     list all published keys.
         /// </summary>
         public const string SigningKeysChanged = "system.signing-keys-changed";
+
+        /// <summary>
+        ///     The cleanup deletes the start of the audit chain after the retention (TD-013). The Target is the
+        ///     Sequence the chain starts at afterwards; a chain that starts later without such an event is reported as
+        ///     broken by the verification.
+        /// </summary>
+        public const string AuditChainTruncated = "system.audit-chain-truncated";
     }
 }

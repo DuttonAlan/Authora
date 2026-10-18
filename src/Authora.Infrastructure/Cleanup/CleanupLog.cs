@@ -24,6 +24,9 @@ internal static partial class CleanupLog
     [LoggerMessage(EventId = 8003, Level = LogLevel.Information, Message = "Deleted {AuditEvents} audit events that occurred before {Cutoff:O}.")]
     public static partial void AuditEventsDeleted(this ILogger logger, int auditEvents, DateTime cutoff);
 
+    [LoggerMessage(EventId = 8004, Level = LogLevel.Information, Message = "The hash chain of the audit log starts at Sequence {FirstSequence} after deleting the events before {Cutoff:O}.")]
+    public static partial void AuditChainTruncated(this ILogger logger, long firstSequence, DateTime cutoff);
+
     [LoggerMessage(EventId = 8002, Level = LogLevel.Error, Message = "The cleanup of expired data failed. It is retried with the next run.")]
     public static partial void CleanupFailed(this ILogger logger, Exception exception);
 }
