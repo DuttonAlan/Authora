@@ -62,7 +62,7 @@ Authora__OAuth__Issuer=https://auth.example.com
 AllowedHosts=auth.example.com
 ```
 
-The Issuer is the URL clients see. If Authora is served under a path, e.g. `https://example.com/auth`, the Issuer must include that path and the proxy must not strip it.
+The Issuer is the URL clients see. Give Authora a dedicated host, e.g. `https://auth.example.com`, without a path. Serving Authora under a path prefix such as `https://example.com/auth` is not supported: an Issuer with a path changes the URLs Authora advertises, but Authora still serves its endpoints at the root, so the advertised URLs return `404`.
 
 ## 4. Check it
 

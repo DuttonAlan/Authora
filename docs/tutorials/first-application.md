@@ -107,8 +107,6 @@ REFRESH_TOKEN=paste-refresh-token
 ID_TOKEN=paste-id-token
 ```
 
-Try the same `curl` command again. It fails: a code works exactly once.
-
 ## 6. Read the ID Token
 
 The ID Token tells the application *who* signed in. It is a JSON Web Token: three Base64url parts separated by dots, the middle one holding the claims. Decode it:
@@ -182,7 +180,7 @@ curl -k https://localhost:8443/oauth/token \
 {"error":"invalid_grant","error_description":"The Refresh Token is invalid, expired or revoked."}
 ```
 
-Authora cannot know whether the attacker or the application holds the newer token, so it revokes the whole sign-in, called the *Grant*: every Access and Refresh Token issued from it. Even the first Access Token, which had not expired yet, stops working at once:
+Authora cannot know whether the attacker or the application holds the newer token, so it revokes the whole sign-in, called the *Grant*: every Access and Refresh Token issued from it. Authorization Codes are treated the same way: exchanging a code a second time also revokes its Grant. Even the first Access Token, which had not expired yet, stops working at once:
 
 ```sh
 curl -k -i https://localhost:8443/oauth/userinfo -H "Authorization: Bearer $ACCESS_TOKEN"

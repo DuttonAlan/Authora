@@ -11,7 +11,7 @@ Authora reads its settings from `appsettings.json`, `appsettings.{Environment}.j
 | Setting | Description |
 |---|---|
 | `ConnectionStrings:Database` | PostgreSQL connection string, e.g. `Host=db;Database=authora;Username=authora_app;Password=…`. |
-| `Authora:OAuth:Issuer` | The public URL of Authora, e.g. `https://auth.example.com`. HTTPS; HTTP only for loopback hosts in `Development` and `Testing`. No query, no fragment, no trailing `/`. All endpoint URLs and the `iss` claim are built from it. If it has a path, Authora must be served under that path. |
+| `Authora:OAuth:Issuer` | The public URL of Authora, e.g. `https://auth.example.com`. HTTPS; HTTP only for loopback hosts in `Development` and `Testing`. No query, no fragment, no trailing `/`. All endpoint URLs and the `iss` claim are built from it. Use a dedicated host without a path: Authora serves its endpoints at the root, so a path prefix is not supported. |
 | `Authora:Oidc:SigningKeyPath` | PEM file with the RSA private key (at least 2048 bits, unencrypted) that signs ID Tokens. Relative paths are resolved against the content root. |
 | `AllowedHosts` | Host names Authora answers to, separated by `;`, e.g. `auth.example.com`. Outside `Development` and `Testing`, it must be set and must not contain `*`. |
 

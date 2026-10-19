@@ -42,7 +42,14 @@ A cookie that grants API access invites cross-site request forgery. The admin AP
 
 ## Bound to the Session
 
-The admin interface's tokens are tied to the Authora Session the administrator signed in with. A refresh only works while that Session is valid. So the admin interface ends when the Session ends: after the idle timeout or the absolute lifetime, on signing out of Authora in another tab, or when the User is signed out everywhere or deactivated.
+The admin interface's tokens are tied to the Authora Session the administrator signed in with. A refresh only works while that Session is valid; otherwise Authora revokes the admin interface's Grant and the administrator signs in again.
+
+This does not cut off access at once in every case:
+
+- If the Session expires (idle timeout or absolute lifetime) or the administrator signs out of Authora in another tab, the Access Token already in the cookie stays usable until it expires (1 hour by default). Only the next refresh fails.
+- If the User is signed out everywhere, deactivated or deleted, or gets a new password, their tokens are invalid immediately, because every token check compares the User's security stamp.
+
+To remove an administrator's access right away, use **Sign out everywhere** or **Deactivate**, not a Session timeout.
 
 ## Refreshing safely across tabs
 
