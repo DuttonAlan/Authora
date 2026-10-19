@@ -7,7 +7,7 @@ using Authora.Core.Application.Oidc;
 namespace Authora.Core.Abstractions;
 
 /// <summary>
-///     Provides the keys that sign ID Tokens and that are published in the JWKS (US-024).
+///     Provides the keys that sign ID Tokens and that are published in the JWKS.
 /// </summary>
 public interface ISigningKeyProvider
 {

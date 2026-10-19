@@ -27,7 +27,7 @@ namespace Authora.Api.Pages.Account;
 public sealed class LoginModel(SignInService signInService, SignOutService signOutService) : PageModel
 {
     /// <summary>
-    ///     The same message for every failure, so the page does not reveal whether an Email exists (US-007).
+    ///     The same message for every failure, so the page does not reveal whether an Email exists.
     /// </summary>
     public const string InvalidCredentialsMessage = "The email or password is incorrect, or the account cannot sign in right now.";
 
@@ -95,7 +95,7 @@ public sealed class LoginModel(SignInService signInService, SignOutService signO
             return Failed();
         }
 
-        // A new Session token on every sign-in (US-008): the Session of the previous User of this browser ends,
+        // A new Session token on every sign-in: the Session of the previous User of this browser ends,
         // and a token an attacker planted in the browser before the sign-in is never upgraded.
         await signOutService.ExecuteAsync(SessionCookie.Read(Request), cancellationToken);
         SessionCookie.Append(Response, result.SessionToken!);

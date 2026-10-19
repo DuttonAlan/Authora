@@ -9,7 +9,7 @@ using Authora.Core.Application.OAuth.Introspect;
 namespace Authora.Core.Application.Oidc.UserInfo;
 
 /// <summary>
-///     The Service behind the UserInfo endpoint (OpenID Connect Core 1.0, Section 5.3, US-025). Returns the identity
+///     The Service behind the UserInfo endpoint (OpenID Connect Core 1.0, Section 5.3). Returns the identity
 ///     claims of the User an Access Token was issued for.
 /// </summary>
 /// <remarks>

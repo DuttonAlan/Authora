@@ -7,7 +7,7 @@ using Authora.Core.Application.AdminUi;
 namespace Authora.Api.Security;
 
 /// <summary>
-///     Adds security headers to every response (US-036). Pages that need other values set them themselves, e.g.
+///     Adds security headers to every response. Pages that need other values set them themselves, e.g.
 ///     <see cref="Pages.SecurityHeadersPageFilter"/>; this middleware never overwrites a header that is already set.
 /// </summary>
 /// <remarks>

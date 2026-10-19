@@ -15,7 +15,7 @@ namespace Authora.Infrastructure.Security;
 
 /// <summary>
 ///     Reloads the signing keys every <see cref="OidcOptions.KeyReloadInterval"/>, so keys can be rotated without a
-///     restart (US-035), and records every change of the keys in the audit log.
+///     restart, and records every change of the keys in the audit log.
 /// </summary>
 /// <remarks>
 ///     The keys are compared with the last <see cref="AuditEventTypes.System.SigningKeysChanged"/> event at startup

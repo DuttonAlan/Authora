@@ -99,7 +99,7 @@ public sealed class ExpiredDataCleaner(
     }
 
     /// <summary>
-    ///     Deletes the audit events that occurred before the cutoff, and their links of the hash chain (TD-013).
+    ///     Deletes the audit events that occurred before the cutoff, and their links of the hash chain.
     /// </summary>
     /// <remarks>
     ///     The chain is only cut from its start, up to the first link with an event that is kept, so the remaining

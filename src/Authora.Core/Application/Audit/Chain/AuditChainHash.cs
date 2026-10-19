@@ -11,7 +11,7 @@ using Authora.Core.Domain.Entities;
 namespace Authora.Core.Application.Audit.Chain;
 
 /// <summary>
-///     Computes the hashes of the audit chain (TD-013).
+///     Computes the hashes of the audit chain.
 /// </summary>
 /// <remarks>
 ///     The hash is SHA-256 over a JSON array of the Sequence, the previous hash and every field of the event, so field

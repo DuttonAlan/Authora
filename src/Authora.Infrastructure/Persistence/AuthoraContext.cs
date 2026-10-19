@@ -74,7 +74,7 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     /// <summary>
-    ///     The hash chain of the audit events (TD-013) in the <c>audit</c> schema.
+    ///     The hash chain of the audit events in the <c>audit</c> schema.
     /// </summary>
     public DbSet<AuditChainLink> AuditChainLinks => Set<AuditChainLink>();
 

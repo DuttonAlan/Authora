@@ -10,7 +10,7 @@ using Authora.Core.Application.Authorization;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks that concurrent requests cannot remove the last administrator (TD-004).
+///     Checks that concurrent requests cannot remove the last administrator.
 /// </summary>
 /// <remarks>
 ///     Uses its own database, so no other test creates administrators that would be counted.

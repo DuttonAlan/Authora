@@ -23,7 +23,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks that Users receive the Roles of their Groups and lose them again (US-029, US-030).
+///     Checks that Users receive the Roles of their Groups and lose them again.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class GroupTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

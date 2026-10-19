@@ -19,7 +19,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks the security settings for production operation: headers, cookies, rate limits and the startup checks
-///     of insecure configurations (US-036).
+///     of insecure configurations.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

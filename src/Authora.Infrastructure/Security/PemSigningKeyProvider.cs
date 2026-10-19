@@ -13,7 +13,7 @@ namespace Authora.Infrastructure.Security;
 
 /// <summary>
 ///     Loads the signing keys from the PEM files of <see cref="OidcOptions"/>, and loads them again when the files or
-///     the settings change (US-035).
+///     the settings change.
 /// </summary>
 /// <remarks>
 ///     <para>

@@ -18,7 +18,7 @@ using Microsoft.Net.Http.Headers;
 namespace Authora.Api.Controllers;
 
 /// <summary>
-///     Provides the OpenID Connect endpoints: discovery (US-022), JWKS (US-024) and UserInfo (US-025).
+///     Provides the OpenID Connect endpoints: discovery, JWKS and UserInfo.
 /// </summary>
 /// <param name="options">The OAuth settings with the Issuer.</param>
 /// <param name="signingKeyProvider">The provider of the published keys.</param>

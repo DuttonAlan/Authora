@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
-// Signs in through the backend for frontend of the admin interface (TD-014): Authora runs the Authorization Code flow
+// Signs in through the backend for frontend of the admin interface: Authora runs the Authorization Code flow
 // with PKCE on the server and keeps the tokens in an encrypted HttpOnly cookie. No script ever sees a token, so a
 // script that runs here cannot take the tokens elsewhere.
 

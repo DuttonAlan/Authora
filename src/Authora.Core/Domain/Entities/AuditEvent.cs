@@ -8,7 +8,7 @@ using Authora.Core.Domain.Exceptions;
 namespace Authora.Core.Domain.Entities;
 
 /// <summary>
-///     A security-relevant event, e.g. a sign-in or a change through the admin API (US-034).
+///     A security-relevant event, e.g. a sign-in or a change through the admin API.
 /// </summary>
 /// <remarks>
 ///     Audit events are only ever added, never changed, and are deleted only by the cleanup after their retention.

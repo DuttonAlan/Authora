@@ -18,7 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks that deleting a User erases the personal data and frees the Email (TD-005).
+///     Checks that deleting a User erases the personal data and frees the Email.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class DeleteUserTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

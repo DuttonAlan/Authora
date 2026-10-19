@@ -26,7 +26,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that the hash chain of the audit log detects events that were changed, deleted or inserted in the
-///     database, and that a checkpoint detects a rebuilt or shortened chain (TD-013).
+///     database, and that a checkpoint detects a rebuilt or shortened chain.
 /// </summary>
 /// <remarks>
 ///     The tests share one database and run one after another, so every test that breaks the chain repairs it again.

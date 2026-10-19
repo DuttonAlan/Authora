@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 namespace Authora.Infrastructure.Auditing;
 
 /// <summary>
-///     Seals new audit events into the hash chain (TD-013), oldest first.
+///     Seals new audit events into the hash chain, oldest first.
 /// </summary>
 /// <remarks>
 ///     <para>

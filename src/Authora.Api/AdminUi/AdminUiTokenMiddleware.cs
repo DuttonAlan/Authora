@@ -7,7 +7,7 @@ using Microsoft.Net.Http.Headers;
 namespace Authora.Api.AdminUi;
 
 /// <summary>
-///     Sends the Access Token of the admin interface's cookie to the admin API as a Bearer token (TD-014), so the
+///     Sends the Access Token of the admin interface's cookie to the admin API as a Bearer token, so the
 ///     API keeps accepting only Access Tokens and checks them like those of every other Client.
 /// </summary>
 /// <remarks>

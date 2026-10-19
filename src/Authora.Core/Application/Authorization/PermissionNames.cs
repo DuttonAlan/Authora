@@ -217,12 +217,12 @@ public static class PermissionNames
     public static class Audit
     {
         /// <summary>
-        ///     Search the audit log (US-034), including who signed in from which IP address.
+        ///     Search the audit log, including who signed in from which IP address.
         /// </summary>
         public const string Read = "audit.read";
 
         /// <summary>
-        ///     Verify the hash chain of the audit log (TD-013). Reads every event, so it is a Permission of its own.
+        ///     Verify the hash chain of the audit log. Reads every event, so it is a Permission of its own.
         /// </summary>
         public const string Verify = "audit.verify";
     }

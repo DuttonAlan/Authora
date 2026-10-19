@@ -10,12 +10,12 @@ using Microsoft.AspNetCore.DataProtection;
 namespace Authora.Api.Security;
 
 /// <summary>
-///     Where ASP.NET Core Data Protection keeps its keys and how they are encrypted at rest (TD-015), bound from the
+///     Where ASP.NET Core Data Protection keeps its keys and how they are encrypted at rest, bound from the
 ///     section <see cref="SectionName"/>.
 /// </summary>
 /// <remarks>
 ///     The keys encrypt the antiforgery tokens and the cookies of the admin interface, which hold its Access and
-///     Refresh Token (TD-014). With <see cref="CertificatePath"/>, new keys are encrypted with the certificate, so
+///     Refresh Token. With <see cref="CertificatePath"/>, new keys are encrypted with the certificate, so
 ///     reading the key directory alone no longer decrypts a stolen admin cookie.
 /// </remarks>
 public sealed class DataProtectionSettings

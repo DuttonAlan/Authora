@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks the discovery document (US-022), the JWKS (US-024) and the seeded OpenID Connect Scopes.
+///     Checks the discovery document, the JWKS and the seeded OpenID Connect Scopes.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class OidcMetadataTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

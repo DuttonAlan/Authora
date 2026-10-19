@@ -15,13 +15,13 @@ namespace Authora.Api.RateLimiting;
 internal static class RateLimitPolicies
 {
     /// <summary>
-    ///     Limits sign-in attempts per client IP address, against password guessing across many accounts (US-007).
+    ///     Limits sign-in attempts per client IP address, against password guessing across many accounts.
     ///     The lockout of a single User is handled by the sign-in itself.
     /// </summary>
     public const string SignIn = "sign-in";
 
     /// <summary>
-    ///     Limits requests to the token and revocation endpoints per client IP address (US-036).
+    ///     Limits requests to the token and revocation endpoints per client IP address.
     /// </summary>
     public const string Token = "token";
 

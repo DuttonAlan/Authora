@@ -7,7 +7,7 @@ using Authora.Core.Application.Audit;
 namespace Authora.Core.Abstractions;
 
 /// <summary>
-///     Records security-relevant events in the audit log (US-034), with the actor of the current request.
+///     Records security-relevant events in the audit log, with the actor of the current request.
 /// </summary>
 /// <remarks>
 ///     Never pass passwords, tokens, codes or Secrets, not even in the Details.

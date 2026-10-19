@@ -26,8 +26,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that the admin interface is served securely, signs in through its backend for frontend with the seeded
-///     first-party Public Client, and calls the admin API with a cookie that no script can read (US-033, TD-012,
-///     TD-014).
+///     first-party Public Client, and calls the admin API with a cookie that no script can read.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>
@@ -100,7 +99,7 @@ public sealed class AdminUiTests(AuthoraApiFactory factory) : IClassFixture<Auth
         Assert.Equal("S256", authorize["code_challenge_method"].Single());
         Assert.False(authorize.ContainsKey("code_verifier"));
 
-        // First-party: no consent screen (TD-012).
+        // First-party: no consent screen.
         using var authorization = await SendAsync(HttpMethod.Get, location, $"{SessionCookie.Name}={sessionToken}");
         Assert.Equal(HttpStatusCode.SeeOther, authorization.StatusCode);
         Assert.StartsWith(RedirectUri, authorization.Headers.Location!.ToString(), StringComparison.Ordinal);

@@ -5,7 +5,7 @@
 namespace Authora.Core.Application.Audit.Chain;
 
 /// <summary>
-///     Settings of the hash chain of the audit log (TD-013), bound from the section <see cref="SectionName"/>.
+///     Settings of the hash chain of the audit log, bound from the section <see cref="SectionName"/>.
 /// </summary>
 public sealed class AuditChainOptions
 {

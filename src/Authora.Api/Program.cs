@@ -78,9 +78,9 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.HttpOnly = true;
 });
 
-// Encrypts the antiforgery tokens and the cookies of the admin interface (TD-014). Several instances must share the
+// Encrypts the antiforgery tokens and the cookies of the admin interface. Several instances must share the
 // keys, and keys that are lost on a restart sign every administrator out, so production sets a shared directory and
-// a certificate that encrypts the keys at rest (TD-015).
+// a certificate that encrypts the keys at rest.
 var dataProtection = builder.Configuration.GetSection(DataProtectionSettings.SectionName).Get<DataProtectionSettings>()
     ?? new DataProtectionSettings();
 
@@ -206,7 +206,7 @@ app.UseCors();
 if (adminUiEnabled)
 {
     // Before the authentication, so the admin API sees the Access Token of the admin interface's cookie as a Bearer
-    // token (TD-014).
+    // token.
     app.UseMiddleware<AdminUiTokenMiddleware>();
 }
 

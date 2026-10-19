@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks that expired rows are deleted after the retention, and only then (TD-008).
+///     Checks that expired rows are deleted after the retention, and only then.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class ExpiredDataCleanerTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

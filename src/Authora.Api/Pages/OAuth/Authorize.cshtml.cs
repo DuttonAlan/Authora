@@ -24,7 +24,7 @@ namespace Authora.Api.Pages.OAuth;
 ///     <para>
 ///         Consent policy: the User is asked on every authorization request, and decisions are not remembered.
 ///         Only first-party Clients, e.g. the admin interface, get the code without asking, unless they send
-///         <c>prompt=consent</c> (TD-012). The consent form repeats the request parameters, so they are validated
+///         <c>prompt=consent</c>. The consent form repeats the request parameters, so they are validated
 ///         again when it is submitted. The antiforgery token binds the form to the signed-in User.
 ///     </para>
 ///     <para>

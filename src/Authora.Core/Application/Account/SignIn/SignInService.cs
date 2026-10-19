@@ -18,7 +18,7 @@ namespace Authora.Core.Application.Account.SignIn;
 /// </summary>
 /// <remarks>
 ///     Every failure returns the same result, whether the Email is unknown, the password is wrong, the User has no
-///     password, cannot sign in or is locked out (US-007). For unknown Users, a password is still verified, so the
+///     password, cannot sign in or is locked out. For unknown Users, a password is still verified, so the
 ///     response time does not reveal whether the Email exists.
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to load the User.</param>

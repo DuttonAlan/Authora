@@ -16,7 +16,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that the UserInfo endpoint only answers active Access Tokens with <c>openid</c>, and only returns the
-///     claims of their Scopes (US-025, US-026).
+///     claims of their Scopes.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class UserInfoTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

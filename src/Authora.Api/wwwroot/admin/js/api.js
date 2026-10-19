@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for license information.
 
 // Calls the admin API. The admin interface uses only these documented endpoints, the same ones every other Client
-// uses (US-033); the server checks every Permission itself. The Access Token stays in the HttpOnly cookie of the
-// backend for frontend, which the server turns into the Bearer token (TD-014).
+// uses; the server checks every Permission itself. The Access Token stays in the HttpOnly cookie of the
+// backend for frontend, which the server turns into the Bearer token.
 
 import { adminHeader, basePath, refresh, signIn } from './auth.js';
 

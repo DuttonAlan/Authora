@@ -52,7 +52,7 @@ public sealed class CleanupOptions
     public int BatchSize { get; set; } = 1000;
 
     /// <summary>
-    ///     How long audit events are kept (US-034). Defaults to 365 days, at least <see cref="MinAuditRetention"/>.
+    ///     How long audit events are kept. Defaults to 365 days, at least <see cref="MinAuditRetention"/>.
     /// </summary>
     public TimeSpan AuditRetention { get; set; } = TimeSpan.FromDays(365);
 }

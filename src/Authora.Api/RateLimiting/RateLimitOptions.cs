@@ -5,7 +5,7 @@
 namespace Authora.Api.RateLimiting;
 
 /// <summary>
-///     Settings of the rate limits per client IP address (US-036), bound from the section <see cref="SectionName"/>.
+///     Settings of the rate limits per client IP address, bound from the section <see cref="SectionName"/>.
 /// </summary>
 /// <remarks>
 ///     Behind a reverse proxy, configure <c>Authora:ForwardedHeaders</c>, otherwise all requests share the IP address
