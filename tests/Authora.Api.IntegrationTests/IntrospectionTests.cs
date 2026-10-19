@@ -17,7 +17,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that a Confidential Client can only introspect Access Tokens issued to itself or containing a Scope it
-///     serves, and only sees the served Scopes (TD-009).
+///     serves, and only sees the served Scopes.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class IntrospectionTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

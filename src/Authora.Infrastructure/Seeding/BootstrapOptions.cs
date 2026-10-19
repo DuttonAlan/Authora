@@ -5,7 +5,7 @@
 namespace Authora.Infrastructure.Seeding;
 
 /// <summary>
-///     Settings to create the first administrator (US-003), bound from the section <see cref="SectionName"/>.
+///     Settings to create the first administrator, bound from the section <see cref="SectionName"/>.
 /// </summary>
 /// <remarks>
 ///     Only used while no administrator who can sign in exists. Set the password through an environment variable

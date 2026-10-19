@@ -24,7 +24,7 @@ const targetTypes = ['', 'user', 'group', 'role', 'client', 'scope', 'signing-ke
 const filterNames = ['type', 'actorUserId', 'targetType', 'targetId', 'outcome', 'from', 'to'];
 
 /**
- * The audit log with filters (US-034).
+ * The audit log with filters.
  * @param {object} context The context of the view.
  * @returns {Promise<HTMLElement>} The page.
  */

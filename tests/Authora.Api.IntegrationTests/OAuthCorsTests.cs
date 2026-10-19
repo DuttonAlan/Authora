@@ -14,7 +14,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that only the token and revocation endpoints allow CORS, and only for the origins of enabled Clients
-///     (TD-007).
+///    .
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class OAuthCorsTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

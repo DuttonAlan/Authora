@@ -7,7 +7,7 @@ using Authora.Core.Domain.Exceptions;
 namespace Authora.Core.Domain.Entities;
 
 /// <summary>
-///     Seals one <see cref="AuditEvent"/> into the hash chain of the audit log (TD-013).
+///     Seals one <see cref="AuditEvent"/> into the hash chain of the audit log.
 /// </summary>
 /// <remarks>
 ///     The <see cref="Hash"/> covers the <see cref="Sequence"/>, the <see cref="PreviousHash"/> and every field of

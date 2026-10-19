@@ -15,9 +15,9 @@ using Microsoft.Extensions.Options;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks that the settings and key files of OpenID Connect are validated at startup (US-024), so a missing, weak
+///     Checks that the settings and key files of OpenID Connect are validated at startup, so a missing, weak
 ///     or wrong key stops the start instead of failing sign-ins, and that changed key files are reloaded without a
-///     restart (US-035). Needs no database.
+///     restart. Needs no database.
 /// </summary>
 public sealed class SigningKeyFileTests : IDisposable
 {

@@ -67,7 +67,7 @@ public sealed class IssueTokenService(
 
         var client = await clientAuthenticator.AuthenticateAsync(request.Credentials, cancellationToken);
 
-        // A disabled Client cannot obtain new tokens (US-014), not even with a Refresh Token (TD-002).
+        // A disabled Client cannot obtain new tokens, not even with a Refresh Token.
         if (client.Status == ClientStatus.Disabled)
         {
             throw new OAuthException(OAuthErrors.InvalidClient, "The Client is disabled.");

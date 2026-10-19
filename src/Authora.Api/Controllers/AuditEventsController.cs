@@ -17,7 +17,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Authora.Api.Controllers;
 
 /// <summary>
-///     Provides the Endpoints to search the audit log (US-034) and to verify its hash chain (TD-013).
+///     Provides the Endpoints to search the audit log and to verify its hash chain.
 /// </summary>
 /// <param name="searchAuditEventsService">The Service to search the audit log.</param>
 /// <param name="verifyAuditChainService">The Service to verify the hash chain of the audit log.</param>
@@ -77,7 +77,7 @@ public sealed class AuditEventsController(
     }
 
     /// <summary>
-    ///     Verifies the hash chain of the audit log (TD-013).
+    ///     Verifies the hash chain of the audit log.
     /// </summary>
     /// <remarks>
     ///     New events are sealed into the chain every few seconds (<c>Authora:Audit:SealInterval</c>). The chain

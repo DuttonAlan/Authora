@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 namespace Authora.Core.Application.Audit.Verify;
 
 /// <summary>
-///     The Service to verify the hash chain of the audit log (TD-013).
+///     The Service to verify the hash chain of the audit log.
 /// </summary>
 /// <remarks>
 ///     <para>

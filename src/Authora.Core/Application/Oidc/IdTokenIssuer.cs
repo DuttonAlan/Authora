@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 namespace Authora.Core.Application.Oidc;
 
 /// <summary>
-///     Creates ID Tokens (OpenID Connect Core 1.0, Section 2), which tell the Client who signed in (US-023).
+///     Creates ID Tokens (OpenID Connect Core 1.0, Section 2), which tell the Client who signed in.
 /// </summary>
 /// <remarks>
 ///     ID Tokens are signed JWTs for the Client only (<c>aud</c> is its <c>client_id</c>). They are never stored and

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Authora.Core.Application.AdminUi.GetSettings;
 
 /// <summary>
-///     The Service to get the settings the backend for frontend of the admin interface signs in with (US-033, TD-014).
+///     The Service to get the settings the backend for frontend of the admin interface signs in with.
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to find the Client of the admin interface.</param>
 /// <param name="oauthOptions">The OAuth settings with the Issuer.</param>

@@ -5,10 +5,10 @@
 namespace Authora.Core.Application.AdminUi;
 
 /// <summary>
-///     Settings of the admin interface at <see cref="Path"/> (US-033), bound from the section <see cref="SectionName"/>.
+///     Settings of the admin interface at <see cref="Path"/>, bound from the section <see cref="SectionName"/>.
 /// </summary>
 /// <remarks>
-///     The admin interface is a browser app with a backend for frontend (TD-014): Authora runs the Authorization Code
+///     The admin interface is a browser app with a backend for frontend: Authora runs the Authorization Code
 ///     flow with PKCE for it as a Public Client, keeps the tokens in an encrypted <c>HttpOnly</c> cookie, and the
 ///     browser calls the admin API with that cookie, like every other Client calls it with the Access Token.
 /// </remarks>

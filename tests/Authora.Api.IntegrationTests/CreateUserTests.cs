@@ -18,7 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks that a User is always created with a password, so the User can sign in right away (TD-001).
+///     Checks that a User is always created with a password, so the User can sign in right away.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class CreateUserTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

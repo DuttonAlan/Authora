@@ -9,7 +9,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Authora.Infrastructure.HealthChecks;
 
 /// <summary>
-///     Reports <see cref="HealthStatus.Degraded"/> while changed key files cannot be loaded (US-035). Authora still
+///     Reports <see cref="HealthStatus.Degraded"/> while changed key files cannot be loaded. Authora still
 ///     works with the previous keys, but the rotation the operator started has not happened.
 /// </summary>
 /// <param name="provider">The provider of the signing keys.</param>

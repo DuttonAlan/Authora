@@ -30,7 +30,7 @@ public sealed record ValidatedAuthorizationRequest(
     TimeSpan? MaxAge)
 {
     /// <summary>
-    ///     Whether the User must be asked for consent: always, unless the Client is first-party (TD-012) and did not
+    ///     Whether the User must be asked for consent: always, unless the Client is first-party and did not
     ///     send <c>prompt=consent</c>.
     /// </summary>
     public bool RequiresConsent => !Client.IsFirstParty || Prompts.Contains(PromptValues.Consent);

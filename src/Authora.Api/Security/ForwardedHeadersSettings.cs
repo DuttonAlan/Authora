@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 namespace Authora.Api.Security;
 
 /// <summary>
-///     Settings for running behind a reverse proxy (US-036), bound from the section <see cref="SectionName"/>.
+///     Settings for running behind a reverse proxy, bound from the section <see cref="SectionName"/>.
 /// </summary>
 /// <remarks>
 ///     <c>X-Forwarded-For</c> and <c>X-Forwarded-Proto</c> are only read from the configured proxies. Otherwise

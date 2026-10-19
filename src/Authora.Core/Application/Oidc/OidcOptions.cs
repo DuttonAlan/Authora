@@ -51,7 +51,7 @@ public sealed class OidcOptions
     public static readonly TimeSpan MaxKeyReloadInterval = TimeSpan.FromHours(1);
 
     /// <summary>
-    ///     How often the key files are checked for changes (US-035). A changed file or path is used from the next
+    ///     How often the key files are checked for changes. A changed file or path is used from the next
     ///     check on, without a restart. Defaults to 1 minute, between <see cref="MinKeyReloadInterval"/> and
     ///     <see cref="MaxKeyReloadInterval"/>. Changing the interval itself needs a restart.
     /// </summary>

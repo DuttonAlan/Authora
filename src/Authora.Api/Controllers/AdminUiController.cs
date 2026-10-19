@@ -29,7 +29,7 @@ using Microsoft.Extensions.Options;
 namespace Authora.Api.Controllers;
 
 /// <summary>
-///     The backend for frontend of the admin interface (US-033, TD-014): runs the Authorization Code flow with PKCE
+///     The backend for frontend of the admin interface: runs the Authorization Code flow with PKCE
 ///     for its Public Client on the server and keeps the tokens in an encrypted <c>HttpOnly</c> cookie, so no script
 ///     in the browser ever sees a token. The admin API gets the Access Token from the cookie, see
 ///     <see cref="AdminUiTokenMiddleware"/>.
@@ -93,7 +93,7 @@ public sealed partial class AdminUiController(
 
     /// <summary>
     ///     Starts signing in: sends the browser to the authorization endpoint with a new <c>state</c> and PKCE
-    ///     challenge. The admin interface is a first-party Client (TD-012), so a signed-in User comes right back.
+    ///     challenge. The admin interface is a first-party Client, so a signed-in User comes right back.
     /// </summary>
     /// <param name="returnTo" example="#/users">The view to show after signing in.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

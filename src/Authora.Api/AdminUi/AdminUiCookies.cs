@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.DataProtection;
 namespace Authora.Api.AdminUi;
 
 /// <summary>
-///     The cookies of the backend for frontend of the admin interface (TD-014), encrypted with ASP.NET Core Data
+///     The cookies of the backend for frontend of the admin interface, encrypted with ASP.NET Core Data
 ///     Protection, so the browser can neither read nor change them.
 /// </summary>
 /// <remarks>

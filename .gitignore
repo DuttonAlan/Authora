@@ -363,3 +363,7 @@ MigrationBackup/
 FodyWeavers.xsd
 # Authora: ID Token signing keys (Authora:Oidc:SigningKeyPath) must never be committed
 *.pem
+
+# Authora: local Docker Compose settings and keys (see docker-compose.yml)
+.env
+/secrets/

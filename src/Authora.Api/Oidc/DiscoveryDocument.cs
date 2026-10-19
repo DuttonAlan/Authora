@@ -15,7 +15,7 @@ namespace Authora.Api.Oidc;
 ///     The OpenID Provider Metadata of the discovery endpoint (OpenID Connect Discovery 1.0, Section 3, RFC 8414).
 /// </summary>
 /// <remarks>
-///     Only lists what Authora actually supports (US-022). Members whose default would claim more than that, e.g.
+///     Only lists what Authora actually supports. Members whose default would claim more than that, e.g.
 ///     <c>request_uri_parameter_supported</c> (default <see langword="true"/>), are set explicitly.
 /// </remarks>
 internal sealed record DiscoveryDocument

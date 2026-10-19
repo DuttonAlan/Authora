@@ -29,7 +29,7 @@ public sealed class LogoutModel(SignOutService signOutService) : PageModel
     }
 
     /// <summary>
-    ///     Ends the Session on the server and deletes the cookie (US-009).
+    ///     Ends the Session on the server and deletes the cookie.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The page with a confirmation.</returns>

@@ -10,7 +10,7 @@ namespace Authora.Core.Application.Users.GetCurrent;
 
 /// <summary>
 ///     The Service to get the signed-in User and their Permissions, e.g. for the admin interface to show only what
-///     the User may do (US-033).
+///     the User may do.
 /// </summary>
 /// <remarks>
 ///     Only for display: every endpoint still checks its Permission itself, see <see cref="PermissionEvaluator"/>.

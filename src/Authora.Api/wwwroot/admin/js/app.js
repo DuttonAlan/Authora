@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
-// Entry point of the admin interface (US-033): signs in, loads the User and their Permissions, and shows the view
+// Entry point of the admin interface: signs in, loads the User and their Permissions, and shows the view
 // of the current address (hash routing, e.g. #/users/{id}).
 
 import { api } from './api.js';

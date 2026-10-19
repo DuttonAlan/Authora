@@ -27,7 +27,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that sign-ins and administrative changes are recorded with their actor, without secrets, and that only
-///     authorized Users can search the audit log (US-034).
+///     authorized Users can search the audit log.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class AuditLogTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

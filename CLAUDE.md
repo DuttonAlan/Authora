@@ -27,6 +27,11 @@ dotnet run --project src/Authora.Api --launch-profile https
 dotnet ef migrations add <Name> --project src/Authora.Infrastructure --startup-project src/Authora.Api
 dotnet ef database update --project src/Authora.Infrastructure --startup-project src/Authora.Api
 dotnet ef migrations has-pending-model-changes --project src/Authora.Infrastructure --startup-project src/Authora.Api
+
+# Containers: two targets of one Dockerfile (runtime = server on HTTP 8080, migrator = EF migration bundle)
+docker build --target runtime -t authora .
+docker build --target migrator -t authora-migrator .
+docker compose up --build   # local stack on https://localhost:8443; needs .env and secrets/, see docs/tutorials/getting-started.md
 ```
 
 There is no separate lint step: analyzers and `.editorconfig` style rules run on build and fail it. CI (`.github/workflows/build.yml`) runs restore, Release build, tests and `has-pending-model-changes`, so every model change needs a migration.
@@ -50,7 +55,7 @@ Three projects with a strict dependency direction: `Authora.Api` → `Authora.Co
 
 ### Admin interface
 
-`wwwroot/admin` is a browser app with a backend for frontend (`AdminUiController`, `Api/AdminUi/`): the server runs Authora's own Authorization Code flow with PKCE as the seeded first-party Public Client `Authora Admin UI` (Redirect URI `{Issuer}/admin/callback`, handled by the server; first-party Clients skip the consent screen) and keeps the tokens in an encrypted `HttpOnly` cookie. The JavaScript never sees a token: it calls `/api/*` with that cookie and the header `X-Authora-Admin: 1`, and `AdminUiTokenMiddleware` turns the cookie into the Bearer token, so the API checks it like that of any other Client. `GET /api/me` returns the User's Permissions so the UI can hide what they may not do; the API still checks every Permission. Its CSP forbids inline scripts and styles (no `style="…"` attributes or `innerHTML`; build DOM with `h()` from `js/dom.js`). See `docs/admin.md`.
+`wwwroot/admin` is a browser app with a backend for frontend (`AdminUiController`, `Api/AdminUi/`): the server runs Authora's own Authorization Code flow with PKCE as the seeded first-party Public Client `Authora Admin UI` (Redirect URI `{Issuer}/admin/callback`, handled by the server; first-party Clients skip the consent screen) and keeps the tokens in an encrypted `HttpOnly` cookie. The JavaScript never sees a token: it calls `/api/*` with that cookie and the header `X-Authora-Admin: 1`, and `AdminUiTokenMiddleware` turns the cookie into the Bearer token, so the API checks it like that of any other Client. `GET /api/me` returns the User's Permissions so the UI can hide what they may not do; the API still checks every Permission. Its CSP forbids inline scripts and styles (no `style="…"` attributes or `innerHTML`; build DOM with `h()` from `js/dom.js`). See `docs/explanation/admin-interface.md`.
 
 ### Audit log
 
@@ -83,7 +88,10 @@ Only integration tests exist (`tests/Authora.Api.IntegrationTests`). `AuthoraApi
 
 ## Docs
 
-- `docs/oauth-core.md`, `docs/openid-connect.md` – endpoint behavior, token model, configuration settings and security rules. Keep them in sync when changing those flows.
-- `docs/admin.md` – admin interface and audit log (event types, what is never recorded, search). `docs/operations.md` – production settings and startup checks, security boundaries, headers and cookies, reverse proxy, database permissions, backup and recovery.
-- `docs/Stories.md` – user stories (US-xxx) by phase; commits and docs reference these IDs.
-- `docs/tech-debt.md` – deliberate shortcuts (TD-xxx). Resolved entries are kept with a status and resolution; IDs are never reused (check the file for the next free ID).
+The documentation follows Diátaxis (`docs/README.md` is the index). Keep it in sync with the code: a change to endpoints, settings, events or flows updates the matching reference page and any affected guide.
+
+- `docs/tutorials/` – learning by doing (Docker Compose quickstart, first application). The commands in them were run against the real container; re-run them after changing the flows they show.
+- `docs/how-to/` – task guides for operators and integrators (production deployment, reverse proxy, migrations, key rotation, backup, connecting applications and APIs).
+- `docs/reference/` – exact facts: `configuration.md` (every setting, default and limit), `oauth-endpoints.md`, `openid-connect.md`, `admin-api.md` (endpoints and Permissions), `audit-events.md`, `log-events.md`, `http-security.md`, `health-checks.md`, `standards.md` (supported specs and limitations).
+- `docs/explanation/` – design and reasoning: architecture, access model, tokens and sessions, security model, admin interface, audit log integrity.
+- `CHANGELOG.md` – add an entry under *Unreleased* for every user-visible change. Bugs, planned work and shortcuts are tracked as GitHub issues, not in files.

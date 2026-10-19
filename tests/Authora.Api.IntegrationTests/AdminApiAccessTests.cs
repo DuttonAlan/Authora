@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Checks at request level who can call the admin API (US-032).
+///     Checks at request level who can call the admin API.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class AdminApiAccessTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

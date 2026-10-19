@@ -18,7 +18,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     Runs the Authorization Code flow with OpenID Connect: ID Tokens (US-023), consistent claims (US-026), and the
+///     Runs the Authorization Code flow with OpenID Connect: ID Tokens, consistent claims, and the
 ///     OpenID Connect parameters of the authorization request.
 /// </summary>
 /// <param name="factory">The Api under test.</param>

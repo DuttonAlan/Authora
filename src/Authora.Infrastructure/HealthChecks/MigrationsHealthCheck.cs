@@ -10,7 +10,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Authora.Infrastructure.HealthChecks;
 
 /// <summary>
-///     Reports the migration status of the database and whether its schema matches this version of Authora (US-002).
+///     Reports the migration status of the database and whether its schema matches this version of Authora.
 /// </summary>
 /// <remarks>
 ///     Pending migrations make the check fail, because the code expects a newer schema.

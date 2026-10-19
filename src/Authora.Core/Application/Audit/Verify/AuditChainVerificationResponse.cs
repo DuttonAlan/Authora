@@ -5,7 +5,7 @@
 namespace Authora.Core.Application.Audit.Verify;
 
 /// <summary>
-///     The result of verifying the hash chain of the audit log (TD-013).
+///     The result of verifying the hash chain of the audit log.
 /// </summary>
 /// <param name="IsIntact" example="true">Whether no problem was found.</param>
 /// <param name="FirstSequence" example="1">Sequence of the first remaining link (older ones were deleted after the retention), or null if nothing is sealed yet.</param>

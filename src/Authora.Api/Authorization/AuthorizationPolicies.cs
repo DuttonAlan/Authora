@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Authora.Api.Authorization;
 
 /// <summary>
-///     Authorization policies of the admin API (US-032).
+///     Authorization policies of the admin API.
 /// </summary>
 /// <remarks>
 ///     Every admin controller requires <see cref="AdminApi"/>, and every action additionally the policy of its

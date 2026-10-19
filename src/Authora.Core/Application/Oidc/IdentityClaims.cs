@@ -7,7 +7,7 @@ using Authora.Core.Domain.Entities;
 namespace Authora.Core.Application.Oidc;
 
 /// <summary>
-///     The identity claims of a User that Authora releases through OpenID Connect (US-026), in ID Tokens and at the
+///     The identity claims of a User that Authora releases through OpenID Connect, in ID Tokens and at the
 ///     UserInfo endpoint.
 /// </summary>
 /// <remarks>
@@ -17,7 +17,8 @@ namespace Authora.Core.Application.Oidc;
 ///         (e.g. <c>picture</c> or <c>birthdate</c>) are never returned, not even as <c>null</c>.
 ///     </para>
 ///     <para>
-///         Roles and Permissions are never released, see TD-006.
+///         Roles and Permissions are never released: they only control access to the admin API, which loads
+///         them on every request.
 ///     </para>
 /// </remarks>
 public static class IdentityClaims

@@ -5,7 +5,7 @@
 namespace Authora.Core.Application.Audit;
 
 /// <summary>
-///     The Types of all audit events (US-034). The part before the dot is the area, so events can be searched by
+///     The Types of all audit events. The part before the dot is the area, so events can be searched by
 ///     prefix, e.g. <c>user.</c>.
 /// </summary>
 public static class AuditEventTypes
@@ -210,13 +210,13 @@ public static class AuditEventTypes
         public const string ClientBootstrapped = "system.client-bootstrapped";
 
         /// <summary>
-        ///     The signing key or the published keys changed (US-035). The Target is the new signing key, the Details
+        ///     The signing key or the published keys changed. The Target is the new signing key, the Details
         ///     list all published keys.
         /// </summary>
         public const string SigningKeysChanged = "system.signing-keys-changed";
 
         /// <summary>
-        ///     The cleanup deletes the start of the audit chain after the retention (TD-013). The Target is the
+        ///     The cleanup deletes the start of the audit chain after the retention. The Target is the
         ///     Sequence the chain starts at afterwards; a chain that starts later without such an event is reported as
         ///     broken by the verification.
         /// </summary>

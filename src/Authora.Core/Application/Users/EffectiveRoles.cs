@@ -7,7 +7,7 @@ using Authora.Core.Domain.Entities;
 namespace Authora.Core.Application.Users;
 
 /// <summary>
-///     Determines the Roles of a User together with where each Role comes from (US-030).
+///     Determines the Roles of a User together with where each Role comes from.
 /// </summary>
 internal static class EffectiveRoles
 {

@@ -12,7 +12,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that the public health endpoints only return the overall status, and the details need a Permission
-///     (TD-010).
+///    .
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class HealthEndpointTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

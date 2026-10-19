@@ -22,7 +22,7 @@ namespace Authora.Infrastructure.Seeding;
 /// <summary>
 ///     Seeds the data Authora needs at startup: the Permissions of <see cref="PermissionNames"/>, the administrator
 ///     Role with all Permissions, the <see cref="AdminApiScope"/>, the <see cref="OidcScopes"/>, the first
-///     administrator (US-003), and the Clients for the admin API and the admin interface (US-033).
+///     administrator, and the Clients for the admin API and the admin interface.
 /// </summary>
 /// <remarks>
 ///     Idempotent: only what is missing is created, so it runs on every start. It runs at runtime instead of
@@ -283,7 +283,7 @@ public sealed class IdentitySeeder(
         client.AllowScope(adminApiScope);
 
         // The admin interface is part of Authora, so administrators are not asked for consent on every sign-in, which
-        // would train them to allow without reading (TD-012).
+        // would train them to allow without reading.
         client.SetFirstParty(true);
         context.Clients.Add(client);
 

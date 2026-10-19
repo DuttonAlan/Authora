@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest a new feature or a change.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Authora deliberately stays small. Please describe the problem first; the solution can be discussed.
+        Check the [roadmap](https://github.com/DuttonAlan/Authora#roadmap) and [limitations](https://github.com/DuttonAlan/Authora/blob/main/docs/reference/standards.md#not-supported) before you open an issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and why is it hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How could Authora solve it? Mention relevant standards (RFCs, OpenID specifications).
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Workarounds you use today, or other approaches you considered.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this myself.

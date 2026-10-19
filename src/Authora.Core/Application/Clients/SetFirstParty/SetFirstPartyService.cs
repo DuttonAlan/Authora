@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace Authora.Core.Application.Clients.SetFirstParty;
 
 /// <summary>
-///     The Service to mark a Client as first-party or as third-party (TD-012).
+///     The Service to mark a Client as first-party or as third-party.
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="auditLog">The audit log to record the change.</param>

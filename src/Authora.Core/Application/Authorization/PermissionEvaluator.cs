@@ -7,7 +7,7 @@ using Authora.Core.Abstractions;
 namespace Authora.Core.Application.Authorization;
 
 /// <summary>
-///     Checks whether a User has a Permission through one of their Roles, assigned directly or through a Group (US-032).
+///     Checks whether a User has a Permission through one of their Roles, assigned directly or through a Group.
 /// </summary>
 /// <remarks>
 ///     The Permissions are loaded on every check, so a removed Role, Permission or Group membership takes effect on

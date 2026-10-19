@@ -9,7 +9,7 @@ using Authora.Core.Domain.Exceptions;
 namespace Authora.Core.Application.Audit.Search;
 
 /// <summary>
-///     The Service to search the audit log (US-034).
+///     The Service to search the audit log.
 /// </summary>
 /// <param name="auditEventRepository">An Instance of a IAuditEventRepository to search the events.</param>
 public sealed class SearchAuditEventsService(IAuditEventRepository auditEventRepository)

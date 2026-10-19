@@ -7,7 +7,7 @@ using Authora.Core.Domain.Entities;
 namespace Authora.Core.Abstractions;
 
 /// <summary>
-///     Defines a contract to read the hash chain of the audit log (TD-013). Links are written by the sealing in
+///     Defines a contract to read the hash chain of the audit log. Links are written by the sealing in
 ///     Infrastructure, never through this contract.
 /// </summary>
 public interface IAuditChainRepository

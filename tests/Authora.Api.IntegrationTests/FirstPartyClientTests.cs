@@ -22,7 +22,7 @@ namespace Authora.Api.IntegrationTests;
 
 /// <summary>
 ///     Checks that first-party Clients get the Authorization Code without the consent screen, and that only Users with
-///     the dedicated Permission can mark a Client as first-party (TD-012).
+///     the dedicated Permission can mark a Client as first-party.
 /// </summary>
 /// <param name="factory">The Api under test.</param>
 public sealed class FirstPartyClientTests(AuthoraApiFactory factory) : IClassFixture<AuthoraApiFactory>

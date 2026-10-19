@@ -7,12 +7,12 @@ using Authora.Core.Application.OAuth;
 namespace Authora.Api.Security;
 
 /// <summary>
-///     Checks at startup that a deployed environment is configured securely (US-036). Authora does not start
+///     Checks at startup that a deployed environment is configured securely. Authora does not start
 ///     otherwise, so an insecure setting cannot go unnoticed.
 /// </summary>
 /// <remarks>
 ///     Only settings that are always wrong outside development are checked. Further requirements are described in
-///     <c>docs/operations.md</c>.
+///     <c>docs/how-to/deploy-to-production.md</c>.
 /// </remarks>
 internal static class ProductionSettingsCheck
 {
