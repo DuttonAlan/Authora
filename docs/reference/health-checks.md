@@ -33,7 +33,7 @@
   "checks": [
     { "name": "database", "status": "Healthy", "description": null, "durationMs": 8.1, "data": {} },
     { "name": "migrations", "status": "Healthy", "description": "The database schema is up to date.", "durationMs": 3.2,
-      "data": { "current": "20261014…", "latest": "20261014…", "pending": [], "unknown": [] } },
+      "data": { "current": "20261102…", "latest": "20261102…", "pending": [], "unknown": [] } },
     { "name": "signing-keys", "status": "Healthy", "description": "ID Tokens are signed with key Iz6V….", "durationMs": 0.1, "data": {} }
   ]
 }

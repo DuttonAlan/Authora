@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-02
+
 First public version.
 
 ### Added
@@ -21,4 +23,5 @@ First public version.
 - Container images for the server and the database migrations, and a Docker Compose setup for local evaluation.
 - Documentation following Diátaxis: tutorials, how-to guides, reference and explanation.
 
-[Unreleased]: https://github.com/DuttonAlan/Authora/commits/main
+[Unreleased]: https://github.com/DuttonAlan/Authora/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/DuttonAlan/Authora/releases/tag/v0.1.0
