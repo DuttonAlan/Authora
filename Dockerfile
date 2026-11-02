@@ -22,7 +22,7 @@ COPY src/ src/
 RUN dotnet publish src/Authora.Api/Authora.Api.csproj --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
 
 FROM build AS bundle
-ARG DOTNET_EF_VERSION=10.0.12
+ARG DOTNET_EF_VERSION=10.0.13
 RUN dotnet tool install --global dotnet-ef --version ${DOTNET_EF_VERSION}
 ENV PATH="${PATH}:/root/.dotnet/tools"
 # Creating the bundle builds the DbContext, which needs a connection string; it never connects. The real one is
