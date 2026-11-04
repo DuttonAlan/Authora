@@ -27,7 +27,7 @@ Authora ships as two images, both built from the [`Dockerfile`](../../Dockerfile
 | `ghcr.io/duttonalan/authora` | `runtime` | The server. Listens on plain HTTP port 8080 by default. |
 | `ghcr.io/duttonalan/authora-migrator` | `migrator` | Applies the database migrations, then exits. |
 
-Use a version tag, e.g. `:1.2.0`, never `latest`, so the server and the migrator always have the same version. To build the images yourself:
+Use a version tag, e.g. `:0.1.0`, never `latest`, so the server and the migrator always have the same version. To build the images yourself:
 
 ```sh
 docker build --target runtime  -t authora .
@@ -49,7 +49,7 @@ Run the migrator once with the owner's connection string:
 ```sh
 docker run --rm \
   -e ConnectionStrings__Database="Host=db.internal;Database=authora;Username=authora_migrator;Password=…;SSL Mode=VerifyFull" \
-  ghcr.io/duttonalan/authora-migrator:1.2.0
+  ghcr.io/duttonalan/authora-migrator:0.1.0
 ```
 
 It ends with `Done.` and has created the schemas `identity`, `auth` and `audit`. Then, connected to the database `authora` as `authora_migrator`, give the server user what it needs:

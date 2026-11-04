@@ -19,7 +19,7 @@ The image `authora-migrator` contains a migration bundle for its version. Run it
 ```sh
 docker run --rm \
   -e ConnectionStrings__Database="Host=…;Database=authora;Username=authora_migrator;Password=…" \
-  ghcr.io/duttonalan/authora-migrator:1.2.0
+  ghcr.io/duttonalan/authora-migrator:0.1.0
 ```
 
 It applies all pending migrations under a lock, so it is safe to run from several deployment jobs at once, and ends with `Done.`
