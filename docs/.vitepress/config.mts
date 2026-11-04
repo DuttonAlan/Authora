@@ -8,7 +8,7 @@ export default defineConfig({
   description:
     'A lightweight, self-hosted identity and access management server: OAuth 2.1 authorization server and OpenID Connect provider, built on .NET and PostgreSQL.',
   lang: 'en-US',
-  base: '/Authora/',
+  base: '/',
   cleanUrls: true,
 
   // The guides link to a local Authora at https://localhost:….
@@ -20,7 +20,7 @@ export default defineConfig({
   },
 
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/Authora/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#3451b2' }],
   ],
 

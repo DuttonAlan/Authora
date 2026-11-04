@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Website with the documentation at <https://duttonalan.github.io/Authora/>, built from `docs/`.
+- Website with the documentation at <https://authora.alandutton.de/>, built from `docs/`.
 
 ## [0.1.0] - 2026-11-02
 

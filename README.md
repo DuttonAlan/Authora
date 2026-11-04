@@ -45,7 +45,7 @@ The [Getting started tutorial](docs/tutorials/getting-started.md) walks through 
 
 ## Documentation
 
-The [documentation](docs/README.md), also on the website at <https://duttonalan.github.io/Authora/>, has four parts:
+The [documentation](docs/README.md), also on the website at <https://authora.alandutton.de/>, has four parts:
 
 - **Tutorials**: [Getting started](docs/tutorials/getting-started.md), [Your first application](docs/tutorials/first-application.md)
 - **How-to guides**: [deploy to production](docs/how-to/deploy-to-production.md), [connect an application](docs/how-to/connect-an-application.md), [protect an API](docs/how-to/protect-an-api.md), [rotate signing keys](docs/how-to/rotate-signing-keys.md), [back up and restore](docs/how-to/back-up-and-restore.md), and more

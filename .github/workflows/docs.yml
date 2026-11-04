@@ -1,7 +1,7 @@
 name: Docs
 
 # Builds the website from docs/ with VitePress and publishes it to GitHub Pages:
-#   https://duttonalan.github.io/Authora/
+#   https://authora.alandutton.de/
 # Pull requests only build it, so dead links fail the check before they reach main.
 
 on:
