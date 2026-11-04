@@ -367,3 +367,7 @@ FodyWeavers.xsd
 # Authora: local Docker Compose settings and keys (see docker-compose.yml)
 .env
 /secrets/
+
+# VitePress (docs website)
+docs/.vitepress/cache/
+docs/.vitepress/dist/

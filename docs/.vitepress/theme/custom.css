@@ -1,0 +1,34 @@
+:root {
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #3451b2 30%, #2bb5a0);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #3451b2 50%, #2bb5a0 50%);
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+.dark {
+  --vp-home-hero-name-background: linear-gradient(120deg, #a8b1ff 30%, #5eead4);
+}
+
+.mermaid-diagram {
+  margin: 16px 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.home-content {
+  max-width: 1152px;
+  margin: 48px auto 0;
+  padding: 0 24px;
+}
+
+@media (min-width: 640px) {
+  .home-content {
+    padding: 0 48px;
+  }
+}
+
+@media (min-width: 960px) {
+  .home-content {
+    padding: 0 64px;
+  }
+}
