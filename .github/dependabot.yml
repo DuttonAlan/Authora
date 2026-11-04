@@ -13,6 +13,15 @@ updates:
         patterns: ["xunit*", "Testcontainers*"]
         update-types: [minor, patch]
 
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

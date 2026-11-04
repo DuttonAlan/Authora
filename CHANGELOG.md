@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Website with the documentation at <https://duttonalan.github.io/Authora/>, built from `docs/`.
+
 ## [0.1.0] - 2026-11-02
 
 First public version.
