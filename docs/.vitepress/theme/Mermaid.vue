@@ -57,17 +57,18 @@ function keepTextReadable() {
 }
 
 async function render() {
-  const { default: mermaid } = await import('mermaid')
-  await document.fonts.load('16px Inter')
-  mermaid.initialize({
-    startOnLoad: false,
-    suppressErrorRendering: true,
-    theme: 'base',
-    fontFamily,
-    themeVariables: { fontFamily, ...(isDark.value ? darkColors : lightColors) },
-  })
-
   try {
+    const { default: mermaid } = await import('mermaid')
+    // Labels are measured with this font. If it cannot be loaded, the diagram uses the fallback fonts.
+    await document.fonts.load('16px Inter').catch(() => {})
+    mermaid.initialize({
+      startOnLoad: false,
+      suppressErrorRendering: true,
+      theme: 'base',
+      fontFamily,
+      themeVariables: { fontFamily, ...(isDark.value ? darkColors : lightColors) },
+    })
+
     const result = await mermaid.render(id, source)
     svg.value = result.svg
     failed.value = false
