@@ -5,7 +5,9 @@ Authora is a single ASP.NET Core application backed by one PostgreSQL database. 
 ## The big picture
 
 ```mermaid
-flowchart LR
+flowchart TD
+    accTitle: Architecture of Authora
+    accDescr: Browsers reach the Razor Pages. Client applications, resource servers and the backend for frontend of the admin interface reach the controllers. Pages and controllers call Core, Core calls Infrastructure, and Infrastructure uses PostgreSQL and the PEM key files.
     Browser -- "sign-in, consent" --> Pages["Razor Pages<br/>/account/*, /oauth/authorize"]
     App["Client application"] -- "/oauth/token, /oauth/revoke,<br/>/oauth/userinfo" --> Controllers
     API["Resource server"] -- "/oauth/introspect" --> Controllers

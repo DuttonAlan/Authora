@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Website with the documentation at <https://authora.alandutton.de/>, built from `docs/`.
 
+### Changed
+
+- Website: the homepage states the project's status next to the call to action and shows how an application signs users in through Authora, and its icons, button contrast, 404 page and link previews are improved.
+
+### Fixed
+
+- Website: the diagram on the admin interface page failed to render and put an error at the bottom of the page. The architecture diagram no longer clips labels or shrinks below a readable text size, and all diagrams have text descriptions.
+
 ## [0.1.0] - 2026-11-02
 
 First public version.

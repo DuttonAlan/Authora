@@ -2,12 +2,12 @@
 
 The documentation follows the [Diátaxis](https://diataxis.fr/) framework and has four parts. Each part answers a different kind of question, so pick the one that fits what you need right now.
 
-| | Part | Read it when you want to… |
-|---|---|---|
-| 🎓 | [Tutorials](#tutorials) | learn Authora by doing, step by step, from nothing to a working result |
-| 🛠️ | [How-to guides](#how-to-guides) | get a specific job done, e.g. deploy Authora or rotate a key |
-| 📖 | [Reference](#reference) | look up exact facts: settings, endpoints, claims, events |
-| 💡 | [Explanation](#explanation) | understand how Authora works and why it is designed that way |
+| Part | Read it when you want to… |
+|---|---|
+| [Tutorials](#tutorials) | learn Authora by doing, step by step, from nothing to a working result |
+| [How-to guides](#how-to-guides) | get a specific job done, e.g. deploy Authora or rotate a key |
+| [Reference](#reference) | look up exact facts: settings, endpoints, claims, events |
+| [Explanation](#explanation) | understand how Authora works and why it is designed that way |
 
 ## Tutorials
 
@@ -51,7 +51,7 @@ Using Authora:
 ## Explanation
 
 - [Architecture](explanation/architecture.md)
-- [The access model: Users, Groups, Roles, Permissions, Scopes and Clients](explanation/access-model.md)
+- [The access model](explanation/access-model.md): Users, Groups, Roles, Permissions, Scopes and Clients
 - [Tokens, Grants and Sessions](explanation/tokens-and-sessions.md)
 - [Security model](explanation/security-model.md)
 - [The admin interface](explanation/admin-interface.md)
