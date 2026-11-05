@@ -16,13 +16,15 @@ The admin interface avoids this with a small **backend for frontend** inside Aut
 
 ```mermaid
 sequenceDiagram
+    accTitle: Admin interface sign-in with a backend for frontend
+    accDescr: The browser calls the API without a cookie and gets 401, then goes to the admin sign-in. Authora runs the Authorization Code flow on the server, keeps the tokens in an encrypted HttpOnly cookie, and turns that cookie into a Bearer token for each API request.
     participant B as Browser (admin interface)
     participant A as Authora
     B->>A: GET /api/me (X-Authora-Admin: 1)
     A-->>B: 401, no cookie yet
     B->>A: GET /admin/signin
     A-->>B: Redirect to /oauth/authorize (state and PKCE kept on the server)
-    Note over B,A: Sign-in page if needed; no consent screen (first-party)
+    Note over B,A: Sign-in page if needed, no consent screen (first-party)
     A-->>B: Redirect to /admin/callback?code=…
     Note over A: Checks state and iss, exchanges the code on the server
     A-->>B: Cookie __Host-authora_admin (tokens, encrypted, HttpOnly)

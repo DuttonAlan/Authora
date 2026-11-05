@@ -21,7 +21,14 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
-    ['meta', { name: 'theme-color', content: '#3451b2' }],
+    ['meta', { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#ffffff' }],
+    ['meta', { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#1b1b1f' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:site_name', content: 'Authora' }],
+    ['meta', { property: 'og:title', content: 'Authora: self-hosted OAuth 2.1 and OpenID Connect' }],
+    ['meta', { property: 'og:description', content: 'Sign-in for your apps, on your own server.' }],
+    ['meta', { property: 'og:image', content: 'https://authora.alandutton.de/og-image.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
   ],
 
   markdown: {
@@ -74,7 +81,7 @@ export default defineConfig({
         items: [
           { text: 'Deploy to production', link: '/how-to/deploy-to-production' },
           { text: 'Configure a reverse proxy', link: '/how-to/configure-a-reverse-proxy' },
-          { text: 'Apply migrations and upgrade', link: '/how-to/upgrade-authora' },
+          { text: 'Apply database migrations and upgrade', link: '/how-to/upgrade-authora' },
           { text: 'Persist Data Protection keys', link: '/how-to/persist-data-protection-keys' },
           { text: 'Rotate signing keys', link: '/how-to/rotate-signing-keys' },
           { text: 'Back up and restore', link: '/how-to/back-up-and-restore' },
@@ -85,10 +92,10 @@ export default defineConfig({
         text: 'How-to: using Authora',
         items: [
           { text: 'Connect an application', link: '/how-to/connect-an-application' },
-          { text: 'Protect an API', link: '/how-to/protect-an-api' },
+          { text: 'Protect an API with introspection', link: '/how-to/protect-an-api' },
           { text: 'Manage users and access', link: '/how-to/manage-users-and-access' },
           { text: 'Call the admin API', link: '/how-to/call-the-admin-api' },
-          { text: 'Check the audit log', link: '/how-to/verify-the-audit-log' },
+          { text: 'Check the integrity of the audit log', link: '/how-to/verify-the-audit-log' },
         ],
       },
       {
@@ -99,7 +106,7 @@ export default defineConfig({
           { text: 'OpenID Connect', link: '/reference/openid-connect' },
           { text: 'Admin API', link: '/reference/admin-api' },
           { text: 'Audit events', link: '/reference/audit-events' },
-          { text: 'HTTP security', link: '/reference/http-security' },
+          { text: 'HTTP security headers and cookies', link: '/reference/http-security' },
           { text: 'Health checks', link: '/reference/health-checks' },
           { text: 'Log events', link: '/reference/log-events' },
           { text: 'Standards and limitations', link: '/reference/standards' },
@@ -128,6 +135,13 @@ export default defineConfig({
     },
 
     outline: { level: [2, 3] },
+
+    notFound: {
+      title: 'Page not found',
+      quote: 'This page may have moved. Try the search above, or start again from the homepage.',
+      linkLabel: 'Go to the homepage',
+      linkText: 'Go to the homepage',
+    },
 
     footer: {
       message: 'Released under the MIT License.',

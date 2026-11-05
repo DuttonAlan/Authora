@@ -1,18 +1,90 @@
 :root {
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #3451b2 30%, #2bb5a0);
-  --vp-home-hero-image-background-image: linear-gradient(-45deg, #3451b2 50%, #2bb5a0 50%);
-  --vp-home-hero-image-filter: blur(56px);
+  --vp-home-hero-name-background: linear-gradient(120deg, #3451b2 30%, #1d8a7a);
+  --vp-home-hero-image-background-image: none;
+  --vp-button-brand-bg: #3451b2;
 }
 
 .dark {
   --vp-home-hero-name-background: linear-gradient(120deg, #a8b1ff 30%, #5eead4);
+  --vp-button-brand-bg: #3e63dd;
+}
+
+/* The hero's second column holds the sign-in flow: below the call to action on small screens. */
+.VPHero.has-image .image {
+  order: 3;
+  margin: 40px 0 0;
+}
+
+.VPHero.has-image .image-container {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  transform: none;
+}
+
+@media (max-width: 959px) {
+  .VPHero .actions .VPButton.medium {
+    line-height: 42px;
+  }
+}
+
+@media (min-width: 960px) {
+  .VPHero.has-image .image {
+    order: 2;
+    margin: 0 0 0 48px;
+    min-height: 0;
+  }
+
+  .VPHero.has-image .image-container {
+    max-width: none;
+  }
+}
+
+/* Feature icons are one set of inline SVGs that take the brand color. */
+.VPFeature .icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--vp-c-brand-1);
+}
+
+/* Touch screens have no hover, so the copy button stays visible and takes the place of the language label. */
+@media (hover: none) {
+  .vp-doc [class*='language-'] > button.copy {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+  }
+
+  .vp-doc [class*='language-'] > span.lang {
+    opacity: 0;
+  }
 }
 
 .mermaid-diagram {
   margin: 16px 0;
   overflow-x: auto;
   text-align: center;
+}
+
+/* Mermaid sizes its labels before VitePress's paragraph styles apply; these would clip them. */
+.vp-doc .mermaid-diagram p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.vp-doc .mermaid-diagram-failed {
+  text-align: left;
+}
+
+.vp-doc .mermaid-diagram-failed pre {
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: var(--vp-code-block-bg);
+  font-family: var(--vp-font-family-mono);
+  font-size: 14px;
+  overflow-x: auto;
 }
 
 .home-content {

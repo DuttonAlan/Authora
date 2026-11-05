@@ -6,6 +6,8 @@ This page explains the objects Authora creates when someone signs in, how they r
 
 ```mermaid
 erDiagram
+    accTitle: Objects created when someone signs in
+    accDescr: A User has Sessions. A User and a Client have Authorization Codes. An Authorization Code is exchanged for at most one Grant, and a Grant has Access Tokens and Refresh Tokens.
     User ||--o{ Session : "signs in at Authora"
     Client ||--o{ AuthorizationCode : ""
     User ||--o{ AuthorizationCode : ""
