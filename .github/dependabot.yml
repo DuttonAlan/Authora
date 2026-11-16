@@ -5,6 +5,17 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Runtime-coupled packages follow the .NET major version (net10.0, LTS).
+      # Bump them together with TargetFramework, Dockerfile and CI when moving to a new .NET.
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql*"
+        update-types: ["version-update:semver-major"]
     groups:
       dotnet:
         patterns: ["Microsoft.*", "System.*", "Npgsql*"]
