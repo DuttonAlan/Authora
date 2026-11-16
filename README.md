@@ -58,14 +58,13 @@ OAuth 2.1 (Authorization Code with PKCE, Refresh Tokens), RFC 7636 (PKCE, `S256`
 
 ## Roadmap
 
-Planned, roughly in this order; nothing is promised:
+Planned releases, roughly in this order. Each release is a [milestone](https://github.com/DuttonAlan/Authora/milestones) with one issue per feature:
 
-- Self-service password change and reset, and Email verification
-- Sign-in with external identity providers (OpenID Connect, starting with Google)
-- Multi-factor authentication
-- RP-initiated logout
-- Audience-restricted Access Tokens (RFC 8707)
-- Client credentials grant for machine-to-machine access
+- [**0.2 – Usable by real applications**](https://github.com/DuttonAlan/Authora/milestone/1): RP-initiated logout, client credentials grant, email delivery, self-service password change and reset, email verification, remembered consent, OpenID conformance tests in CI
+- [**0.3 – Stronger sign-in**](https://github.com/DuttonAlan/Authora/milestone/2): multi-factor authentication with TOTP and recovery codes, passkeys, `amr`/`acr` and MFA requirements
+- [**0.4 – Federation**](https://github.com/DuttonAlan/Authora/milestone/3): sign-in through external OpenID Connect providers (starting with Google), account linking, back-channel logout
+- [**0.5 – APIs and the access model**](https://github.com/DuttonAlan/Authora/milestone/4): audience-restricted Access Tokens (RFC 8707), optional JWT Access Tokens, Roles and Groups as claims, PAR and DPoP
+- [**0.6 – Operations**](https://github.com/DuttonAlan/Authora/milestone/5): automatic signing key rotation, OpenTelemetry, audit event export, running several instances
 
 Ideas and feedback are welcome in [issues](https://github.com/DuttonAlan/Authora/issues).
 
