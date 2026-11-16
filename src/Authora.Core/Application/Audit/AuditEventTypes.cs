@@ -30,6 +30,12 @@ public static class AuditEventTypes
         ///     A User signed out.
         /// </summary>
         public const string SignedOut = "account.signed-out";
+
+        /// <summary>
+        ///     A User signed out at the request of a Client (RP-initiated logout). The Details name the Client and
+        ///     whether the User confirmed it or an <c>id_token_hint</c> of the Session was sent.
+        /// </summary>
+        public const string SignedOutByClient = "account.signed-out-by-client";
     }
 
     /// <summary>
@@ -172,6 +178,12 @@ public static class AuditEventTypes
 
         /// <summary>A Redirect URI was removed from a Client.</summary>
         public const string RedirectUriRemoved = "client.redirect-uri-removed";
+
+        /// <summary>A Post-logout Redirect URI was added to a Client.</summary>
+        public const string PostLogoutRedirectUriAdded = "client.post-logout-redirect-uri-added";
+
+        /// <summary>A Post-logout Redirect URI was removed from a Client.</summary>
+        public const string PostLogoutRedirectUriRemoved = "client.post-logout-redirect-uri-removed";
 
         /// <summary>A Client was allowed to request a Scope.</summary>
         public const string ScopeAllowed = "client.scope-allowed";

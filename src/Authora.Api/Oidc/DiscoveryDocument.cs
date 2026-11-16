@@ -41,6 +41,10 @@ internal sealed record DiscoveryDocument
     [JsonPropertyName("introspection_endpoint")]
     public required string IntrospectionEndpoint { get; init; }
 
+    // OpenID Connect RP-Initiated Logout 1.0, Section 2.1.
+    [JsonPropertyName("end_session_endpoint")]
+    public required string EndSessionEndpoint { get; init; }
+
     [JsonPropertyName("scopes_supported")]
     public IReadOnlyList<string> ScopesSupported { get; } = OidcScopes.All.Select(scope => scope.Name).ToList();
 
@@ -107,7 +111,8 @@ internal sealed record DiscoveryDocument
             UserInfoEndpoint = $"{issuer}/oauth/userinfo",
             JwksUri = $"{issuer}/.well-known/jwks.json",
             RevocationEndpoint = $"{issuer}/oauth/revoke",
-            IntrospectionEndpoint = $"{issuer}/oauth/introspect"
+            IntrospectionEndpoint = $"{issuer}/oauth/introspect",
+            EndSessionEndpoint = $"{issuer}/oauth/logout"
         };
     }
 }

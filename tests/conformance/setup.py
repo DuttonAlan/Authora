@@ -1,9 +1,10 @@
 """Prepares a fresh Authora for the OpenID conformance suite and writes the suite's test plan configuration.
 
-Waits until Authora and the suite answer. Then signs in to the admin interface as the bootstrap administrator, the way a browser does, and uses the admin API to
-create the User the suite signs in as and two Confidential Clients (the suite's "client" and "client2"). Both Clients
-are first-party, so the suite's browser sees no consent screen, and may omit PKCE, which most tests of the Basic OP
-plan do not send.
+Waits until Authora and the suite answer. Then signs in to the admin interface as the bootstrap administrator, the
+way a browser does, and uses the admin API to create the User the suite signs in as and two Confidential Clients (the
+suite's "client" and "client2") with the suite's Redirect URI and Post-logout Redirect URI. Both Clients are
+first-party, so the suite's browser sees no consent screen, and may omit PKCE, which most tests of the Basic OP plan
+do not send.
 
 Runs in the "runner" container of docker-compose.yml, see run.sh. Settings come from environment variables.
 """
@@ -28,6 +29,8 @@ OUTPUT = os.environ.get("CONFORMANCE_CONFIG", "/work/config.json")
 
 # The suite sends the browser back to this URL; static Clients must have it registered.
 REDIRECT_URI = f"{SUITE_URL}/test/a/{ALIAS}/callback"
+# The RP-Initiated Logout tests expect this Post-logout Redirect URI for static Clients.
+POST_LOGOUT_REDIRECT_URI = f"{SUITE_URL}/test/a/{ALIAS}/post_logout_redirect"
 
 
 def fail(message):
@@ -93,6 +96,7 @@ def register_client(http, name, scope_ids):
         "name": name,
         "type": "Confidential",
         "redirectUris": [REDIRECT_URI],
+        "postLogoutRedirectUris": [POST_LOGOUT_REDIRECT_URI],
         "scopeIds": scope_ids,
     }, expected=201)
 
@@ -104,11 +108,13 @@ def register_client(http, name, scope_ids):
     return {"client_id": client_id, "client_secret": created["secret"]["secret"]}
 
 
-def browser_automation(screenshot_sign_in=False):
-    """Tells the suite's headless browser how to sign in. First-party Clients get no consent screen.
+def browser_automation(screenshot_sign_in=False, logout="redirect"):
+    """Tells the suite's headless browser how to sign in and out. First-party Clients get no consent screen.
 
     Tests that must show that the User was asked to sign in again (prompt=login, max_age) need a screenshot of the
-    sign-in page, which the "update-image-placeholder" step provides.
+    sign-in page, which the "update-image-placeholder" step provides. The logout tests expect Authora to redirect back
+    ("redirect"), to show an error ("error"), or to show that the User is signed out, right away ("signed-out") or
+    after the User confirmed ("confirm-signed-out").
     """
     sign_in = [
         ["text", "id", "Email", USER_EMAIL],
@@ -134,8 +140,38 @@ def browser_automation(screenshot_sign_in=False):
                     "commands": [["wait", "id", "submission_complete", 10]],
                 },
             ],
-        }
+        },
+        logout_automation(logout),
     ]
+
+
+def logout_automation(expected):
+    """The end-session endpoint: Authora asks for confirmation unless the id_token_hint is of the current Session."""
+    confirm = {
+        "task": "Confirm signing out",
+        "optional": True,
+        "match": f"{ISSUER}/oauth/logout*",
+        "commands": [["click", "css", "button[value=sign-out]"]],
+    }
+
+    if expected == "error":
+        tasks = [{
+            "task": "Expect the error page",
+            "match": f"{ISSUER}/oauth/logout*",
+            "commands": [["wait", "xpath", "//*", 10, "The request cannot be processed", "update-image-placeholder"]],
+        }]
+    elif expected in ("signed-out", "confirm-signed-out"):
+        # With the id_token_hint of the Session, Authora signs out right away, without a confirmation page.
+        tasks = [confirm] if expected == "confirm-signed-out" else []
+        tasks.append({
+            "task": "Expect the signed-out page",
+            "match": f"{ISSUER}/oauth/logout*",
+            "commands": [["wait", "xpath", "//*", 10, "You are signed out", "update-image-placeholder"]],
+        })
+    else:
+        tasks = [confirm, {"task": "Verify complete", "match": "*/test/*/post_logout_redirect*"}]
+
+    return {"match": f"{ISSUER}/oauth/logout*", "tasks": tasks}
 
 
 def error_page_automation():
@@ -191,6 +227,23 @@ def main():
                 "oidcc-ensure-registered-redirect-uri": {"browser": error_page_automation()},
                 # Authora rejects the redirect_uri outside the request object before it looks at the request object.
                 "oidcc-ensure-request-object-with-redirect-uri": {"browser": error_page_automation()},
+                # RP-Initiated Logout plan: invalid requests are shown as errors and never redirected.
+                **{test: {"browser": browser_automation(logout="error")} for test in [
+                    "oidcc-rp-initiated-logout-bad-id-token-hint",
+                    "oidcc-rp-initiated-logout-modified-id-token-hint",
+                    "oidcc-rp-initiated-logout-no-id-token-hint",
+                    "oidcc-rp-initiated-logout-bad-post-logout-redirect-uri",
+                    "oidcc-rp-initiated-logout-query-added-to-post-logout-redirect-uri",
+                ]},
+                # Without a Post-logout Redirect URI, Authora shows that the User is signed out; without an
+                # id_token_hint, the User confirms first.
+                **{test: {"browser": browser_automation(logout="confirm-signed-out")} for test in [
+                    "oidcc-rp-initiated-logout-no-params",
+                    "oidcc-rp-initiated-logout-only-state",
+                ]},
+                "oidcc-rp-initiated-logout-no-post-logout-redirect-uri": {
+                    "browser": browser_automation(logout="signed-out"),
+                },
             },
         }
 

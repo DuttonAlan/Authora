@@ -81,6 +81,24 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
         builder.Navigation(x => x.RedirectUris)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.OwnsMany(x => x.PostLogoutRedirectUris, redirectUri =>
+        {
+            redirectUri.ToTable("client_post_logout_redirect_uris", Schemas.Identity);
+
+            redirectUri.WithOwner()
+                .HasForeignKey("ClientId");
+
+            redirectUri.Property(x => x.Value)
+                .HasColumnName("Uri")
+                .IsRequired()
+                .HasMaxLength(2048);
+
+            redirectUri.HasKey("ClientId", nameof(RedirectUri.Value));
+        });
+
+        builder.Navigation(x => x.PostLogoutRedirectUris)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(x => x.AllowedScopes)
             .WithMany()
             .UsingEntity<Dictionary<string, object>>(

@@ -51,6 +51,7 @@ async function registerPanel(context) {
         },
         { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypes, value: grantTypes.map(grantType => grantType.value) },
         { name: 'redirectUris', label: 'Redirect URIs', type: 'textarea', help: 'One per line. HTTPS, or HTTP only for 127.0.0.1 and [::1].' },
+        { name: 'postLogoutRedirectUris', label: 'Post-logout Redirect URIs', type: 'textarea', help: 'Optional. Where the application may send Users back after signing them out. One per line, same rules.' },
         { name: 'accessTokenTTL', label: 'Access Token lifetime (seconds)', type: 'number', min: 1, max: 86400, help: 'Defaults to 3600.' },
         { name: 'refreshTokenTTL', label: 'Refresh Token lifetime (seconds)', type: 'number', min: 1, max: 7776000, help: 'Must be longer than the Access Token lifetime.' },
         {
@@ -65,6 +66,7 @@ async function registerPanel(context) {
             accessTokenTTL: values.accessTokenTTL,
             refreshTokenTTL: values.refreshTokenTTL,
             redirectUris: lines(values.redirectUris),
+            postLogoutRedirectUris: lines(values.postLogoutRedirectUris),
             scopeIds: values.scopeIds
         }), 'The Client was registered.');
 
@@ -120,6 +122,7 @@ export async function detail(context, id) {
                 { name: 'refreshTokenTTL', label: 'Refresh Token lifetime (seconds)', type: 'number', min: 1, max: 7776000, value: client.refreshTokenTTL }
             ], 'Save', values => run(() => api('PUT', `/clients/${id}`, values), 'The Client was saved.', context))) : null),
         redirectUrisPanel(context, client, canUpdate),
+        postLogoutRedirectUrisPanel(context, client, canUpdate),
         scopesPanel(context, client, scopes, canUpdate),
         client.type === 'Confidential' ? secretsPanel(context, client) : null);
 }
@@ -196,6 +199,33 @@ function redirectUrisPanel(context, client, canUpdate) {
                 class: 'inline spaced', onSubmit: event => {
                     event.preventDefault();
                     run(() => api('POST', `/clients/${client.id}/redirect-uris`, { uri: input.value.trim() }), 'The Redirect URI was added.', context);
+                }
+            }, input, h('button', { type: 'submit', class: 'primary' }, 'Add'))
+            : null);
+}
+
+// Post-logout Redirect URIs only receive the browser after a sign-out, without a code, so first-party Clients can
+// get new ones too.
+function postLogoutRedirectUrisPanel(context, client, canUpdate) {
+    const input = h('input', { type: 'url', placeholder: 'https://app.example.com/signed-out', 'aria-label': 'Post-logout Redirect URI' });
+
+    return panel('Post-logout Redirect URIs',
+        table([
+            { label: 'Post-logout Redirect URI', render: uri => h('code', { text: uri }) },
+            {
+                label: '', class: 'actions-cell', render: uri => canUpdate
+                    ? button('Remove', () => run(
+                        () => api('DELETE', `/clients/${client.id}/post-logout-redirect-uris?uri=${encodeURIComponent(uri)}`),
+                        'The Post-logout Redirect URI was removed.',
+                        context), 'small')
+                    : null
+            }
+        ], client.postLogoutRedirectUris, { empty: 'None: after signing a User out, Authora shows its own page instead of returning to the application.' }),
+        canUpdate
+            ? h('form', {
+                class: 'inline spaced', onSubmit: event => {
+                    event.preventDefault();
+                    run(() => api('POST', `/clients/${client.id}/post-logout-redirect-uris`, { uri: input.value.trim() }), 'The Post-logout Redirect URI was added.', context);
                 }
             }, input, h('button', { type: 'submit', class: 'primary' }, 'Add'))
             : null);

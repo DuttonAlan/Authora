@@ -707,6 +707,24 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.Client", b =>
                 {
+                    b.OwnsMany("Authora.Core.Domain.ValueObjects.RedirectUri", "PostLogoutRedirectUris", b1 =>
+                        {
+                            b1.Property<Guid>("ClientId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Value")
+                                .HasMaxLength(2048)
+                                .HasColumnType("character varying(2048)")
+                                .HasColumnName("Uri");
+
+                            b1.HasKey("ClientId", "Value");
+
+                            b1.ToTable("client_post_logout_redirect_uris", "identity");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ClientId");
+                        });
+
                     b.OwnsMany("Authora.Core.Domain.ValueObjects.RedirectUri", "RedirectUris", b1 =>
                         {
                             b1.Property<Guid>("ClientId")
@@ -724,6 +742,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("ClientId");
                         });
+
+                    b.Navigation("PostLogoutRedirectUris");
 
                     b.Navigation("RedirectUris");
                 });

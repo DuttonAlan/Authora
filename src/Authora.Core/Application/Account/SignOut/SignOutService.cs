@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Logging;
 
@@ -30,7 +31,37 @@ public sealed class SignOutService(
     /// <param name="sessionToken">The plain-text Session token from the cookie, or null.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Session is revoked.</returns>
-    public async Task ExecuteAsync(string? sessionToken, CancellationToken cancellationToken = default)
+    public Task ExecuteAsync(string? sessionToken, CancellationToken cancellationToken = default)
+    {
+        return SignOutAsync(sessionToken, client: null, details: null, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Revokes the Session at the request of a Client (RP-initiated logout). Does nothing if the Session does not
+    ///     exist. Recorded as <see cref="AuditEventTypes.Account.SignedOutByClient"/> if the Client is known.
+    /// </summary>
+    /// <param name="sessionToken">The plain-text Session token from the cookie, or null.</param>
+    /// <param name="client">The Client that asked, or null if the request named none.</param>
+    /// <param name="confirmedByUser">
+    ///     True if the User confirmed the sign-out, false if an <c>id_token_hint</c> of the Session was sent.
+    /// </param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>A Task that completes once the Session is revoked.</returns>
+    public Task ExecuteForClientAsync(
+        string? sessionToken,
+        Client? client,
+        bool confirmedByUser,
+        CancellationToken cancellationToken = default)
+    {
+        var how = confirmedByUser ? "confirmed by the User" : "id_token_hint of the Session";
+        var details = client is null
+            ? $"logout request without Client, {how}"
+            : $"Client {client.Id} ('{client.Name}'), {how}";
+
+        return SignOutAsync(sessionToken, client, details, cancellationToken);
+    }
+
+    private async Task SignOutAsync(string? sessionToken, Client? client, string? details, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(sessionToken))
         {
@@ -45,9 +76,22 @@ public sealed class SignOutService(
         }
 
         session.Revoke(timeProvider.GetUtcNow().UtcDateTime);
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.SignedOut, session.UserId, $"Session {session.Id}"));
+
+        var sessionDetails = details is null ? $"Session {session.Id}" : $"Session {session.Id}, {details}";
+        auditLog.Record(AuditEntry.ForUser(
+            client is null ? AuditEventTypes.Account.SignedOut : AuditEventTypes.Account.SignedOutByClient,
+            session.UserId,
+            sessionDetails));
+
         await sessionRepository.SaveChangesAsync(cancellationToken);
 
-        logger.SignedOut(session.UserId, session.Id);
+        if (client is null)
+        {
+            logger.SignedOut(session.UserId, session.Id);
+        }
+        else
+        {
+            logger.SignedOutByClient(session.UserId, session.Id, client.Id);
+        }
     }
 }

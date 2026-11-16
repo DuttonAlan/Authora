@@ -53,6 +53,7 @@ public sealed class Client
 
     private readonly List<ClientSecret> _secrets = [];
     private readonly List<RedirectUri> _redirectUris = [];
+    private readonly List<RedirectUri> _postLogoutRedirectUris = [];
     private readonly List<Scope> _allowedScopes = [];
     private readonly List<Scope> _servedScopes = [];
 
@@ -111,6 +112,12 @@ public sealed class Client
     ///     Registered Redirect URIs. The <c>redirect_uri</c> of an authorization request must exactly match one of them.
     /// </summary>
     public IReadOnlyCollection<RedirectUri> RedirectUris => _redirectUris;
+
+    /// <summary>
+    ///     Registered Post-logout Redirect URIs. The <c>post_logout_redirect_uri</c> of a logout request (OpenID Connect
+    ///     RP-Initiated Logout 1.0) must exactly match one of them.
+    /// </summary>
+    public IReadOnlyCollection<RedirectUri> PostLogoutRedirectUris => _postLogoutRedirectUris;
 
     /// <summary>
     ///     Scopes the Client is allowed to request. Requested Scopes that are not in this list are rejected.
@@ -351,6 +358,40 @@ public sealed class Client
     public bool IsRedirectUriAllowed(string requested)
     {
         return _redirectUris.Any(x => x.Matches(requested));
+    }
+
+    /// <summary>
+    ///     Registers a new Post-logout Redirect URI. Does nothing if the URI is already registered.
+    /// </summary>
+    /// <param name="uri">The Post-logout Redirect URI to register. Same rules as for Redirect URIs.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="uri"/> is not a valid Redirect URI.</exception>
+    public void AddPostLogoutRedirectUri(string uri)
+    {
+        var redirectUri = RedirectUri.Create(uri);
+
+        if (!_postLogoutRedirectUris.Contains(redirectUri))
+        {
+            _postLogoutRedirectUris.Add(redirectUri);
+        }
+    }
+
+    /// <summary>
+    ///     Removes a registered Post-logout Redirect URI. Does nothing if the URI is not registered.
+    /// </summary>
+    /// <param name="uri">The Post-logout Redirect URI to remove.</param>
+    public void RemovePostLogoutRedirectUri(string uri)
+    {
+        _postLogoutRedirectUris.RemoveAll(x => x.Matches(uri));
+    }
+
+    /// <summary>
+    ///     Checks whether the requested Post-logout Redirect URI exactly matches one of the registered ones.
+    /// </summary>
+    /// <param name="requested">The <c>post_logout_redirect_uri</c> from the logout request.</param>
+    /// <returns><see langword="true"/> if the URI is registered, otherwise <see langword="false"/>.</returns>
+    public bool IsPostLogoutRedirectUriAllowed(string requested)
+    {
+        return _postLogoutRedirectUris.Any(x => x.Matches(requested));
     }
 
     /// <summary>

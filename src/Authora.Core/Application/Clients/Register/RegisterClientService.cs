@@ -56,6 +56,11 @@ public sealed class RegisterClientService(
             client.AddRedirectUri(redirectUri);
         }
 
+        foreach (var postLogoutRedirectUri in request.PostLogoutRedirectUris ?? [])
+        {
+            client.AddPostLogoutRedirectUri(postLogoutRedirectUri);
+        }
+
         if (request.ScopeIds is { Count: > 0 })
         {
             var scopeIds = request.ScopeIds.Distinct().ToList();
