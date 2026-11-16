@@ -9,9 +9,9 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 1001 – 1008 | Users |
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
-| 4001 – 4018 | Clients |
-| 5001 – 5007 | Sign-in, sign-out, lockout, Sessions |
-| 6001 – 6012 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization requests |
+| 4001 – 4020 | Clients |
+| 5001 – 5008 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions |
+| 6001 – 6013 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8004 | Cleanup of expired data and audit events |
 | 9001 – 9005 | Signing keys |

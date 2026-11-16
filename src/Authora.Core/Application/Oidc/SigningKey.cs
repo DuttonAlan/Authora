@@ -75,6 +75,24 @@ public sealed class SigningKey : IDisposable
     }
 
     /// <summary>
+    ///     Checks a signature made with <see cref="Algorithm"/> by this key, e.g. of an ID Token sent back as
+    ///     <c>id_token_hint</c>. Needs only the public part.
+    /// </summary>
+    /// <param name="data">The signed data.</param>
+    /// <param name="signature">The signature.</param>
+    /// <returns>True if the signature is valid for the data.</returns>
+    public bool Verify(byte[] data, byte[] signature)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+
+        lock (_lock)
+        {
+            return _rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        }
+    }
+
+    /// <summary>
     ///     Signs data with <see cref="Algorithm"/>.
     /// </summary>
     /// <param name="data">The data to sign.</param>

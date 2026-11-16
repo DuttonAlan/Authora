@@ -36,6 +36,7 @@ public sealed class OidcMetadataTests(AuthoraApiFactory factory) : IClassFixture
         Assert.Equal($"{AuthoraApiFactory.Issuer}/oauth/token", document.GetProperty("token_endpoint").GetString());
         Assert.Equal($"{AuthoraApiFactory.Issuer}/oauth/userinfo", document.GetProperty("userinfo_endpoint").GetString());
         Assert.Equal($"{AuthoraApiFactory.Issuer}/.well-known/jwks.json", document.GetProperty("jwks_uri").GetString());
+        Assert.Equal($"{AuthoraApiFactory.Issuer}/oauth/logout", document.GetProperty("end_session_endpoint").GetString());
         Assert.True(response.Headers.CacheControl?.Public);
     }
 

@@ -19,6 +19,7 @@ namespace Authora.Core.Application.Clients.Get;
 /// <param name="AccessTokenTTL" example="3600">Lifetime of Access Tokens in seconds.</param>
 /// <param name="RefreshTokenTTL" example="86400">Lifetime of Refresh Tokens in seconds.</param>
 /// <param name="RedirectUris" example="[&quot;https://shop.example.com/callback&quot;]">Registered Redirect URIs.</param>
+/// <param name="PostLogoutRedirectUris" example="[&quot;https://shop.example.com/signed-out&quot;]">Registered Post-logout Redirect URIs, for RP-initiated logout.</param>
 /// <param name="Scopes">Scopes the Client is allowed to request.</param>
 /// <param name="ServedScopes">Scopes the Client serves as a resource server. It can introspect Access Tokens of other Clients only if they contain one of these Scopes.</param>
 /// <param name="Secrets">Secrets of the Client, including expired and revoked ones. Only metadata, never the Secret itself.</param>
@@ -35,6 +36,7 @@ public sealed record GetClientResponse(
     int AccessTokenTTL,
     int RefreshTokenTTL,
     IReadOnlyList<string> RedirectUris,
+    IReadOnlyList<string> PostLogoutRedirectUris,
     IReadOnlyList<ClientScopeResponse> Scopes,
     IReadOnlyList<ClientScopeResponse> ServedScopes,
     IReadOnlyList<ClientSecretResponse> Secrets,

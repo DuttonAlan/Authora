@@ -11,13 +11,14 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `POST /oauth/introspect` | Resource server | Introspection ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)). |
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
+| `GET/POST /oauth/logout` | Browser | End-session endpoint: a Client signs the User out (RP-initiated logout). See [Logout](openid-connect.md#logout). |
 
 ## Common rules
 
 - `/oauth/token`, `/oauth/revoke` and `/oauth/introspect` take `application/x-www-form-urlencoded` bodies.
 - Errors are JSON: `{"error": "…", "error_description": "…"}`. A failed Client authentication returns `401` with `WWW-Authenticate: Basic`; all other errors return `400`.
 - Responses carry `Cache-Control: no-store`.
-- **CORS:** `/oauth/token` and `/oauth/revoke` allow the origins (scheme, host and port) of the Redirect URIs of enabled Clients, method `POST`, the header `Content-Type`, and no credentials. `/oauth/introspect`, `/oauth/authorize` and `/account/*` send no CORS headers.
+- **CORS:** `/oauth/token` and `/oauth/revoke` allow the origins (scheme, host and port) of the Redirect URIs of enabled Clients, method `POST`, the header `Content-Type`, and no credentials. `/oauth/introspect`, `/oauth/authorize`, `/oauth/logout` and `/account/*` send no CORS headers.
 
 ## Client authentication
 
@@ -148,7 +149,7 @@ A token is active only if:
 - Sign-in attempts are rate-limited per IP address (10 per minute).
 - Every sign-in starts a new Session and ends the previous Session of the browser.
 
-`/account/logout` revokes the Session on the server and deletes the cookie.
+`/account/logout` revokes the Session on the server and deletes the cookie. Applications sign Users out through the end-session endpoint `/oauth/logout` instead, see [Logout](openid-connect.md#logout).
 
 ## Events that invalidate tokens
 

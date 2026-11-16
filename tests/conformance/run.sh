@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs the OpenID Foundation conformance suite's Basic OP certification test plan against Authora built from this
-# repository, with Authora's results compared to expected-failures.json and expected-skips.json.
+# Runs the OpenID Foundation conformance suite's Basic OP and RP-Initiated Logout OP certification test plans
+# against Authora built from this repository, with Authora's results compared to expected-failures.json and expected-skips.json.
 #
 # Needs bash, Docker with Compose, curl and OpenSSL. Used by .github/workflows/conformance.yml; locally:
 #
@@ -18,7 +18,8 @@ cd "$(dirname "$0")"
 
 # The suite's images and scripts, from https://gitlab.com/openid/conformance-suite/-/tags
 export SUITE_VERSION="${SUITE_VERSION:-release-v5.3.4}"
-PLAN='oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]'
+BASIC_PLAN='oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]'
+LOGOUT_PLAN='oidcc-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]'
 
 compose() {
     docker compose --file docker-compose.yml "$@"
@@ -69,7 +70,7 @@ echo "==> Building Authora and starting the stack"
 compose build
 compose up --detach --quiet-pull db migrate authora mongodb server nginx
 
-echo "==> Running $PLAN"
+echo "==> Running $BASIC_PLAN and $LOGOUT_PLAN"
 compose --profile runner run --rm --no-deps runner sh -c '
     set -e
     pip install --quiet --requirement /work/suite/scripts/requirements.txt
@@ -79,5 +80,5 @@ compose --profile runner run --rm --no-deps runner sh -c '
         --expected-failures-file /conformance/expected-failures.json \
         --expected-skips-file /conformance/expected-skips.json \
         --export-dir /work/results \
-        "$0" /work/config.json
-' "$PLAN"
+        "$0" /work/config.json "$1" /work/config.json
+' "$BASIC_PLAN" "$LOGOUT_PLAN"

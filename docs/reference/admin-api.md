@@ -78,8 +78,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | Endpoint | Permission | Description |
 |---|---|---|
 | `GET /api/clients` | `clients.read` | List. |
-| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Scopes, Secrets (without values), `isFirstParty` and `isPkceOptional`. |
-| `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes`, `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
+| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty` and `isPkceOptional`. |
+| `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes`, `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `postLogoutRedirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
 | `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. |
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
 | `POST /api/clients/{id}/enable` | `clients.update` | Enable. |
@@ -90,6 +90,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `DELETE /api/clients/{id}/pkce-optional` | `clients.update` | Require PKCE again. |
 | `POST /api/clients/{id}/redirect-uris` | `clients.update` | Add a Redirect URI (not while first-party). |
 | `DELETE /api/clients/{id}/redirect-uris` | `clients.update` | Remove a Redirect URI. |
+| `POST /api/clients/{id}/post-logout-redirect-uris` | `clients.update` | Add a Post-logout Redirect URI, body `{"uri": "…"}`; same rules as Redirect URIs, also while first-party. See [Logout](openid-connect.md#logout). |
+| `DELETE /api/clients/{id}/post-logout-redirect-uris?uri=…` | `clients.update` | Remove a Post-logout Redirect URI. |
 | `PUT /api/clients/{id}/scopes/{scopeId}` | `clients.update` | Allow a Scope (not while first-party). |
 | `DELETE /api/clients/{id}/scopes/{scopeId}` | `clients.update` | Disallow a Scope. |
 | `PUT /api/clients/{id}/served-scopes/{scopeId}` | `clients.update` | Let this Confidential Client introspect tokens with the Scope. |

@@ -19,6 +19,7 @@ namespace Authora.Core.Application.Clients.Register;
 /// <param name="RefreshTokenTTL" example="86400">Lifetime of Refresh Tokens in seconds, at most 7776000 (90 days). Must be greater than the Access Token TTL. Defaults to 86400 (24 hours).</param>
 /// <param name="RedirectUris" example="[&quot;https://shop.example.com/callback&quot;]">Redirect URIs to register. Must be absolute, without fragment, and use HTTPS (HTTP only for loopback).</param>
 /// <param name="ScopeIds">Ids of the Scopes the Client is allowed to request.</param>
+/// <param name="PostLogoutRedirectUris" example="[&quot;https://shop.example.com/signed-out&quot;]">Post-logout Redirect URIs to register, for RP-initiated logout. Same rules as Redirect URIs.</param>
 public sealed record RegisterClientRequest(
     [Required, StringLength(Client.NameMaxLength, MinimumLength = 1)] string Name,
     [Required] ClientType? Type,
@@ -26,4 +27,5 @@ public sealed record RegisterClientRequest(
     [Range(1, Client.MaxAccessTokenTTL)] int? AccessTokenTTL,
     [Range(1, Client.MaxRefreshTokenTTL)] int? RefreshTokenTTL,
     IReadOnlyList<string>? RedirectUris,
-    IReadOnlyList<Guid>? ScopeIds);
+    IReadOnlyList<Guid>? ScopeIds,
+    IReadOnlyList<string>? PostLogoutRedirectUris = null);

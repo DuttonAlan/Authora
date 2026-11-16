@@ -31,4 +31,7 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5007, Level = LogLevel.Information, Message = "Sign-in attempt {Attempt} was discarded, because the User was changed by another request at the same time.")]
     public static partial void SignInRetried(this ILogger logger, int attempt);
+
+    [LoggerMessage(EventId = 5008, Level = LogLevel.Information, Message = "User {UserId} signed out of Session {SessionId} at the request of Client {ClientId}.")]
+    public static partial void SignedOutByClient(this ILogger logger, Guid userId, Guid sessionId, Guid clientId);
 }

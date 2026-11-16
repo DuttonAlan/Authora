@@ -1,12 +1,13 @@
 # OpenID Connect
 
-Authora is an OpenID Connect provider on top of its [OAuth endpoints](oauth-endpoints.md). This page covers discovery, Scopes and claims, the authorization request parameters of OpenID Connect, ID Tokens, signing keys and UserInfo.
+Authora is an OpenID Connect provider on top of its [OAuth endpoints](oauth-endpoints.md). This page covers discovery, Scopes and claims, the authorization request parameters of OpenID Connect, ID Tokens, signing keys, UserInfo and logout.
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /.well-known/openid-configuration` | Discovery document |
 | `GET /.well-known/jwks.json` | Public signing keys (JWKS) |
 | `GET/POST /oauth/userinfo` | Claims of the User of an Access Token |
+| `GET/POST /oauth/logout` | End-session endpoint: RP-initiated logout, see [Logout](#logout) |
 
 The discovery document and the JWKS are public, allow CORS from every origin (`GET`, no credentials) and may be cached for one hour (`Cache-Control: public, max-age=3600`). `/oauth/userinfo` allows CORS from the origins of the Redirect URIs of enabled Clients, `GET` and `POST`, the `Authorization` header and no credentials.
 
@@ -28,6 +29,7 @@ All URLs in the document are built from `Authora:OAuth:Issuer`, so they always m
 | `prompt_values_supported` | `none`, `login`, `consent`, `select_account` |
 | `request_parameter_supported`, `request_uri_parameter_supported`, `claims_parameter_supported` | `false` |
 | `authorization_response_iss_parameter_supported` | `true` |
+| `end_session_endpoint` | `{Issuer}/oauth/logout` |
 
 ## Scopes and claims
 
@@ -105,3 +107,28 @@ ID Tokens are signed with an RSA key (at least 2048 bits) from the PEM file at `
 | Token without `openid` | `403`, `WWW-Authenticate: Bearer error="insufficient_scope", scope="openid"` |
 
 Responses carry `Cache-Control: no-store`.
+
+## Logout
+
+`GET /oauth/logout` ([OpenID Connect RP-Initiated Logout 1.0](https://openid.net/specs/openid-connect-rpinitiated-1_0.html)): a Client sends the browser here to end the User's Session at Authora. `POST` with the parameters as a form also works; it is redirected (`303`) to the same request as GET, like at the [authorization endpoint](oauth-endpoints.md#authorization-request), so the browser sends the Session cookie.
+
+| Parameter | Rule |
+|---|---|
+| `id_token_hint` | Recommended. An ID Token Authora issued to the Client: signed with a published key, `iss` is Authora. **Expired tokens are accepted**, as the specification asks, because Clients usually sign out long after the ID Token expired. |
+| `client_id` | Optional. Must name an existing Client, and the `aud` of `id_token_hint` if both are sent. |
+| `post_logout_redirect_uri` | Optional. Needs `client_id` or `id_token_hint`. Must exactly match a Post-logout Redirect URI registered for that Client, which must be enabled. |
+| `state` | Optional. Returned unchanged with the redirect. |
+| `logout_hint`, `ui_locales` | Ignored. |
+
+| Request | Result |
+|---|---|
+| Invalid: a parameter sent twice, an `id_token_hint` Authora did not issue, an unknown, disabled or mismatching Client, an unregistered `post_logout_redirect_uri` | An error page (`400`). Never redirected, so Authora cannot be used as an open redirector. |
+| The User is not signed in | Nothing to sign out: redirect, or the page *You are signed out*. |
+| `id_token_hint` of the current Session: same `sub`, and `auth_time` of the current sign-in | Signed out without a question. |
+| Anything else, e.g. no hint, or a hint from an earlier sign-in or of another User | A confirmation page: *Sign out of Authora?* with the Client's Name. *Sign out* ends the Session; *Stay signed in* keeps it. Both then return to the Client. |
+
+After the decision, the browser is sent (`303`) to `post_logout_redirect_uri` with `state` if one was sent, otherwise Authora shows the result. The confirmation keeps other sites from signing Users out with a link; it needs an antiforgery token.
+
+Signing out ends the Session at Authora, so every application asks the User to sign in again. It does not revoke tokens: Access and Refresh Tokens the Client already has stay valid. A Client that signs a User out should also [revoke](oauth-endpoints.md#revocation) its Refresh Token. Signing out is recorded as the audit event `account.signed-out-by-client`.
+
+Post-logout Redirect URIs are registered per Client in the admin interface or with `POST /api/clients/{id}/post-logout-redirect-uris`, with the same rules as Redirect URIs (absolute, no fragment, HTTPS or a loopback IP). Unlike Redirect URIs, they can be added to first-party Clients, because no code or token is sent there.

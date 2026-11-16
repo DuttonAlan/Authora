@@ -1,0 +1,49 @@
+@page "/oauth/logout"
+@model Authora.Api.Pages.OAuth.EndSessionModel
+@{
+    ViewData["Title"] = Model.ErrorDescription is not null ? "Sign-out error" : "Sign out";
+}
+
+@if (Model.ErrorDescription is not null)
+{
+    <h1>The request cannot be processed</h1>
+    <p class="error" role="alert">@Model.ErrorDescription</p>
+    <p class="muted">The application that sent you here is not configured correctly. You can close this page.</p>
+}
+else if (Model.ConfirmationRequest is not null)
+{
+    <h1>Sign out of Authora?</h1>
+
+    @if (Model.ConfirmationRequest.Client is not null)
+    {
+        <p><strong>@Model.ConfirmationRequest.Client.Name</strong> asks to sign you out.</p>
+    }
+    else
+    {
+        <p>An application asks to sign you out.</p>
+    }
+
+    <p>Signed in as <strong>@Model.SignedInEmail</strong>. Signing out ends your session at Authora, so every application asks you to sign in again.</p>
+
+    <form method="post">
+        @foreach (var parameter in Model.Parameters)
+        {
+            <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
+        }
+
+        <div class="actions">
+            <button type="submit" name="@Authora.Api.Pages.OAuth.EndSessionModel.DecisionField" value="stay">Stay signed in</button>
+            <button type="submit" name="@Authora.Api.Pages.OAuth.EndSessionModel.DecisionField" value="@Authora.Api.Pages.OAuth.EndSessionModel.SignOutDecision" class="primary">Sign out</button>
+        </div>
+    </form>
+}
+else if (Model.SignedOut)
+{
+    <h1>You are signed out</h1>
+    <p>You can close this page.</p>
+}
+else
+{
+    <h1>You are still signed in</h1>
+    <p>You can close this page.</p>
+}

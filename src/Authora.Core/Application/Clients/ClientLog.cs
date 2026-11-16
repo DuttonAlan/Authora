@@ -66,4 +66,10 @@ internal static partial class ClientLog
 
     [LoggerMessage(EventId = 4018, Level = LogLevel.Information, Message = "PKCE is required again for Client {ClientId} ({ClientName}).")]
     public static partial void ClientPkceRequired(this ILogger logger, Guid clientId, string clientName);
+
+    [LoggerMessage(EventId = 4019, Level = LogLevel.Information, Message = "Post-logout Redirect URI {RedirectUri} was added to Client {ClientId}.")]
+    public static partial void PostLogoutRedirectUriAdded(this ILogger logger, Guid clientId, string redirectUri);
+
+    [LoggerMessage(EventId = 4020, Level = LogLevel.Information, Message = "Post-logout Redirect URI {RedirectUri} was removed from Client {ClientId}.")]
+    public static partial void PostLogoutRedirectUriRemoved(this ILogger logger, Guid clientId, string redirectUri);
 }

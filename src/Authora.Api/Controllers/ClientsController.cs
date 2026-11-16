@@ -8,6 +8,7 @@ using Authora.Api.Authorization;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddRedirectUri;
+using Authora.Core.Application.Clients.AddPostLogoutRedirectUri;
 using Authora.Core.Application.Clients.AllowScope;
 using Authora.Core.Application.Clients.CreateSecret;
 using Authora.Core.Application.Clients.Delete;
@@ -17,6 +18,7 @@ using Authora.Core.Application.Clients.Enable;
 using Authora.Core.Application.Clients.Get;
 using Authora.Core.Application.Clients.GetAll;
 using Authora.Core.Application.Clients.Register;
+using Authora.Core.Application.Clients.RemovePostLogoutRedirectUri;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
 using Authora.Core.Application.Clients.SetFirstParty;
@@ -34,6 +36,7 @@ namespace Authora.Api.Controllers;
 /// <summary>
 ///     Provides the Endpoints to do Client related operations.
 /// </summary>
+/// <param name="addPostLogoutRedirectUriService">The Service to register a Post-logout Redirect URI.</param>
 /// <param name="addRedirectUriService">The Service to register a Redirect URI.</param>
 /// <param name="allowScopeService">The Service to allow a Scope.</param>
 /// <param name="createClientSecretService">The Service to create a Secret.</param>
@@ -44,6 +47,7 @@ namespace Authora.Api.Controllers;
 /// <param name="getAllClientsService">The Service to get all Clients.</param>
 /// <param name="getClientService">The Service to get the Client.</param>
 /// <param name="registerClientService">The Service to register the Client.</param>
+/// <param name="removePostLogoutRedirectUriService">The Service to remove a Post-logout Redirect URI.</param>
 /// <param name="removeRedirectUriService">The Service to remove a Redirect URI.</param>
 /// <param name="revokeClientSecretService">The Service to revoke a Secret.</param>
 /// <param name="serveScopeService">The Service to serve a Scope as a resource server.</param>
@@ -56,6 +60,7 @@ namespace Authora.Api.Controllers;
 [Route("api/clients")]
 [Tags("Clients")]
 public sealed class ClientsController(
+    AddPostLogoutRedirectUriService addPostLogoutRedirectUriService,
     AddRedirectUriService addRedirectUriService,
     AllowScopeService allowScopeService,
     CreateClientSecretService createClientSecretService,
@@ -66,6 +71,7 @@ public sealed class ClientsController(
     GetAllClientsService getAllClientsService,
     GetClientService getClientService,
     RegisterClientService registerClientService,
+    RemovePostLogoutRedirectUriService removePostLogoutRedirectUriService,
     RemoveRedirectUriService removeRedirectUriService,
     RevokeClientSecretService revokeClientSecretService,
     ServeScopeService serveScopeService,
@@ -440,6 +446,71 @@ public sealed class ClientsController(
         CancellationToken cancellationToken)
     {
         await removeRedirectUriService.ExecuteAsync(id, uri, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Registers a Post-logout Redirect URI for the Client.
+    /// </summary>
+    /// <remarks>
+    ///     After signing a User out at the request of the Client (RP-initiated logout), Authora sends the browser to
+    ///     the <c>post_logout_redirect_uri</c> only if it exactly matches a registered one. This operation is
+    ///     idempotent: registering a URI that is already registered also succeeds. Also allowed for first-party
+    ///     Clients, because no code or token is sent there.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="request">The request with the Post-logout Redirect URI.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Post-logout Redirect URI is registered.</returns>
+    /// <response code="204">Responds with no content once the Post-logout Redirect URI was registered.</response>
+    /// <response code="400">Responds with problem details if the URI is not absolute, contains a fragment or does not use HTTPS.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpPost("{id:guid}/post-logout-redirect-uris")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
+    public async Task<IActionResult> AddPostLogoutRedirectUri(
+        Guid id,
+        AddPostLogoutRedirectUriRequest request,
+        CancellationToken cancellationToken)
+    {
+        await addPostLogoutRedirectUriService.ExecuteAsync(id, request, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Removes a Post-logout Redirect URI from the Client.
+    /// </summary>
+    /// <remarks>
+    ///     The URI is passed in the query string and compared exactly (case-sensitive).
+    ///     This operation is idempotent: removing a URI that is not registered also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="uri" example="https://shop.example.com/signed-out">The Post-logout Redirect URI to remove.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Post-logout Redirect URI is removed.</returns>
+    /// <response code="204">Responds with no content once the Post-logout Redirect URI was removed, or if it was not registered.</response>
+    /// <response code="400">Responds with validation problem details if the uri query parameter is missing.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/post-logout-redirect-uris")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
+    public async Task<IActionResult> RemovePostLogoutRedirectUri(
+        Guid id,
+        [FromQuery, Required, StringLength(2048, MinimumLength = 1)] string uri,
+        CancellationToken cancellationToken)
+    {
+        await removePostLogoutRedirectUriService.ExecuteAsync(id, uri, cancellationToken);
 
         return NoContent();
     }

@@ -14,6 +14,7 @@ In the admin interface, open **Clients** → **Register Client**:
 - Allow the Scopes the application needs, at least `openid`. Add `profile` for the name and `email` for the Email address.
 - Keep the Grant Type `Refresh Token` only if the application needs tokens while the user is away.
 - Redirect URIs must match exactly, including the path and a trailing slash. They must use HTTPS; plain HTTP is only allowed for `127.0.0.1` and `[::1]`.
+- To sign users out of Authora from the application, also enter a **Post-logout Redirect URI**: where Authora sends the user back after signing out, e.g. `https://app.example.com/signout-callback-oidc` for ASP.NET Core. Same rules as Redirect URIs.
 
 For a Confidential Client, Authora shows the **Client Secret once**, right after registration. Store it in your application's secret store. Secrets expire after one year by default; create a new one under **Secrets** before that, deploy it, then revoke the old one.
 
@@ -34,7 +35,6 @@ For a Confidential Client, Authora shows the **Client Secret once**, right after
 Things libraries sometimes assume that Authora does not do:
 
 - **No `form_post` response mode.** Some libraries use it by default; switch them to `query`.
-- **No `end_session_endpoint`** (RP-initiated logout). Sign the user out of your application only. If your library calls the end-session endpoint on sign-out, turn that off. To end the Authora Session too, send the user to `https://auth.example.com/account/logout`.
 - **No `offline_access` Scope.** A Client gets a Refresh Token whenever its Grant Types include `Refresh Token`.
 - **Refresh does not return a new ID Token.** Keep the claims from sign-in, or call UserInfo.
 - **`email_verified` is always `false`**, because Authora does not verify Email addresses yet. Do not use the Email to link accounts; use `sub`.
@@ -75,11 +75,18 @@ builder.Services
     });
 ```
 
-Register `https://app.example.com/signin-oidc` (the handler's default callback path) as the Redirect URI. To sign out, sign out of the cookie scheme only:
+Register `https://app.example.com/signin-oidc` (the handler's default callback path) as the Redirect URI, and `https://app.example.com/signout-callback-oidc` as the Post-logout Redirect URI.
+
+To sign out, sign out of both schemes. The OpenID Connect handler then sends the browser to Authora's `end_session_endpoint` with the saved ID Token as `id_token_hint` (that is why `SaveTokens` is on), Authora ends its Session, and the browser comes back to `/signout-callback-oidc` and then to `RedirectUri`:
 
 ```csharp
 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+await HttpContext.SignOutAsync(
+    OpenIdConnectDefaults.AuthenticationScheme,
+    new AuthenticationProperties { RedirectUri = "/" });
 ```
+
+To sign out of the application only and keep the Authora Session, sign out of the cookie scheme alone.
 
 ## Example: single-page application
 
@@ -92,13 +99,17 @@ const userManager = new UserManager({
   authority: 'https://auth.example.com',
   client_id: '…',
   redirect_uri: 'https://app.example.com/callback',
+  post_logout_redirect_uri: 'https://app.example.com/',
   response_type: 'code',
   scope: 'openid profile email',
 });
 
 await userManager.signinRedirect();                 // on "Sign in"
 const user = await userManager.signinCallback();    // on the /callback page
+await userManager.signoutRedirect();                // on "Sign out": ends the Authora Session too
 ```
+
+`signoutRedirect` sends the ID Token as `id_token_hint`, so Authora signs the user out without asking. Register the `post_logout_redirect_uri` as a Post-logout Redirect URI of the Client.
 
 Authora allows cross-origin calls to `/oauth/token`, `/oauth/revoke` and `/oauth/userinfo` from the origins of the Redirect URIs of enabled Clients, so a browser app can call them directly.
 
@@ -115,6 +126,8 @@ Sign in through your application. The first time, Authora shows a consent screen
 | `error=invalid_request` mentioning PKCE | `code_challenge` missing, or the method is not `S256`. |
 | `invalid_client` from `/oauth/token` | Wrong or expired Secret, or both `client_secret_basic` and `client_secret_post` sent. |
 | `invalid_grant` from `/oauth/token` | The code expired (after 1 minute), was already used, or the `code_verifier` or `redirect_uri` does not match. A `code_verifier` sent for a code requested without `code_challenge` is rejected too. |
+| *The request cannot be processed* on sign-out | The `post_logout_redirect_uri` is not registered as a Post-logout Redirect URI of the Client, or the `id_token_hint` was not issued by this Authora. |
+| Authora asks *Sign out of Authora?* | The sign-out request had no `id_token_hint`, or one from an earlier sign-in. Send the ID Token of the current sign-in to skip the question. |
 | Sign-in page error about cookies or antiforgery | Authora is reached over HTTP, or a proxy is not trusted; see [Configure a reverse proxy](configure-a-reverse-proxy.md). |
 
 The exact rules for each parameter are in the [OAuth endpoints reference](../reference/oauth-endpoints.md).
