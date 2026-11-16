@@ -97,6 +97,42 @@ public sealed class ClientCredentialsTests(AuthoraApiFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task WithoutScope_AllowedScopesTooLongTogether_AreRejected()
+    {
+        // 40 Names of 100 characters exceed the 4000 characters a Grant can store.
+        var names = await CreateLongScopesAsync(40);
+        var clientId = await CreateClientAsync(GrantTypes.ClientCredentials, [.. names]);
+
+        using var response = await RequestTokenAsync(clientId, scope: null);
+
+        await AssertErrorAsync(response, HttpStatusCode.BadRequest, "invalid_scope");
+        Assert.Empty(await GetAuditTypesAsync(clientId));
+    }
+
+    [Fact]
+    public async Task ManyScopes_AuditDetailsKeepTheExpiryAndAreVisiblyShortened()
+    {
+        var names = await CreateLongScopesAsync(15);
+        var clientId = await CreateClientAsync(GrantTypes.ClientCredentials, [.. names]);
+
+        using var response = await RequestTokenAsync(clientId, scope: null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var details = await context.AuditEvents
+            .Where(auditEvent => auditEvent.TargetId == clientId.ToString() && auditEvent.Type == AuditEventTypes.Clients.TokenIssued)
+            .Select(auditEvent => auditEvent.Details)
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        Assert.NotNull(details);
+        Assert.Equal(AuditEvent.DetailsMaxLength, details.Length);
+        Assert.Contains("expires at ", details, StringComparison.Ordinal);
+        Assert.Contains("15 Scopes '", details, StringComparison.Ordinal);
+        Assert.EndsWith("…' (shortened)", details, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ScopeNotAllowed_IsRejected()
     {
         var (read, write) = await CreateScopesAsync();
@@ -269,6 +305,21 @@ public sealed class ClientCredentialsTests(AuthoraApiFactory factory) : IClassFi
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         return ($"{prefix}.read", $"{prefix}.write");
+    }
+
+    private async Task<List<string>> CreateLongScopesAsync(int count)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+        var prefix = Guid.NewGuid().ToString("N");
+        var names = Enumerable.Range(0, count)
+            .Select(index => $"{prefix}.{index:D3}.".PadRight(Scope.NameMaxLength, 'x'))
+            .ToList();
+        context.Scopes.AddRange(names.Select(name => Scope.Create(name, "Long Scope")));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return names;
     }
 
     private Task<Guid> CreateClientAsync(GrantTypes grantTypes, params string[] allowedScopes)

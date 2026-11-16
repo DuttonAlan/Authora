@@ -109,10 +109,7 @@ public sealed class IssueTokenService(
         var grant = Grant.CreateForClient(client, scopes, now, TimeSpan.FromSeconds(client.AccessTokenTTL));
         var tokens = tokenIssuer.Issue(grant, client, scopes, now);
 
-        auditLog.Record(AuditEntry.ForClient(
-            AuditEventTypes.Clients.TokenIssued,
-            client.Id,
-            $"Grant {grant.Id}, Scopes '{grant.Scope}', expires at {grant.ExpiresAt:O}") with
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.TokenIssued, client.Id, GetTokenIssuedDetails(grant, scopes.Count)) with
         {
             ClientId = client.Id
         });
@@ -134,6 +131,21 @@ public sealed class IssueTokenService(
     }
 
     /// <summary>
+    ///     The Details of <see cref="AuditEventTypes.Clients.TokenIssued"/>. The Scopes come last and are shortened
+    ///     visibly, because a Scope list can be longer than <see cref="AuditEvent.DetailsMaxLength"/>.
+    /// </summary>
+    private static string GetTokenIssuedDetails(Grant grant, int scopeCount)
+    {
+        const string Shortened = "…' (shortened)";
+
+        var details = $"Grant {grant.Id}, expires at {grant.ExpiresAt:O}, {scopeCount} Scopes '{grant.Scope}'";
+
+        return details.Length <= AuditEvent.DetailsMaxLength
+            ? details
+            : string.Concat(details.AsSpan(0, AuditEvent.DetailsMaxLength - Shortened.Length), Shortened);
+    }
+
+    /// <summary>
     ///     The requested Scopes, which must all be allowed and not System Scopes, or all allowed non-system Scopes if
     ///     <c>scope</c> was omitted (RFC 6749, Section 3.3).
     /// </summary>
@@ -146,9 +158,17 @@ public sealed class IssueTokenService(
 
         if (scope is null)
         {
-            return available.Count > 0
-                ? available.Order(StringComparer.Ordinal).ToList()
-                : throw new OAuthException(OAuthErrors.InvalidScope, "The Client is allowed no Scope it can request for itself.");
+            if (available.Count == 0)
+            {
+                throw new OAuthException(OAuthErrors.InvalidScope, "The Client is allowed no Scope it can request for itself.");
+            }
+
+            // Many long Scope Names can exceed what a Grant can store; parsed so this fails with invalid_scope.
+            return ScopeList.TryParse(string.Join(' ', available.Order(StringComparer.Ordinal)), out var defaults)
+                ? defaults
+                : throw new OAuthException(
+                    OAuthErrors.InvalidScope,
+                    $"The Scopes allowed for the Client are longer than {ScopeList.MaxLength} characters together. Request fewer with the scope parameter.");
         }
 
         if (!ScopeList.TryParse(scope, out var requested))

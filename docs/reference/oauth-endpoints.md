@@ -101,7 +101,7 @@ A **Confidential** Client obtains an Access Token for itself, without a User ([R
 
 | Parameter | Rule |
 |---|---|
-| `scope` | Optional. Every Scope must be allowed for the Client and must not be a System Scope (`openid`, `profile`, `email`, `authora.admin`), because they all need a User. Without `scope`, the token gets all Scopes the Client is allowed, except System Scopes. |
+| `scope` | Optional. Every Scope must be allowed for the Client and must not be a System Scope (`openid`, `profile`, `email`, `authora.admin`), because they all need a User. Without `scope`, the token gets all Scopes the Client is allowed, except System Scopes; if their names are longer than 4000 characters together, the request fails with `invalid_scope`. |
 | Client authentication | Required, with a Secret (`client_secret_basic` or `client_secret_post`). |
 
 - The Client must be allowed the Grant Type `client_credentials`. It is never allowed by default, and only Confidential Clients can be allowed it.

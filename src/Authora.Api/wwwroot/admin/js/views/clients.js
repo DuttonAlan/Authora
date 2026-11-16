@@ -46,7 +46,7 @@ function statusBadge(status) {
 async function registerPanel(context) {
     const scopes = context.can('scopes.read') ? await api('GET', '/scopes') : [];
 
-    return panel('Register Client', form([
+    const element = form([
         { name: 'name', label: 'Name', required: true, maxLength: 100 },
         {
             name: 'type', label: 'Type', type: 'select', value: 'Public', options: [
@@ -79,7 +79,24 @@ async function registerPanel(context) {
             issuedSecret = registered.secret ? { clientId: registered.id, secret: registered.secret.secret } : null;
             context.navigate(`/clients/${registered.id}`);
         }
-    }));
+    });
+
+    // Client Credentials is only for Confidential Clients: hide and clear it while Public is selected.
+    const type = element.querySelector('select[name="type"]');
+    const clientCredentials = element.querySelector('input[name="grantTypes"][value="client_credentials"]');
+    const showGrantTypes = () => {
+        const confidential = type.value === 'Confidential';
+        clientCredentials.closest('label').hidden = !confidential;
+
+        if (!confidential) {
+            clientCredentials.checked = false;
+        }
+    };
+
+    type.addEventListener('change', showGrantTypes);
+    showGrantTypes();
+
+    return panel('Register Client', element);
 }
 
 function lines(text) {
