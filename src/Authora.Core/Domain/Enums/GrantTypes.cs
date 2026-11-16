@@ -24,5 +24,11 @@ public enum GrantTypes
     /// <summary>
     ///     Allows <c>grant_type=refresh_token</c> to exchange a Refresh Token for a new Access Token.
     /// </summary>
-    RefreshToken = 2
+    RefreshToken = 2,
+
+    /// <summary>
+    ///     Allows <c>grant_type=client_credentials</c>: a Confidential Client obtains an Access Token for itself, without
+    ///     a User (machine-to-machine access). Never allowed by default.
+    /// </summary>
+    ClientCredentials = 4
 }

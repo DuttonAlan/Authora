@@ -22,10 +22,16 @@ public static class GrantTypeNames
     /// </summary>
     public const string RefreshToken = "refresh_token";
 
+    /// <summary>
+    ///     The <c>grant_type</c> value of <see cref="GrantTypes.ClientCredentials"/>.
+    /// </summary>
+    public const string ClientCredentials = "client_credentials";
+
     private static readonly (GrantTypes GrantType, string Name)[] Names =
     [
         (GrantTypes.AuthorizationCode, AuthorizationCode),
-        (GrantTypes.RefreshToken, RefreshToken)
+        (GrantTypes.RefreshToken, RefreshToken),
+        (GrantTypes.ClientCredentials, ClientCredentials)
     ];
 
     /// <summary>

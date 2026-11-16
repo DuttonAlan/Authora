@@ -18,9 +18,9 @@ internal static class TokenUserGuard
     ///     issued with. A different Security Stamp means e.g. "sign out everywhere", a new password or deactivation.
     /// </summary>
     /// <param name="user">The User, or null if the User does not exist.</param>
-    /// <param name="securityStamp">The Security Stamp stored with the code or token.</param>
+    /// <param name="securityStamp">The Security Stamp stored with the code or token, or null for a Grant without a User, which no User may use.</param>
     /// <returns>True if the User may still use the code or token.</returns>
-    public static bool CanUse([NotNullWhen(true)] User? user, Guid securityStamp)
+    public static bool CanUse([NotNullWhen(true)] User? user, Guid? securityStamp)
     {
         return user is not null && user.CanSignIn && user.SecurityStamp == securityStamp;
     }

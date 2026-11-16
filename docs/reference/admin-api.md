@@ -79,7 +79,7 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 |---|---|---|
 | `GET /api/clients` | `clients.read` | List. |
 | `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty` and `isPkceOptional`. |
-| `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes`, `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `postLogoutRedirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
+| `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes` (`authorization_code`, `refresh_token`, `client_credentials`; default the first two, see below), `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `postLogoutRedirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
 | `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. |
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
 | `POST /api/clients/{id}/enable` | `clients.update` | Enable. |
@@ -98,6 +98,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `DELETE /api/clients/{id}/served-scopes/{scopeId}` | `clients.update` | Stop serving the Scope. |
 | `POST /api/clients/{id}/secrets` | `clients.manage-secrets` | Create a Secret, optionally with `expiresAt` (default 1 year, at most 2 years). The value is returned once. |
 | `POST /api/clients/{id}/secrets/{secretId}/revoke` | `clients.manage-secrets` | Revoke a Secret. |
+
+Grant Types: `refresh_token` requires `authorization_code`. `client_credentials` lets the Client obtain Access Tokens for itself, without a User (see [`grant_type=client_credentials`](oauth-endpoints.md#grant-type-client-credentials)); it is never allowed by default, and only for Confidential Clients (`400` otherwise).
 
 ## Audit log and health
 

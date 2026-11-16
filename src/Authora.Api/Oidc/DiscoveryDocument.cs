@@ -55,7 +55,8 @@ internal sealed record DiscoveryDocument
     public IReadOnlyList<string> ResponseModesSupported { get; } = [ValidateAuthorizationRequestService.ResponseModeQuery];
 
     [JsonPropertyName("grant_types_supported")]
-    public IReadOnlyList<string> GrantTypesSupported { get; } = [GrantTypeNames.AuthorizationCode, GrantTypeNames.RefreshToken];
+    public IReadOnlyList<string> GrantTypesSupported { get; } =
+        [GrantTypeNames.AuthorizationCode, GrantTypeNames.RefreshToken, GrantTypeNames.ClientCredentials];
 
     [JsonPropertyName("subject_types_supported")]
     public IReadOnlyList<string> SubjectTypesSupported { get; } = ["public"];

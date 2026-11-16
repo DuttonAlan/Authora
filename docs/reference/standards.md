@@ -4,7 +4,7 @@
 
 | Specification | Support |
 |---|---|
-| [OAuth 2.1](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/) | Authorization Code grant with PKCE, Refresh Token grant with rotation. No implicit or password grant. |
+| [OAuth 2.1](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/) | Authorization Code grant with PKCE, Refresh Token grant with rotation, Client Credentials grant for Confidential Clients (opt-in per Client, no User, no Refresh Token). No implicit or password grant. |
 | [RFC 7636](https://www.rfc-editor.org/rfc/rfc7636) PKCE | Required for every Client, unless an administrator makes it optional for a Confidential Client; `S256` only. |
 | [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009) Token Revocation | Access and Refresh Tokens. |
 | [RFC 7662](https://www.rfc-editor.org/rfc/rfc7662) Token Introspection | For Confidential Clients that serve a Scope of the token. |
@@ -52,7 +52,7 @@ Authora deliberately keeps a small feature set. Not supported today:
 
 **Protocols**
 
-- Grant types other than `authorization_code` and `refresh_token`, e.g. `client_credentials` for machine-to-machine access or the device flow.
+- Grant types other than `authorization_code`, `refresh_token` and `client_credentials`, e.g. the device flow or token exchange.
 - Session management, front- and back-channel logout: applications are not told when a User signs out at Authora, and ID Tokens have no `sid` claim. The end-session endpoint ignores `logout_hint` and `ui_locales`.
 - Pushed authorization requests (PAR), JWT-secured authorization requests (JAR), the `request` and `request_uri` parameters.
 - Response modes other than `query`, e.g. `form_post`.

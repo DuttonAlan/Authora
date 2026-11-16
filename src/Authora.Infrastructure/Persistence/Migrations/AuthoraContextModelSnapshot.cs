@@ -284,7 +284,7 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("AuthorizationCodeId")
+                    b.Property<Guid?>("AuthorizationCodeId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("ClientId")
@@ -304,10 +304,10 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
-                    b.Property<Guid>("SecurityStamp")
+                    b.Property<Guid?>("SecurityStamp")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -768,8 +768,7 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasOne("Authora.Core.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.RefreshToken", b =>

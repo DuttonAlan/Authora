@@ -20,7 +20,7 @@ erDiagram
 |---|---|
 | **Session** | The User's sign-in at Authora itself, held in a browser cookie. It lets the User approve several applications without typing the password again (single sign-on). |
 | **Authorization Code** | A one-minute, single-use ticket that the browser carries from Authora back to the application. It is bound to the Client, the User, the Redirect URI, the Scopes and, if sent, the PKCE challenge. |
-| **Grant** | Created when the code is exchanged: the User's approval for this Client and these Scopes. It is the unit of revocation. |
+| **Grant** | Created when the code is exchanged: the User's approval for this Client and these Scopes. It is the unit of revocation. A Client that obtains a token for itself (`client_credentials`) gets a Grant without a User, which holds just that Access Token. |
 | **Access Token** | What the application presents to APIs. Short-lived (1 hour by default). |
 | **Refresh Token** | What the application uses to get new Access Tokens without the user. Longer-lived (1 day by default) and single-use. |
 
@@ -53,7 +53,7 @@ Every check, whether introspection, UserInfo or the admin API, walks the whole c
 1. The token exists, has not expired and was not revoked.
 2. Its **Grant** was not revoked and has not reached its lifetime (90 days by default).
 3. Its **Client** still exists and is enabled.
-4. Its **User** can still sign in and has the same *security stamp* as when the Grant was created.
+4. Its **User**, if it has one, can still sign in and has the same *security stamp* as when the Grant was created.
 
 The security stamp is a random value on the User that changes when the User is deactivated or deleted, gets a new password, or is signed out everywhere. Changing it invalidates every Session and token of the User at once, without touching each one.
 

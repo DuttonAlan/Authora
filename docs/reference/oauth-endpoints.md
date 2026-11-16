@@ -95,6 +95,20 @@ Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsuppo
 
 The Client must be allowed the Grant Type `refresh_token`.
 
+### `grant_type=client_credentials`
+
+A **Confidential** Client obtains an Access Token for itself, without a User ([RFC 6749, Section 4.4](https://www.rfc-editor.org/rfc/rfc6749#section-4.4)), e.g. a backend service that calls an API.
+
+| Parameter | Rule |
+|---|---|
+| `scope` | Optional. Every Scope must be allowed for the Client and must not be a System Scope (`openid`, `profile`, `email`, `authora.admin`), because they all need a User. Without `scope`, the token gets all Scopes the Client is allowed, except System Scopes. |
+| Client authentication | Required, with a Secret (`client_secret_basic` or `client_secret_post`). |
+
+- The Client must be allowed the Grant Type `client_credentials`. It is never allowed by default, and only Confidential Clients can be allowed it.
+- The response has no `refresh_token` and no `id_token`: the Client asks for a new token when the old one expires. The token lives for the Client's Access Token lifetime.
+- Every issued token is recorded as the audit event `client.token-issued`.
+- Introspection reports the Client as `sub`. UserInfo (`401 invalid_token`) and the admin API (`401`) reject the token.
+
 ### Response
 
 ```json
@@ -108,7 +122,7 @@ The Client must be allowed the Grant Type `refresh_token`.
 }
 ```
 
-- `refresh_token` only if the Client is allowed the Grant Type `refresh_token`.
+- `refresh_token` only if the Client is allowed the Grant Type `refresh_token`, and never for `client_credentials`.
 - `id_token` only when exchanging a code whose Scopes include `openid`, and `openid` is still allowed for the Client. Refreshing returns no ID Token.
 - Scopes an administrator disallowed for the Client since the code was issued are dropped.
 
@@ -131,14 +145,14 @@ Error codes: `invalid_request`, `invalid_client`, `invalid_grant`, `unauthorized
 | Access Token | The Client it was issued to, with all its Scopes; and any Client that serves at least one of its Scopes, with only the served Scopes in `scope`. |
 | Refresh Token | Only the Client it was issued to. |
 
-Active response members: `active`, `scope`, `client_id`, `sub` (the User Id), `token_type`, `exp`, `iat`, `iss`. Every other case returns only `{"active": false}`.
+Active response members: `active`, `scope`, `client_id`, `sub` (the User Id, or the Client Id for a token the Client obtained for itself with `client_credentials`, then equal to `client_id`), `token_type`, `exp`, `iat`, `iss`. Every other case returns only `{"active": false}`.
 
 A token is active only if:
 
 1. it exists, is not expired and not revoked;
 2. its Grant is neither revoked nor expired;
 3. its Client exists and is enabled;
-4. its User can sign in (active, has a password) and still has the security stamp the Grant was created with.
+4. its User, if it has one, can sign in (active, has a password) and still has the security stamp the Grant was created with.
 
 ## Sign-in
 

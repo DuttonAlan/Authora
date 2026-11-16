@@ -7,6 +7,8 @@ namespace Authora.Core.Domain.Entities;
 /// <summary>
 ///     Represents the approval of a User for a Client, created when an Authorization Code is exchanged.
 ///     All Access and Refresh Tokens issued from the code and from its Refresh Tokens belong to the same Grant.
+///     A Grant of the Client Credentials Grant Type has no User: the Client acts for itself, and the Grant holds a
+///     single Access Token.
 /// </summary>
 /// <remarks>
 ///     The Grant groups the tokens into one family, so they can be revoked together: when a Refresh Token is revoked
@@ -34,15 +36,17 @@ public sealed class Grant
     public Guid ClientId { get; private set; }
 
     /// <summary>
-    ///     Id of the <see cref="User"/> who approved the request.
+    ///     Id of the <see cref="User"/> who approved the request, or <see langword="null"/> for a Grant of the Client
+    ///     itself (<see cref="Enums.GrantTypes.ClientCredentials"/>).
     /// </summary>
-    public Guid UserId { get; private set; }
+    public Guid? UserId { get; private set; }
 
     /// <summary>
-    ///     <see cref="User.SecurityStamp"/> when the User approved the request. All tokens of the Grant are invalid
-    ///     once the User has a different one, e.g. after "sign out everywhere" or a password change.
+    ///     <see cref="User.SecurityStamp"/> when the User approved the request, or <see langword="null"/> without a User.
+    ///     All tokens of the Grant are invalid once the User has a different one, e.g. after "sign out everywhere" or a
+    ///     password change.
     /// </summary>
-    public Guid SecurityStamp { get; private set; }
+    public Guid? SecurityStamp { get; private set; }
 
     /// <summary>
     ///     The approved Scopes, space-delimited. Refresh Tokens always have these Scopes,
@@ -51,9 +55,10 @@ public sealed class Grant
     public string Scope { get; private set; } = null!;
 
     /// <summary>
-    ///     Id of the <see cref="Entities.AuthorizationCode"/> the Grant was created from.
+    ///     Id of the <see cref="Entities.AuthorizationCode"/> the Grant was created from, or <see langword="null"/> for a
+    ///     Grant of the Client itself.
     /// </summary>
-    public Guid AuthorizationCodeId { get; private set; }
+    public Guid? AuthorizationCodeId { get; private set; }
 
     /// <summary>
     ///     Point in time (UTC) when the Grant was created.
@@ -82,6 +87,11 @@ public sealed class Grant
     public bool IsRevoked => RevokedAt is not null;
 
     /// <summary>
+    ///     Whether the Grant belongs to a User. False for a Grant of the Client itself.
+    /// </summary>
+    public bool HasUser => UserId is not null;
+
+    /// <summary>
     ///     Creates a new Grant from an Authorization Code that is being exchanged.
     /// </summary>
     /// <param name="authorizationCode">The exchanged Authorization Code.</param>
@@ -103,6 +113,33 @@ public sealed class Grant
             SecurityStamp = authorizationCode.SecurityStamp,
             Scope = authorizationCode.Scope,
             AuthorizationCodeId = authorizationCode.Id,
+            CreatedAt = now,
+            ExpiresAt = now + lifetime
+        };
+    }
+
+    /// <summary>
+    ///     Creates a Grant of a Client for itself (<see cref="Enums.GrantTypes.ClientCredentials"/>), without a User.
+    ///     It ends with its only Access Token, so <paramref name="lifetime"/> is the Access Token lifetime.
+    /// </summary>
+    /// <param name="client">The Client that obtains the token.</param>
+    /// <param name="scopes">The granted Scope Names.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="lifetime">The lifetime of the Grant.</param>
+    /// <returns>The created Grant.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="lifetime"/> is not positive.</exception>
+    public static Grant CreateForClient(Client client, IEnumerable<string> scopes, DateTime now, TimeSpan lifetime)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(scopes);
+        UtcGuard.EnsureUtc(now);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
+
+        return new Grant
+        {
+            ClientId = client.Id,
+            Scope = ScopeList.Format(scopes),
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };

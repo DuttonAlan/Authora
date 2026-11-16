@@ -49,7 +49,7 @@ public sealed class Client
     /// </summary>
     public const GrantTypes DefaultGrantTypes = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken;
 
-    private const GrantTypes AllGrantTypes = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken;
+    private const GrantTypes AllGrantTypes = GrantTypes.AuthorizationCode | GrantTypes.RefreshToken | GrantTypes.ClientCredentials;
 
     private readonly List<ClientSecret> _secrets = [];
     private readonly List<RedirectUri> _redirectUris = [];
@@ -248,7 +248,8 @@ public sealed class Client
     /// <param name="grantTypes">The allowed Grant Types.</param>
     /// <exception cref="ArgumentException">
     ///     Thrown when no or unknown Grant Types are given, or <see cref="GrantTypes.RefreshToken"/> is given
-    ///     without <see cref="GrantTypes.AuthorizationCode"/>, which is the only way to obtain a first Refresh Token.
+    ///     without <see cref="GrantTypes.AuthorizationCode"/>, which is the only way to obtain a first Refresh Token, or
+    ///     <see cref="GrantTypes.ClientCredentials"/> is given for a Public Client, which cannot authenticate.
     /// </exception>
     public void SetAllowedGrantTypes(GrantTypes grantTypes)
     {
@@ -265,6 +266,12 @@ public sealed class Client
         if (grantTypes.HasFlag(GrantTypes.RefreshToken) && !grantTypes.HasFlag(GrantTypes.AuthorizationCode))
         {
             throw new DomainValidationException("The Refresh Token Grant Type requires the Authorization Code Grant Type.", nameof(grantTypes));
+        }
+
+        // A Public Client has no Secret, so anyone who knows its client_id could obtain tokens for it.
+        if (grantTypes.HasFlag(GrantTypes.ClientCredentials) && Type != ClientType.Confidential)
+        {
+            throw new DomainValidationException("Only Confidential Clients can use the Client Credentials Grant Type.", nameof(grantTypes));
         }
 
         AllowedGrantTypes = grantTypes;

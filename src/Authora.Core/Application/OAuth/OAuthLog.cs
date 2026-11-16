@@ -49,4 +49,7 @@ internal static partial class OAuthLog
 
     [LoggerMessage(EventId = 6013, Level = LogLevel.Information, Message = "Logout request of Client {ClientId} was rejected: {Error}")]
     public static partial void EndSessionRequestRejected(this ILogger logger, string clientId, string error);
+
+    [LoggerMessage(EventId = 6014, Level = LogLevel.Information, Message = "Grant {GrantId} with an Access Token was created for Client {ClientId} itself (client_credentials) with Scopes '{Scope}'.")]
+    public static partial void ClientCredentialsTokenIssued(this ILogger logger, Guid grantId, Guid clientId, string scope);
 }

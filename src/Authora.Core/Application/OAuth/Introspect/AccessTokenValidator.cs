@@ -12,7 +12,7 @@ namespace Authora.Core.Application.OAuth.Introspect;
 /// </summary>
 /// <remarks>
 ///     A token is only active if all of these hold: it exists, is not expired or revoked, its Grant is not revoked,
-///     its Client exists and is enabled, and its User can still sign in with the same Security Stamp.
+///     its Client exists and is enabled, and its User, if it has one, can still sign in with the same Security Stamp.
 /// </remarks>
 /// <param name="tokenRepository">An Instance of a ITokenRepository to load the token.</param>
 /// <param name="clientRepository">An Instance of a IClientRepository to check the Client.</param>
@@ -54,11 +54,15 @@ public sealed class AccessTokenValidator(
             return null;
         }
 
-        var user = await userRepository.GetUserById(grant.UserId, cancellationToken);
-
-        if (!TokenUserGuard.CanUse(user, grant.SecurityStamp))
+        // A token of the Client itself (client_credentials) has no User to check.
+        if (grant.UserId is { } userId)
         {
-            return null;
+            var user = await userRepository.GetUserById(userId, cancellationToken);
+
+            if (!TokenUserGuard.CanUse(user, grant.SecurityStamp))
+            {
+                return null;
+            }
         }
 
         return new ValidatedAccessToken(
@@ -78,7 +82,9 @@ public sealed class AccessTokenValidator(
 /// <param name="Id">Id of the Access Token.</param>
 /// <param name="GrantId">Id of the Grant the token belongs to.</param>
 /// <param name="ClientId">Id of the Client the token was issued to.</param>
-/// <param name="UserId">Id of the User, used as <c>sub</c>.</param>
+/// <param name="UserId">
+///     Id of the User, used as <c>sub</c>, or null for a token the Client obtained for itself (client_credentials).
+/// </param>
 /// <param name="Scopes">The Scope Names of the token.</param>
 /// <param name="IssuedAt">Point in time (UTC) when the token was issued.</param>
 /// <param name="ExpiresAt">Point in time (UTC) when the token expires.</param>
@@ -86,7 +92,13 @@ public sealed record ValidatedAccessToken(
     Guid Id,
     Guid GrantId,
     Guid ClientId,
-    Guid UserId,
+    Guid? UserId,
     IReadOnlyList<string> Scopes,
     DateTime IssuedAt,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt)
+{
+    /// <summary>
+    ///     The <c>sub</c> of the token: the User, or the Client if the token has no User.
+    /// </summary>
+    public string Subject => (UserId ?? ClientId).ToString();
+}
