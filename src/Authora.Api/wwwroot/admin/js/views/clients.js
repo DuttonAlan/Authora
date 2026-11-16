@@ -8,8 +8,13 @@ import { auditLink, confirmed, run } from './common.js';
 
 const grantTypes = [
     { value: 'authorization_code', label: 'Authorization Code' },
-    { value: 'refresh_token', label: 'Refresh Token' }
+    { value: 'refresh_token', label: 'Refresh Token' },
+    { value: 'client_credentials', label: 'Client Credentials – tokens for the Client itself, without a User (Confidential only)' }
 ];
+
+// Client Credentials is opt-in, and only Confidential Clients can use it.
+const defaultGrantTypes = ['authorization_code', 'refresh_token'];
+const grantTypesFor = type => type === 'Confidential' ? grantTypes : grantTypes.filter(grantType => grantType.value !== 'client_credentials');
 
 // A Secret is shown only once, right after it was created. It is kept here only until the page is left.
 let issuedSecret = null;
@@ -41,7 +46,7 @@ function statusBadge(status) {
 async function registerPanel(context) {
     const scopes = context.can('scopes.read') ? await api('GET', '/scopes') : [];
 
-    return panel('Register Client', form([
+    const element = form([
         { name: 'name', label: 'Name', required: true, maxLength: 100 },
         {
             name: 'type', label: 'Type', type: 'select', value: 'Public', options: [
@@ -49,7 +54,7 @@ async function registerPanel(context) {
                 { value: 'Confidential', label: 'Confidential – a server-side app with a Secret' }
             ]
         },
-        { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypes, value: grantTypes.map(grantType => grantType.value) },
+        { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypes, value: defaultGrantTypes },
         { name: 'redirectUris', label: 'Redirect URIs', type: 'textarea', help: 'One per line. HTTPS, or HTTP only for 127.0.0.1 and [::1].' },
         { name: 'postLogoutRedirectUris', label: 'Post-logout Redirect URIs', type: 'textarea', help: 'Optional. Where the application may send Users back after signing them out. One per line, same rules.' },
         { name: 'accessTokenTTL', label: 'Access Token lifetime (seconds)', type: 'number', min: 1, max: 86400, help: 'Defaults to 3600.' },
@@ -74,7 +79,24 @@ async function registerPanel(context) {
             issuedSecret = registered.secret ? { clientId: registered.id, secret: registered.secret.secret } : null;
             context.navigate(`/clients/${registered.id}`);
         }
-    }));
+    });
+
+    // Client Credentials is only for Confidential Clients: hide and clear it while Public is selected.
+    const type = element.querySelector('select[name="type"]');
+    const clientCredentials = element.querySelector('input[name="grantTypes"][value="client_credentials"]');
+    const showGrantTypes = () => {
+        const confidential = type.value === 'Confidential';
+        clientCredentials.closest('label').hidden = !confidential;
+
+        if (!confidential) {
+            clientCredentials.checked = false;
+        }
+    };
+
+    type.addEventListener('change', showGrantTypes);
+    showGrantTypes();
+
+    return panel('Register Client', element);
 }
 
 function lines(text) {
@@ -117,7 +139,7 @@ export async function detail(context, id) {
                 clientActions(context, client)),
             canUpdate ? panel('Edit', form([
                 { name: 'name', label: 'Name', required: true, value: client.name, maxLength: 100 },
-                { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypes, value: client.grantTypes },
+                { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypesFor(client.type), value: client.grantTypes },
                 { name: 'accessTokenTTL', label: 'Access Token lifetime (seconds)', type: 'number', min: 1, max: 86400, value: client.accessTokenTTL },
                 { name: 'refreshTokenTTL', label: 'Refresh Token lifetime (seconds)', type: 'number', min: 1, max: 7776000, value: client.refreshTokenTTL }
             ], 'Save', values => run(() => api('PUT', `/clients/${id}`, values), 'The Client was saved.', context))) : null),

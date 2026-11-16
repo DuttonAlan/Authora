@@ -36,7 +36,7 @@ public sealed class OAuthController(
     IntrospectTokenService introspectTokenService) : ControllerBase
 {
     /// <summary>
-    ///     The token endpoint. Exchanges an Authorization Code (with PKCE) or a Refresh Token for new tokens.
+    ///     The token endpoint. Exchanges an Authorization Code (with PKCE) or a Refresh Token for new tokens, or issues a Confidential Client an Access Token for itself (client_credentials).
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>200 OK with the tokens, or an OAuth error.</returns>

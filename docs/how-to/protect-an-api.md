@@ -67,11 +67,41 @@ Then, in the API:
 
 1. Reject the request with `401` if `active` is `false`.
 2. Reject it with `403` if `scope` does not contain the Scope the endpoint needs.
-3. Use `sub` (the User Id) to decide what this user may see; `client_id` tells you which application calls.
+3. Use `sub` (the User Id) to decide what this user may see; `client_id` tells you which application calls. If `sub` equals `client_id`, no user is involved: a service called with a token it obtained for itself (see [Call the API from a backend service](#call-the-api-from-a-backend-service)). Do not treat such a token as any user's.
 
 `scope` only contains the Scopes your API serves, even if the token has more.
 
 Many frameworks have a ready-made OAuth 2.0 introspection handler; configure it with the introspection endpoint, the Client Id and the Secret.
+
+## Call the API from a backend service
+
+A service without a user, e.g. a nightly job that reads orders, gets a token for itself with the Client Credentials Grant (`grant_type=client_credentials`).
+
+1. Register the service as a Client: **Clients** → **Register Client**, Type `Confidential`, no Redirect URIs. Under **Grant Types**, check only **Client Credentials**. Copy the Client Id and the Secret.
+2. In its **Scopes** panel, check **Allowed** for `orders.read`. Only Scopes you allow can be requested; System Scopes such as `openid` never can, because they need a user.
+3. Request a token with the service's credentials:
+
+   ```sh
+   curl https://auth.example.com/oauth/token \
+     -u "$REPORTS_JOB_CLIENT_ID:$REPORTS_JOB_SECRET" \
+     -d grant_type=client_credentials \
+     -d scope=orders.read
+   ```
+
+   ```json
+   {
+     "access_token": "…",
+     "token_type": "Bearer",
+     "expires_in": 3600,
+     "scope": "orders.read"
+   }
+   ```
+
+   There is no Refresh Token: request a new token when this one expires. Without `scope`, the token gets all Scopes the service is allowed.
+
+4. Call the API with `Authorization: Bearer <access_token>`. Introspection reports the service's Client Id as both `client_id` and `sub`.
+
+Each issued token is recorded in the audit log as `client.token-issued`. Disabling the Client invalidates its tokens immediately.
 
 ## Caching
 

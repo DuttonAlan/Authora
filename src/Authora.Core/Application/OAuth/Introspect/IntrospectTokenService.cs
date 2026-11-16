@@ -105,7 +105,7 @@ public sealed class IntrospectTokenService(
             Active: true,
             Scope: string.Join(' ', visibleScopes),
             ClientId: accessToken.ClientId.ToString(),
-            Subject: accessToken.UserId.ToString(),
+            Subject: accessToken.Subject,
             TokenType: Token.TokenResponse.BearerTokenType,
             ExpiresAt: ToUnixTime(accessToken.ExpiresAt),
             IssuedAt: ToUnixTime(accessToken.IssuedAt),
@@ -128,7 +128,14 @@ public sealed class IntrospectTokenService(
         }
 
         var grant = refreshToken.Grant;
-        var user = await userRepository.GetUserById(grant.UserId, cancellationToken);
+
+        // Only Grants of a User have Refresh Tokens; client_credentials issues none.
+        if (grant.UserId is not { } userId)
+        {
+            return null;
+        }
+
+        var user = await userRepository.GetUserById(userId, cancellationToken);
 
         if (!TokenUserGuard.CanUse(user, grant.SecurityStamp))
         {
@@ -139,7 +146,7 @@ public sealed class IntrospectTokenService(
             Active: true,
             Scope: grant.Scope,
             ClientId: grant.ClientId.ToString(),
-            Subject: grant.UserId.ToString(),
+            Subject: userId.ToString(),
             ExpiresAt: ToUnixTime(refreshToken.ExpiresAt),
             IssuedAt: ToUnixTime(refreshToken.CreatedAt),
             Issuer: options.Value.Issuer);

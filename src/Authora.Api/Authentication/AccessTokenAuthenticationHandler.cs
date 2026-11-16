@@ -66,9 +66,16 @@ public sealed class AccessTokenAuthenticationHandler(
             return AuthenticateResult.Fail("The Access Token is not active.");
         }
 
+        // Every Permission of the admin API belongs to a User. A token a Client obtained for itself (client_credentials)
+        // has none, so it is rejected here, not only by the missing authora.admin Scope.
+        if (accessToken.UserId is not { } userId)
+        {
+            return AuthenticateResult.Fail("The Access Token belongs to no User.");
+        }
+
         var claims = new List<Claim>
         {
-            new(AccessTokenClaimTypes.Subject, accessToken.UserId.ToString()),
+            new(AccessTokenClaimTypes.Subject, userId.ToString()),
             new(AccessTokenClaimTypes.ClientId, accessToken.ClientId.ToString())
         };
 

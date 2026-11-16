@@ -16,7 +16,8 @@ using Microsoft.Extensions.Options;
 namespace Authora.Core.Application.OAuth.Token;
 
 /// <summary>
-///     The Service behind the /token endpoint. Exchanges an Authorization Code or a Refresh Token for new tokens.
+///     The Service behind the /token endpoint. Exchanges an Authorization Code or a Refresh Token for new tokens, or
+///     issues an Access Token to a Confidential Client for itself (client_credentials).
 /// </summary>
 /// <param name="clientAuthenticator">The authenticator for the Client.</param>
 /// <param name="authorizationCodeRepository">An Instance of a IAuthorizationCodeRepository to load and consume codes.</param>
@@ -27,7 +28,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="idTokenIssuer">The issuer for ID Tokens.</param>
 /// <param name="secretHasher">The hasher to look up codes and tokens.</param>
 /// <param name="timeProvider">The TimeProvider for expiry checks and new tokens.</param>
-/// <param name="auditLog">The audit log to record attacks.</param>
+/// <param name="auditLog">The audit log to record attacks and tokens of Clients for themselves.</param>
 /// <param name="options">The OAuth settings with the lifetime of new Grants.</param>
 /// <param name="logger">The Logger to record issued tokens and attacks.</param>
 public sealed class IssueTokenService(
@@ -62,7 +63,7 @@ public sealed class IssueTokenService(
 
         if (!GrantTypeNames.TryParse(request.GrantType, out var grantType))
         {
-            throw new OAuthException(OAuthErrors.UnsupportedGrantType, "Only authorization_code and refresh_token are supported.");
+            throw new OAuthException(OAuthErrors.UnsupportedGrantType, "Only authorization_code, refresh_token and client_credentials are supported.");
         }
 
         var client = await clientAuthenticator.AuthenticateAsync(request.Credentials, cancellationToken);
@@ -78,9 +79,113 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.UnauthorizedClient, "The Client is not allowed to use this grant_type.");
         }
 
-        return grantType == GrantTypes.AuthorizationCode
-            ? await ExchangeAuthorizationCodeAsync(client, request, cancellationToken)
-            : await ExchangeRefreshTokenAsync(client, request, cancellationToken);
+        return grantType switch
+        {
+            GrantTypes.AuthorizationCode => await ExchangeAuthorizationCodeAsync(client, request, cancellationToken),
+            GrantTypes.RefreshToken => await ExchangeRefreshTokenAsync(client, request, cancellationToken),
+            _ => await IssueClientCredentialsTokenAsync(client, request, cancellationToken)
+        };
+    }
+
+    /// <summary>
+    ///     RFC 6749, Section 4.4: a Confidential Client obtains an Access Token for itself. The token has no User, no
+    ///     Refresh Token and no ID Token, and only Scopes the Client is allowed, never System Scopes: they all need a
+    ///     User (<c>openid</c>, <c>profile</c>, <c>email</c>, the admin API).
+    /// </summary>
+    private async Task<TokenResponse> IssueClientCredentialsTokenAsync(
+        Client client,
+        TokenRequest request,
+        CancellationToken cancellationToken)
+    {
+        // The Grant Type cannot be allowed for Public Clients; checked again, because they authenticate without a Secret.
+        if (client.Type != ClientType.Confidential)
+        {
+            throw new OAuthException(OAuthErrors.UnauthorizedClient, "Only Confidential Clients can use client_credentials.");
+        }
+
+        var scopes = GetClientCredentialsScopes(client, request.Scope);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        var grant = Grant.CreateForClient(client, scopes, now, TimeSpan.FromSeconds(client.AccessTokenTTL));
+        var tokens = tokenIssuer.Issue(grant, client, scopes, now);
+
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.TokenIssued, client.Id, GetTokenIssuedDetails(grant, scopes.Count)) with
+        {
+            ClientId = client.Id
+        });
+
+        await tokenRepository.CreateGrant(grant, tokens.AccessToken, tokens.RefreshToken, cancellationToken);
+
+        // The Client may have been disabled after the status check, see ExchangeAuthorizationCodeAsync.
+        if (await clientRepository.IsClientDisabled(client.Id, cancellationToken))
+        {
+            await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
+            logger.GrantRevokedForDisabledClient(grant.Id, client.Id);
+
+            throw new OAuthException(OAuthErrors.InvalidClient, "The Client is disabled.");
+        }
+
+        logger.ClientCredentialsTokenIssued(grant.Id, client.Id, grant.Scope);
+
+        return tokens.Response;
+    }
+
+    /// <summary>
+    ///     The Details of <see cref="AuditEventTypes.Clients.TokenIssued"/>. The Scopes come last and are shortened
+    ///     visibly, because a Scope list can be longer than <see cref="AuditEvent.DetailsMaxLength"/>.
+    /// </summary>
+    private static string GetTokenIssuedDetails(Grant grant, int scopeCount)
+    {
+        const string Shortened = "…' (shortened)";
+
+        var details = $"Grant {grant.Id}, expires at {grant.ExpiresAt:O}, {scopeCount} Scopes '{grant.Scope}'";
+
+        return details.Length <= AuditEvent.DetailsMaxLength
+            ? details
+            : string.Concat(details.AsSpan(0, AuditEvent.DetailsMaxLength - Shortened.Length), Shortened);
+    }
+
+    /// <summary>
+    ///     The requested Scopes, which must all be allowed and not System Scopes, or all allowed non-system Scopes if
+    ///     <c>scope</c> was omitted (RFC 6749, Section 3.3).
+    /// </summary>
+    private static IReadOnlyList<string> GetClientCredentialsScopes(Client client, string? scope)
+    {
+        var available = client.AllowedScopes
+            .Where(allowed => !allowed.IsSystem)
+            .Select(allowed => allowed.Name)
+            .ToList();
+
+        if (scope is null)
+        {
+            if (available.Count == 0)
+            {
+                throw new OAuthException(OAuthErrors.InvalidScope, "The Client is allowed no Scope it can request for itself.");
+            }
+
+            // Many long Scope Names can exceed what a Grant can store; parsed so this fails with invalid_scope.
+            return ScopeList.TryParse(string.Join(' ', available.Order(StringComparer.Ordinal)), out var defaults)
+                ? defaults
+                : throw new OAuthException(
+                    OAuthErrors.InvalidScope,
+                    $"The Scopes allowed for the Client are longer than {ScopeList.MaxLength} characters together. Request fewer with the scope parameter.");
+        }
+
+        if (!ScopeList.TryParse(scope, out var requested))
+        {
+            throw new OAuthException(OAuthErrors.InvalidScope, $"The scope parameter contains an invalid Scope or is longer than {ScopeList.MaxLength} characters.");
+        }
+
+        var notAvailable = requested.FirstOrDefault(name => !available.Contains(name, StringComparer.Ordinal));
+
+        if (notAvailable is not null)
+        {
+            throw new OAuthException(
+                OAuthErrors.InvalidScope,
+                $"The Scope {notAvailable} is not allowed for the Client, or needs a User and cannot be used with client_credentials.");
+        }
+
+        return requested;
     }
 
     private async Task<TokenResponse> ExchangeAuthorizationCodeAsync(
@@ -195,7 +300,7 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidClient, "The Client is disabled.");
         }
 
-        logger.GrantCreated(grant.Id, client.Id, grant.UserId, authorizationCode.Id);
+        logger.GrantCreated(grant.Id, client.Id, authorizationCode.UserId, authorizationCode.Id);
 
         // OpenID Connect Core 1.0, Section 3.1.3.3: an ID Token only for requests with openid that the Client may
         // still use. Not on refresh, which OpenID Connect leaves optional.
@@ -268,12 +373,18 @@ public sealed class IssueTokenService(
 
         var accessTokenScopes = GetScopesStillAllowed(client, scopes);
 
-        var user = await userRepository.GetUserById(grant.UserId, cancellationToken);
+        // Only Grants of a User have Refresh Tokens, so a missing User cannot occur; rejected anyway.
+        if (grant.UserId is not { } userId)
+        {
+            throw invalidToken;
+        }
+
+        var user = await userRepository.GetUserById(userId, cancellationToken);
 
         if (!TokenUserGuard.CanUse(user, grant.SecurityStamp))
         {
             await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
-            logger.GrantRevokedForUser(grant.Id, grant.UserId);
+            logger.GrantRevokedForUser(grant.Id, userId);
 
             throw invalidToken;
         }

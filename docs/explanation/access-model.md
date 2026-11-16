@@ -26,6 +26,8 @@ When the user approves, Authora creates a *Grant*: the record that this User all
 
 An API (resource server) is also registered as a Confidential Client and *serves* the Scopes it protects. It can only introspect tokens that contain a Scope it serves.
 
+A Confidential Client can also act for itself, without any user, if an administrator allows it the Grant Type *Client Credentials*: a backend service then gets a token with the Scopes it is allowed, and its Grant has no User. Such tokens never carry a user's identity (no `openid`, no UserInfo) and never reach the admin API. See [Protect an API](../how-to/protect-an-api.md#call-the-api-from-a-backend-service).
+
 So for applications, Authora decides **who the user is** and **which Scopes the application holds**. What the user may do inside the application, e.g. which orders they may see, is the application's decision, based on the User Id.
 
 ## Roles, Groups and Permissions: access to Authora

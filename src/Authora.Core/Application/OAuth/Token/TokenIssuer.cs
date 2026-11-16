@@ -47,7 +47,8 @@ public sealed class TokenIssuer(ISecretGenerator secretGenerator, ISecretHasher 
         string? refreshTokenValue = null;
         RefreshToken? refreshToken = null;
 
-        if (client.IsGrantTypeAllowed(GrantTypes.RefreshToken))
+        // Only Grants of a User get Refresh Tokens: a Client with client_credentials asks for a new token instead.
+        if (grant.HasUser && client.IsGrantTypeAllowed(GrantTypes.RefreshToken))
         {
             refreshTokenValue = secretGenerator.Generate();
             refreshToken = RefreshToken.Create(

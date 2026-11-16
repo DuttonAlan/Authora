@@ -214,6 +214,12 @@ public static class AuditEventTypes
 
         /// <summary>A Client must send PKCE again.</summary>
         public const string PkceRequired = "client.pkce-required";
+
+        /// <summary>
+        ///     A Client obtained an Access Token for itself with <c>grant_type=client_credentials</c>. The Details list
+        ///     the Grant, the Scopes and the expiry, never the token.
+        /// </summary>
+        public const string TokenIssued = "client.token-issued";
     }
 
     /// <summary>

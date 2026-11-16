@@ -30,6 +30,7 @@ public sealed class GrantConfiguration : IEntityTypeConfiguration<Grant>
 
         builder.Ignore(x => x.Scopes);
         builder.Ignore(x => x.IsRevoked);
+        builder.Ignore(x => x.HasUser);
 
         // Used to revoke the Grants of a reused Authorization Code and of a disabled Client.
         builder.HasIndex(x => x.AuthorizationCodeId);
@@ -40,9 +41,11 @@ public sealed class GrantConfiguration : IEntityTypeConfiguration<Grant>
             .HasForeignKey(x => x.ClientId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Optional: Grants of the Client Credentials Grant Type have no User.
         builder.HasOne<User>()
             .WithMany()
             .HasForeignKey(x => x.UserId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
 
         // AuthorizationCodeId has no foreign key on purpose: used and expired codes can be deleted

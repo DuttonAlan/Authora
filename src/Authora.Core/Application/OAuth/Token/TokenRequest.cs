@@ -14,7 +14,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="RedirectUri">The <c>redirect_uri</c> of the authorization request (<c>authorization_code</c> only).</param>
 /// <param name="CodeVerifier">The PKCE <c>code_verifier</c> (<c>authorization_code</c> only).</param>
 /// <param name="RefreshToken">The Refresh Token (<c>refresh_token</c> only).</param>
-/// <param name="Scope">The requested, possibly narrower Scopes (<c>refresh_token</c> only).</param>
+/// <param name="Scope">The requested Scopes: narrower ones for <c>refresh_token</c>, the token's Scopes for <c>client_credentials</c>.</param>
 /// <param name="Credentials">The credentials of the Client.</param>
 public sealed record TokenRequest(
     string? GrantType,

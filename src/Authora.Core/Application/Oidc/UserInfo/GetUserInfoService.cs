@@ -28,7 +28,7 @@ public sealed class GetUserInfoService(AccessTokenValidator accessTokenValidator
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The claims by name.</returns>
     /// <exception cref="OAuthException">
-    ///     Thrown with <see cref="OAuthErrors.InvalidToken"/> when the token is not active, or with
+    ///     Thrown with <see cref="OAuthErrors.InvalidToken"/> when the token is not active or has no User, or with
     ///     <see cref="OAuthErrors.InsufficientScope"/> when it lacks <see cref="OidcScopes.OpenId"/>.
     /// </exception>
     public async Task<IReadOnlyDictionary<string, object>> ExecuteAsync(
@@ -41,13 +41,19 @@ public sealed class GetUserInfoService(AccessTokenValidator accessTokenValidator
 
         var token = await accessTokenValidator.ValidateAsync(accessToken, cancellationToken) ?? throw invalidToken;
 
+        // A token a Client obtained for itself (client_credentials) has no User to describe.
+        if (token.UserId is not { } userId)
+        {
+            throw new OAuthException(OAuthErrors.InvalidToken, "The Access Token belongs to no User.");
+        }
+
         if (!token.Scopes.Contains(OidcScopes.OpenId))
         {
             throw new OAuthException(OAuthErrors.InsufficientScope, $"The Access Token must have the Scope {OidcScopes.OpenId}.");
         }
 
         // The validator checked the User, so this only fails if the User was deleted in the meantime.
-        var user = await userRepository.GetUserById(token.UserId, cancellationToken) ?? throw invalidToken;
+        var user = await userRepository.GetUserById(userId, cancellationToken) ?? throw invalidToken;
 
         return IdentityClaims.Get(user, token.Scopes);
     }
