@@ -42,7 +42,8 @@ cleanup() {
 }
 
 echo "==> Preparing keys and passwords"
-compose --profile runner down --volumes --remove-orphans > /dev/null 2>&1 || true
+# Removes a stack left by KEEP_RUNNING=1, whose database still has the previous run's passwords.
+compose --profile runner down --volumes --remove-orphans
 rm -rf .work
 mkdir -p .work/secrets .work/results .work/suite
 

@@ -1,5 +1,7 @@
 # Authora and the OpenID Foundation conformance suite side by side, for the Basic OP certification test plan.
 # Not for running Authora: start it through run.sh, which creates the keys in .work/ and drives the tests.
+# run.sh sets SUITE_VERSION and the passwords. The defaults below only let "down" work without them, e.g.
+#   docker compose --file tests/conformance/docker-compose.yml --profile runner down --volumes
 #
 #   Authora            https://authora:9443                  (also published on the host)
 #   Conformance suite  https://localhost.emobix.co.uk:8443   (published on the host; the name resolves to 127.0.0.1)
@@ -58,8 +60,8 @@ services:
       ConnectionStrings__Database: Host=db;Database=authora;Username=authora;Password=conformance
       Authora__OAuth__Issuer: https://authora:9443
       Authora__Oidc__SigningKeyPath: /run/authora/signing-key.pem
-      Authora__Bootstrap__Administrator__Email: ${AUTHORA_ADMIN_EMAIL:?Start through run.sh}
-      Authora__Bootstrap__Administrator__Password: ${AUTHORA_ADMIN_PASSWORD:?Start through run.sh}
+      Authora__Bootstrap__Administrator__Email: ${AUTHORA_ADMIN_EMAIL:-}
+      Authora__Bootstrap__Administrator__Password: ${AUTHORA_ADMIN_PASSWORD:-}
       # The suite signs in once or more per test, all from one IP address.
       Authora__RateLimiting__SignInPermitsPerMinute: "1000"
       Authora__RateLimiting__TokenPermitsPerMinute: "10000"
@@ -71,7 +73,7 @@ services:
     logging: *suite-logging
 
   server:
-    image: registry.gitlab.com/openid/conformance-suite:${SUITE_VERSION:?Start through run.sh}
+    image: registry.gitlab.com/openid/conformance-suite:${SUITE_VERSION:-latest}
     environment:
       BASE_URL: https://localhost.emobix.co.uk:8443
       BASE_MTLS_URL: https://localhost.emobix.co.uk:8444
@@ -87,7 +89,7 @@ services:
     logging: *suite-logging
 
   nginx:
-    image: registry.gitlab.com/openid/conformance-suite/nginx:${SUITE_VERSION:?Start through run.sh}
+    image: registry.gitlab.com/openid/conformance-suite/nginx:${SUITE_VERSION:-latest}
     ports:
       - "8443:8443"
     networks:
@@ -105,10 +107,10 @@ services:
     working_dir: /work
     environment:
       AUTHORA_ISSUER: https://authora:9443
-      AUTHORA_ADMIN_EMAIL: ${AUTHORA_ADMIN_EMAIL:?Start through run.sh}
-      AUTHORA_ADMIN_PASSWORD: ${AUTHORA_ADMIN_PASSWORD:?Start through run.sh}
+      AUTHORA_ADMIN_EMAIL: ${AUTHORA_ADMIN_EMAIL:-}
+      AUTHORA_ADMIN_PASSWORD: ${AUTHORA_ADMIN_PASSWORD:-}
       CONFORMANCE_USER_EMAIL: conformance@example.com
-      CONFORMANCE_USER_PASSWORD: ${CONFORMANCE_USER_PASSWORD:?Start through run.sh}
+      CONFORMANCE_USER_PASSWORD: ${CONFORMANCE_USER_PASSWORD:-}
       CONFORMANCE_SERVER: https://localhost.emobix.co.uk:8443/
       CONFORMANCE_DEV_MODE: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
