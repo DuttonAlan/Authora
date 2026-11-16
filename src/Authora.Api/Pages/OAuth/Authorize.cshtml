@@ -40,8 +40,8 @@ else
         }
 
         <div class="actions">
-            <button type="submit" name="decision" value="deny">Deny</button>
-            <button type="submit" name="decision" value="@Authora.Api.Pages.OAuth.AuthorizeModel.AllowDecision" class="primary">Allow</button>
+            <button type="submit" name="@Authora.Api.Pages.OAuth.AuthorizeModel.DecisionField" value="deny">Deny</button>
+            <button type="submit" name="@Authora.Api.Pages.OAuth.AuthorizeModel.DecisionField" value="@Authora.Api.Pages.OAuth.AuthorizeModel.AllowDecision" class="primary">Allow</button>
         </div>
     </form>
 }

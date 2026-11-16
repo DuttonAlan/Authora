@@ -17,7 +17,7 @@ public enum ClientType
 
     /// <summary>
     ///     The Client can keep a Secret confidential, e.g. a server-side web app.
-    ///     It must authenticate at the /token endpoint and also uses PKCE.
+    ///     It must authenticate at the /token endpoint and also uses PKCE, unless PKCE is made optional for it.
     /// </summary>
     Confidential = 1
 }

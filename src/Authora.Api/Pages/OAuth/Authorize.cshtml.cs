@@ -8,6 +8,7 @@ using Authora.Api.Authentication;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
 
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -38,12 +39,20 @@ namespace Authora.Api.Pages.OAuth;
 /// <param name="issueAuthorizationCodeService">The Service to issue the Authorization Code.</param>
 /// <param name="options">The OAuth settings with the Issuer.</param>
 /// <param name="timeProvider">The clock for <c>max_age</c>.</param>
+/// <param name="antiforgery">Validates the antiforgery token of the consent form.</param>
+[IgnoreAntiforgeryToken]
 public sealed class AuthorizeModel(
     ValidateAuthorizationRequestService validateAuthorizationRequestService,
     IssueAuthorizationCodeService issueAuthorizationCodeService,
     IOptions<OAuthOptions> options,
-    TimeProvider timeProvider) : PageModel
+    TimeProvider timeProvider,
+    IAntiforgery antiforgery) : PageModel
 {
+    /// <summary>
+    ///     Name of the consent form field with the pressed button. Only the consent form sends it.
+    /// </summary>
+    public const string DecisionField = "decision";
+
     /// <summary>
     ///     Value of the decision button to approve the request.
     /// </summary>
@@ -127,13 +136,25 @@ public sealed class AuthorizeModel(
     }
 
     /// <summary>
-    ///     Handles the decision of the User: issues an Authorization Code or sends <c>access_denied</c> to the Client.
+    ///     Handles the decision of the User on the consent screen: issues an Authorization Code or sends
+    ///     <c>access_denied</c> to the Client. A POST without a decision is an authorization request sent with POST
+    ///     (OpenID Connect Core 1.0, Section 3.1.2.1), which is redirected to the same request as GET.
     /// </summary>
-    /// <param name="decision">The pressed button: <see cref="AllowDecision"/> or anything else to deny.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A redirect to the Client, a redirect to the sign-in page, or the error.</returns>
-    public async Task<IActionResult> OnPostAsync(string? decision, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
+        if (!Request.HasFormContentType || !Request.Form.TryGetValue(DecisionField, out var decision))
+        {
+            return RedirectToGet();
+        }
+
+        // The page ignores antiforgery tokens, so that Clients can POST authorization requests; consent needs one.
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+        {
+            return BadRequest();
+        }
+
         var request = AuthorizationRequest.FromParameters(name => Request.Form[name].ToArray());
         var result = await validateAuthorizationRequestService.ExecuteAsync(request, cancellationToken);
 
@@ -168,6 +189,25 @@ public sealed class AuthorizeModel(
         }
 
         return await IssueCodeAsync(validated, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Sends an authorization request that came as POST to the same URL as GET, with all form fields as query
+    ///     parameters, including unknown and repeated ones, so it is validated exactly like a GET request.
+    /// </summary>
+    /// <remarks>
+    ///     A Client's form POST is a cross-site request, so the browser does not send the <c>SameSite=Lax</c> Session
+    ///     cookie with it, and a signed-in User would have to sign in again, or get <c>login_required</c> for
+    ///     <c>prompt=none</c>. The GET that follows the redirect is a top-level navigation and carries the cookie.
+    /// </remarks>
+    private StatusCodeResult RedirectToGet()
+    {
+        var fields = Request.HasFormContentType ? Request.Form : FormCollection.Empty;
+        var query = QueryString.Create(fields);
+
+        Response.Headers.Location = $"{Request.PathBase}{Request.Path}{query}";
+
+        return StatusCode(StatusCodes.Status303SeeOther);
     }
 
     /// <summary>

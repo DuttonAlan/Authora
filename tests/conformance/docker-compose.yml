@@ -1,0 +1,121 @@
+# Authora and the OpenID Foundation conformance suite side by side, for the Basic OP certification test plan.
+# Not for running Authora: start it through run.sh, which creates the keys in .work/ and drives the tests.
+#
+#   Authora            https://authora:9443                  (also published on the host)
+#   Conformance suite  https://localhost.emobix.co.uk:8443   (published on the host; the name resolves to 127.0.0.1)
+#
+# Inside this network, localhost.emobix.co.uk is an alias of the suite's nginx, so the suite's headless browser can
+# follow Authora's redirects back to it.
+
+name: authora-conformance
+
+x-suite-logging: &suite-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "1"
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: authora
+      POSTGRES_USER: authora
+      POSTGRES_PASSWORD: conformance
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authora -d authora"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    build:
+      context: ../..
+      target: migrator
+    image: authora-migrator:conformance
+    environment:
+      ConnectionStrings__Database: Host=db;Database=authora;Username=authora;Password=conformance
+    depends_on:
+      db:
+        condition: service_healthy
+
+  authora:
+    build:
+      context: ../..
+      target: runtime
+    image: authora:conformance
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "9443:9443"
+    environment:
+      # Production settings, except that Kestrel terminates TLS with the self-signed certificate from .work/secrets.
+      ASPNETCORE_URLS: https://+:9443
+      Kestrel__Certificates__Default__Path: /run/authora/tls.crt
+      Kestrel__Certificates__Default__KeyPath: /run/authora/tls.key
+      AllowedHosts: authora
+      ConnectionStrings__Database: Host=db;Database=authora;Username=authora;Password=conformance
+      Authora__OAuth__Issuer: https://authora:9443
+      Authora__Oidc__SigningKeyPath: /run/authora/signing-key.pem
+      Authora__Bootstrap__Administrator__Email: ${AUTHORA_ADMIN_EMAIL:?Start through run.sh}
+      Authora__Bootstrap__Administrator__Password: ${AUTHORA_ADMIN_PASSWORD:?Start through run.sh}
+      # The suite signs in once or more per test, all from one IP address.
+      Authora__RateLimiting__SignInPermitsPerMinute: "1000"
+      Authora__RateLimiting__TokenPermitsPerMinute: "10000"
+    volumes:
+      - ./.work/secrets:/run/authora:ro
+
+  mongodb:
+    image: mongo:6.0.13
+    logging: *suite-logging
+
+  server:
+    image: registry.gitlab.com/openid/conformance-suite:${SUITE_VERSION:?Start through run.sh}
+    environment:
+      BASE_URL: https://localhost.emobix.co.uk:8443
+      BASE_MTLS_URL: https://localhost.emobix.co.uk:8444
+      MONGODB_HOST: mongodb
+      # Development mode: the suite's API needs no sign-in.
+      SPRING_PROFILES_ACTIVE: dev
+      OIDC_GOOGLE_CLIENTID: unused
+      OIDC_GOOGLE_SECRET: unused
+      OIDC_GITLAB_CLIENTID: unused
+      OIDC_GITLAB_SECRET: unused
+    depends_on:
+      - mongodb
+    logging: *suite-logging
+
+  nginx:
+    image: registry.gitlab.com/openid/conformance-suite/nginx:${SUITE_VERSION:?Start through run.sh}
+    ports:
+      - "8443:8443"
+    networks:
+      default:
+        aliases:
+          - localhost.emobix.co.uk
+    depends_on:
+      - server
+    logging: *suite-logging
+
+  # Runs setup.py and the suite's run-test-plan.py inside this network. Started by run.sh only.
+  runner:
+    image: python:3.13-slim
+    profiles: [runner]
+    working_dir: /work
+    environment:
+      AUTHORA_ISSUER: https://authora:9443
+      AUTHORA_ADMIN_EMAIL: ${AUTHORA_ADMIN_EMAIL:?Start through run.sh}
+      AUTHORA_ADMIN_PASSWORD: ${AUTHORA_ADMIN_PASSWORD:?Start through run.sh}
+      CONFORMANCE_USER_EMAIL: conformance@example.com
+      CONFORMANCE_USER_PASSWORD: ${CONFORMANCE_USER_PASSWORD:?Start through run.sh}
+      CONFORMANCE_SERVER: https://localhost.emobix.co.uk:8443/
+      CONFORMANCE_DEV_MODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PIP_ROOT_USER_ACTION: ignore
+    volumes:
+      - ./:/conformance:ro
+      - ./.work:/work
+    depends_on:
+      - authora
+      - nginx

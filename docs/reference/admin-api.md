@@ -78,7 +78,7 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | Endpoint | Permission | Description |
 |---|---|---|
 | `GET /api/clients` | `clients.read` | List. |
-| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Scopes, Secrets (without values) and `isFirstParty`. |
+| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Scopes, Secrets (without values), `isFirstParty` and `isPkceOptional`. |
 | `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes`, `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
 | `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. |
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
@@ -86,6 +86,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `POST /api/clients/{id}/disable` | `clients.update` | Disable; revokes all its Grants. |
 | `PUT /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as first-party: no consent screen. |
 | `DELETE /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as third-party again. |
+| `PUT /api/clients/{id}/pkce-optional` | `clients.update` | Let a Confidential Client send authorization requests without PKCE; `400` for a Public Client. See [PKCE](oauth-endpoints.md#pkce). |
+| `DELETE /api/clients/{id}/pkce-optional` | `clients.update` | Require PKCE again. |
 | `POST /api/clients/{id}/redirect-uris` | `clients.update` | Add a Redirect URI (not while first-party). |
 | `DELETE /api/clients/{id}/redirect-uris` | `clients.update` | Remove a Redirect URI. |
 | `PUT /api/clients/{id}/scopes/{scopeId}` | `clients.update` | Allow a Scope (not while first-party). |

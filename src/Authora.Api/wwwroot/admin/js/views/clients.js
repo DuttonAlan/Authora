@@ -105,6 +105,7 @@ export async function detail(context, id) {
                     ['Client Id', h('code', { text: client.id })],
                     ['Status', statusBadge(client.status)],
                     ['Consent', client.isFirstParty ? badge('First-party: not asked') : 'Asked on every sign-in'],
+                    ['PKCE', client.isPkceOptional ? badge('Optional') : 'Required'],
                     ['Grant Types', client.grantTypes.join(', ')],
                     ['Access Token lifetime', `${client.accessTokenTTL} s`],
                     ['Refresh Token lifetime', `${client.refreshTokenTTL} s`],
@@ -134,6 +135,17 @@ function clientActions(context, client) {
                 }
             })
             : button('Enable', () => run(() => api('POST', `/clients/${client.id}/enable`), 'The Client was enabled.', context)));
+
+        // Public Clients always need PKCE; the server refuses to make it optional for them.
+        if (client.type === 'Confidential') {
+            actions.push(client.isPkceOptional
+                ? button('Require PKCE', () => run(() => api('DELETE', `/clients/${client.id}/pkce-optional`), 'PKCE is required again.', context))
+                : button('Make PKCE optional', () => {
+                    if (confirmed(`Make PKCE optional for ${client.name}? Only for OpenID Connect Clients that cannot send PKCE: they must send a nonce in every authorization request instead.`)) {
+                        run(() => api('PUT', `/clients/${client.id}/pkce-optional`), 'PKCE is optional for the Client.', context);
+                    }
+                }));
+        }
     }
 
     if (context.can('clients.manage-first-party')) {

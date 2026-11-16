@@ -40,6 +40,8 @@ There is no separate lint step. Analyzers and the `.editorconfig` style rules ru
 
 CI runs the build in Release, the tests, and a check that every model change has a migration. Your pull request must pass it.
 
+CI also runs the OpenID Foundation conformance suite against the container (`tests/conformance/run.sh`, needs only Docker, bash, curl and OpenSSL). It fails when a result differs from `tests/conformance/expected-*.json`, also when a recorded warning disappears; then update the file. See [Run the conformance tests](docs/how-to/run-the-conformance-tests.md).
+
 ## Project structure
 
 ```

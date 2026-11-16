@@ -32,9 +32,12 @@ dotnet ef migrations has-pending-model-changes --project src/Authora.Infrastruct
 docker build --target runtime -t authora .
 docker build --target migrator -t authora-migrator .
 docker compose up --build   # local stack on https://localhost:8443; needs .env and secrets/, see docs/tutorials/getting-started.md
+
+# OpenID conformance suite, Basic OP plan, against the container (bash; Docker, curl, OpenSSL). Same as .github/workflows/conformance.yml
+bash tests/conformance/run.sh                  # KEEP_RUNNING=1 keeps the suite's UI at https://localhost.emobix.co.uk:8443
 ```
 
-There is no separate lint step: analyzers and `.editorconfig` style rules run on build and fail it. CI (`.github/workflows/build.yml`) runs restore, Release build, tests and `has-pending-model-changes`, so every model change needs a migration.
+There is no separate lint step: analyzers and `.editorconfig` style rules run on build and fail it. CI (`.github/workflows/build.yml`) runs restore, Release build, tests and `has-pending-model-changes`, so every model change needs a migration. `conformance.yml` runs the OpenID conformance suite's Basic OP plan (`tests/conformance/`) and fails on any result not recorded in `tests/conformance/expected-*.json`, so a change to OIDC behaviour may need an update there.
 
 Local setup: the API does **not** apply migrations at startup (run `database update` first), and it needs an RSA signing key for ID Tokens at `Authora:Oidc:SigningKeyPath` (`signing-key.pem` in Development; `*.pem` is git-ignored):
 

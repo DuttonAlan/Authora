@@ -14,7 +14,10 @@ namespace Authora.Core.Application.OAuth.Authorize;
 /// <param name="RequestedRedirectUri">The <c>redirect_uri</c> as sent, or null if it was omitted.</param>
 /// <param name="Scopes">The requested Scopes, in the requested order.</param>
 /// <param name="State">The <c>state</c> to return unchanged, or null.</param>
-/// <param name="CodeChallenge">The PKCE code challenge (method <c>S256</c>).</param>
+/// <param name="CodeChallenge">
+///     The PKCE code challenge (method <c>S256</c>), or null if the Client may omit PKCE and did, see
+///     <see cref="Client.IsPkceOptional"/>.
+/// </param>
 /// <param name="Nonce">The <c>nonce</c> to return in the ID Token, or null.</param>
 /// <param name="Prompts">The supported values of <c>prompt</c>, see <see cref="PromptValues"/>.</param>
 /// <param name="MaxAge">The <c>max_age</c>: how long ago the User may have signed in at most, or null.</param>
@@ -24,7 +27,7 @@ public sealed record ValidatedAuthorizationRequest(
     string? RequestedRedirectUri,
     IReadOnlyList<Scope> Scopes,
     string? State,
-    string CodeChallenge,
+    string? CodeChallenge,
     string? Nonce,
     IReadOnlySet<string> Prompts,
     TimeSpan? MaxAge)

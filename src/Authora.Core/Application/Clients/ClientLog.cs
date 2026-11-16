@@ -60,4 +60,10 @@ internal static partial class ClientLog
 
     [LoggerMessage(EventId = 4016, Level = LogLevel.Information, Message = "Client {ClientId} ({ClientName}) was marked as third-party.")]
     public static partial void ClientMarkedThirdParty(this ILogger logger, Guid clientId, string clientName);
+
+    [LoggerMessage(EventId = 4017, Level = LogLevel.Warning, Message = "PKCE was made optional for Client {ClientId} ({ClientName}). It may send authorization requests without code_challenge.")]
+    public static partial void ClientPkceMadeOptional(this ILogger logger, Guid clientId, string clientName);
+
+    [LoggerMessage(EventId = 4018, Level = LogLevel.Information, Message = "PKCE is required again for Client {ClientId} ({ClientName}).")]
+    public static partial void ClientPkceRequired(this ILogger logger, Guid clientId, string clientName);
 }

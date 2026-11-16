@@ -18,7 +18,7 @@ hero:
 features:
   - icon: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/><path d="M4 12h10"/><path d="m10 8 4 4-4 4"/></svg>'
     title: OAuth 2.1 and OpenID Connect
-    details: Authorization Code flow with mandatory PKCE, rotating Refresh Tokens with reuse detection, ID Tokens, UserInfo, discovery, revocation and introspection.
+    details: Authorization Code flow with PKCE required by default, rotating Refresh Tokens with reuse detection, ID Tokens, UserInfo, discovery, revocation and introspection.
     link: /reference/standards
     linkText: Supported standards
   - icon: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4"/><path d="M18 14.5c1.8.9 3 2.9 3 5.5"/></svg>'

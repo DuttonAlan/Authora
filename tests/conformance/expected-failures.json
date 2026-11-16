@@ -1,0 +1,56 @@
+[
+    {
+        "test-name": "oidcc-userinfo-post-body",
+        "variant": "*",
+        "configuration-filename": "*",
+        "current-block": "",
+        "condition": "UserInfoEndpointWithAccessTokenInBodyNotSupported",
+        "expected-result": "warning",
+        "comment": "UserInfo accepts the Access Token only in the Authorization header. The body (RFC 6750, Section 2.2) is optional and not supported."
+    },
+    {
+        "test-name": "oidcc-scope-profile",
+        "variant": "*",
+        "configuration-filename": "*",
+        "current-block": "",
+        "condition": "VerifyScopesReturnedInUserInfoClaims",
+        "expected-result": "warning",
+        "comment": "Users only have first and last names, so the profile Scope returns name, given_name and family_name, none of the other profile claims."
+    },
+    {
+        "test-name": "oidcc-scope-email",
+        "variant": "*",
+        "configuration-filename": "*",
+        "current-block": "Verify authorization endpoint response",
+        "condition": "EnsureIdTokenDoesNotContainEmailForScopeEmail",
+        "expected-result": "warning",
+        "comment": "By design, ID Tokens contain the same claims as UserInfo for the approved Scopes (docs/reference/openid-connect.md), so Clients need no UserInfo call. The specifications allow it."
+    },
+    {
+        "test-name": "oidcc-alternate-happy-flow",
+        "variant": "*",
+        "configuration-filename": "*",
+        "current-block": "Verify authorization endpoint response",
+        "condition": "EnsureIdTokenDoesNotContainEmailForScopeEmail",
+        "expected-result": "warning",
+        "comment": "As for oidcc-scope-email: ID Tokens contain the claims of the approved Scopes by design."
+    },
+    {
+        "test-name": "oidcc-ensure-request-with-acr-values-succeeds",
+        "variant": "*",
+        "configuration-filename": "*",
+        "current-block": "Verify authorization endpoint response",
+        "condition": "ValidateIdTokenACRClaimAgainstAcrValuesRequest",
+        "expected-result": "warning",
+        "comment": "acr_values is ignored and ID Tokens have no acr claim; planned with multi-factor authentication."
+    },
+    {
+        "test-name": "oidcc-claims-essential",
+        "variant": "*",
+        "configuration-filename": "*",
+        "current-block": "",
+        "condition": "EnsureUserInfoContainsName",
+        "expected-result": "warning",
+        "comment": "The claims parameter is not supported (claims_parameter_supported is false), so name is only returned with the profile Scope."
+    }
+]

@@ -17,7 +17,7 @@ namespace Authora.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -155,7 +155,6 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("CodeChallenge")
-                        .IsRequired()
                         .HasMaxLength(43)
                         .HasColumnType("character varying(43)");
 
@@ -224,6 +223,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsFirstParty")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPkceOptional")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("ModifiedAt")

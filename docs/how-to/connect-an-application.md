@@ -27,7 +27,7 @@ For a Confidential Client, Authora shows the **Client Secret once**, right after
 | Client Secret | Confidential Clients only. Sent as `client_secret_basic` or `client_secret_post`. |
 | Response type | `code` |
 | Response mode | `query` (the only one Authora supports) |
-| PKCE | Required, method `S256` |
+| PKCE | Required, method `S256`. Only if the library cannot send it: an administrator can make it optional for a Confidential Client, which must then check the `nonce` (see [PKCE](../reference/oauth-endpoints.md#pkce)). |
 | Scopes | e.g. `openid profile email` |
 | ID Token signature | `RS256` |
 
@@ -114,7 +114,7 @@ Sign in through your application. The first time, Authora shows a consent screen
 | `error=invalid_scope` at the Redirect URI | The application asked for a Scope that is not allowed for the Client. |
 | `error=invalid_request` mentioning PKCE | `code_challenge` missing, or the method is not `S256`. |
 | `invalid_client` from `/oauth/token` | Wrong or expired Secret, or both `client_secret_basic` and `client_secret_post` sent. |
-| `invalid_grant` from `/oauth/token` | The code expired (after 1 minute), was already used, or the `code_verifier` or `redirect_uri` does not match. |
+| `invalid_grant` from `/oauth/token` | The code expired (after 1 minute), was already used, or the `code_verifier` or `redirect_uri` does not match. A `code_verifier` sent for a code requested without `code_challenge` is rejected too. |
 | Sign-in page error about cookies or antiforgery | Authora is reached over HTTP, or a proxy is not trusted; see [Configure a reverse proxy](configure-a-reverse-proxy.md). |
 
 The exact rules for each parameter are in the [OAuth endpoints reference](../reference/oauth-endpoints.md).
