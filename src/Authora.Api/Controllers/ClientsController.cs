@@ -20,6 +20,7 @@ using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
 using Authora.Core.Application.Clients.SetFirstParty;
+using Authora.Core.Application.Clients.SetPkceOptional;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
@@ -47,6 +48,7 @@ namespace Authora.Api.Controllers;
 /// <param name="revokeClientSecretService">The Service to revoke a Secret.</param>
 /// <param name="serveScopeService">The Service to serve a Scope as a resource server.</param>
 /// <param name="setFirstPartyService">The Service to mark the Client as first-party or third-party.</param>
+/// <param name="setPkceOptionalService">The Service to make PKCE optional for the Client or require it again.</param>
 /// <param name="stopServingScopeService">The Service to stop serving a Scope.</param>
 /// <param name="updateClientService">The Service to update the Client.</param>
 [ApiController]
@@ -68,6 +70,7 @@ public sealed class ClientsController(
     RevokeClientSecretService revokeClientSecretService,
     ServeScopeService serveScopeService,
     SetFirstPartyService setFirstPartyService,
+    SetPkceOptionalService setPkceOptionalService,
     StopServingScopeService stopServingScopeService,
     UpdateClientService updateClientService) : ControllerBase
 {
@@ -313,6 +316,64 @@ public sealed class ClientsController(
         CancellationToken cancellationToken)
     {
         await setFirstPartyService.ExecuteAsync(id, isFirstParty: false, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Lets a Confidential Client send authorization requests without PKCE.
+    /// </summary>
+    /// <remarks>
+    ///     Only for OpenID Connect Clients that cannot send PKCE: they must protect their Authorization Codes with the
+    ///     <c>nonce</c> instead (OAuth 2.1, Section 7.5.1). A request that does send PKCE is still checked, and a
+    ///     code issued without PKCE is rejected if the token request contains a <c>code_verifier</c>. Public Clients
+    ///     always need PKCE. Making PKCE optional for a Client for which it already is also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once PKCE is optional for the Client.</returns>
+    /// <response code="204">Responds with no content once PKCE is optional for the Client.</response>
+    /// <response code="400">Responds with problem details if the Client is a Public Client.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpPut("{id:guid}/pkce-optional")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
+    public async Task<IActionResult> MakePkceOptional(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await setPkceOptionalService.ExecuteAsync(id, isPkceOptional: true, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Requires PKCE again for every authorization request of the Client.
+    /// </summary>
+    /// <remarks>
+    ///     Authorization Codes the Client obtained without PKCE before can no longer be exchanged. Requiring PKCE for
+    ///     a Client that already requires it also succeeds.
+    /// </remarks>
+    /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Client requires PKCE.</returns>
+    /// <response code="204">Responds with no content once the Client requires PKCE.</response>
+    /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/pkce-optional")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Clients.Update)]
+    public async Task<IActionResult> RequirePkce(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await setPkceOptionalService.ExecuteAsync(id, isPkceOptional: false, cancellationToken);
 
         return NoContent();
     }

@@ -61,6 +61,7 @@ public sealed class GetClientService(
             client.Type,
             client.Status,
             client.IsFirstParty,
+            client.IsPkceOptional,
             GrantTypeNames.ToNames(client.AllowedGrantTypes),
             client.AccessTokenTTL,
             client.RefreshTokenTTL,

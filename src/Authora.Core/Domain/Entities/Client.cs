@@ -136,6 +136,20 @@ public sealed class Client
     public bool IsFirstParty { get; private set; }
 
     /// <summary>
+    ///     Whether the Client may send authorization requests without PKCE. Defaults to <see langword="false"/>: every
+    ///     request must contain a <c>code_challenge</c>. Only Confidential Clients can be exempted (OAuth 2.1,
+    ///     Section 7.5.1), for OpenID Connect Clients that protect the code with the <c>nonce</c> instead. A request
+    ///     that does send PKCE is still checked. Set via <see cref="SetPkceOptional(bool)"/>.
+    /// </summary>
+    public bool IsPkceOptional { get; private set; }
+
+    /// <summary>
+    ///     Whether authorization requests of the Client must contain PKCE: always for Public Clients, and for
+    ///     Confidential Clients unless <see cref="IsPkceOptional"/> is set.
+    /// </summary>
+    public bool RequiresPkce => Type == ClientType.Public || !IsPkceOptional;
+
+    /// <summary>
     ///     Point in time (UTC) when the Client was created.
     /// </summary>
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -285,6 +299,24 @@ public sealed class Client
     public void SetFirstParty(bool isFirstParty)
     {
         IsFirstParty = isFirstParty;
+    }
+
+    /// <summary>
+    ///     Lets the Client send authorization requests without PKCE, or requires PKCE again.
+    /// </summary>
+    /// <param name="isPkceOptional">True to accept requests without a <c>code_challenge</c>.</param>
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when PKCE should become optional for a Public Client: without a Secret, PKCE is the only protection
+    ///     of its Authorization Codes.
+    /// </exception>
+    public void SetPkceOptional(bool isPkceOptional)
+    {
+        if (isPkceOptional && Type != ClientType.Confidential)
+        {
+            throw new DomainValidationException("PKCE can only be made optional for Confidential Clients.", nameof(isPkceOptional));
+        }
+
+        IsPkceOptional = isPkceOptional;
     }
 
     /// <summary>

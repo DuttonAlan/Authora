@@ -93,12 +93,8 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidRequest, "The code parameter is required.");
         }
 
-        if (string.IsNullOrEmpty(request.CodeVerifier))
-        {
-            throw new OAuthException(OAuthErrors.InvalidRequest, "PKCE is required: the code_verifier parameter is missing.");
-        }
-
-        if (!Pkce.IsValidCodeVerifier(request.CodeVerifier))
+        // Whether the code_verifier is required depends on the code, so a missing one is only rejected below.
+        if (!string.IsNullOrEmpty(request.CodeVerifier) && !Pkce.IsValidCodeVerifier(request.CodeVerifier))
         {
             throw new OAuthException(OAuthErrors.InvalidRequest, "The code_verifier must be 43 to 128 unreserved characters.");
         }
@@ -141,9 +137,28 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidGrant, "The redirect_uri does not match the authorization request.");
         }
 
-        if (!Pkce.Verify(request.CodeVerifier, authorizationCode.CodeChallenge))
+        if (authorizationCode.CodeChallenge is not null)
         {
-            throw new OAuthException(OAuthErrors.InvalidGrant, "The code_verifier does not match the code_challenge.");
+            if (string.IsNullOrEmpty(request.CodeVerifier))
+            {
+                throw new OAuthException(OAuthErrors.InvalidRequest, "PKCE is required: the code_verifier parameter is missing.");
+            }
+
+            if (!Pkce.Verify(request.CodeVerifier, authorizationCode.CodeChallenge))
+            {
+                throw new OAuthException(OAuthErrors.InvalidGrant, "The code_verifier does not match the code_challenge.");
+            }
+        }
+        else if (!string.IsNullOrEmpty(request.CodeVerifier))
+        {
+            // OAuth 2.1, Section 4.1.3: a code_verifier for a code issued without code_challenge must be rejected, or an
+            // attacker could inject a code obtained without PKCE into a flow that uses it (PKCE downgrade).
+            throw new OAuthException(OAuthErrors.InvalidGrant, "The authorization request contained no code_challenge.");
+        }
+        else if (client.RequiresPkce)
+        {
+            // PKCE was made required again after the code was issued.
+            throw new OAuthException(OAuthErrors.InvalidGrant, "PKCE is required, but the authorization request contained no code_challenge.");
         }
 
         var user = await userRepository.GetUserById(authorizationCode.UserId, cancellationToken);

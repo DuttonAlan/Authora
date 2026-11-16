@@ -86,6 +86,7 @@ export default defineConfig({
           { text: 'Rotate signing keys', link: '/how-to/rotate-signing-keys' },
           { text: 'Back up and restore', link: '/how-to/back-up-and-restore' },
           { text: 'Run Authora from source', link: '/how-to/run-from-source' },
+          { text: 'Run the conformance tests', link: '/how-to/run-the-conformance-tests' },
         ],
       },
       {

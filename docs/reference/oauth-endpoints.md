@@ -5,7 +5,7 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | Endpoint | Called by | Purpose |
 |---|---|---|
 | `GET /oauth/authorize` | Browser | Authorization endpoint. |
-| `POST /oauth/authorize` | Browser | Submits the consent form. Not called by Clients. |
+| `POST /oauth/authorize` | Browser | Submits the consent form. A POST without the consent form's fields is an authorization request sent as a form, see below. |
 | `POST /oauth/token` | Client | Token endpoint: `authorization_code` and `refresh_token`. |
 | `POST /oauth/revoke` | Client | Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)). |
 | `POST /oauth/introspect` | Resource server | Introspection ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)). |
@@ -30,15 +30,15 @@ A disabled Client cannot obtain tokens, but can still revoke its tokens.
 
 ## Authorization request
 
-`GET /oauth/authorize`
+`GET /oauth/authorize`, or `POST /oauth/authorize` with the parameters as a form (OpenID Connect Core 1.0, Section 3.1.2.1). A POST is answered with a `303 See Other` redirect to the same request as GET: the browser leaves the Session cookie out of a cross-site POST, but sends it with the GET. The parameters then appear in the URL, like those of a GET request.
 
 | Parameter | Rule |
 |---|---|
 | `client_id` | Required. Unknown or disabled Clients are rejected on an error page. |
 | `redirect_uri` | Must exactly match a registered Redirect URI. May be omitted only if exactly one is registered. A wrong value is shown as an error and never redirected to. |
 | `response_type` | Required, must be `code`. |
-| `code_challenge` | Required. Base64url-encoded SHA-256 hash of the code verifier. |
-| `code_challenge_method` | Required, must be `S256`. `plain` is rejected. |
+| `code_challenge` | Required, unless PKCE is optional for the Client (see [PKCE](#pkce)). Base64url-encoded SHA-256 hash of the code verifier. |
+| `code_challenge_method` | Required with `code_challenge`, must be `S256`. `plain` is rejected. |
 | `scope` | Required. Space-separated; every Scope must be allowed for the Client. |
 | `state` | Optional. Returned unchanged. |
 | `response_mode` | Optional. Only `query`. |
@@ -57,6 +57,15 @@ A disabled Client cannot obtain tokens, but can still revoke its tokens.
 
 Marking a Client as first-party needs the Permission `clients.manage-first-party`. While a Client is first-party, no Redirect URI and no Scope can be added to it (`409 Conflict`). See [Security model](../explanation/security-model.md#first-party-clients).
 
+### PKCE
+
+Every Client must send PKCE by default. An administrator can make it optional for a Confidential Client (`PUT /api/clients/{id}/pkce-optional`, Permission `clients.update`), for OpenID Connect libraries that do not send it. Such a Client must protect its codes with the `nonce` instead (OAuth 2.1, Section 7.5.1), which Authora does not enforce. Public Clients always need PKCE.
+
+| Authorization request of a Client with optional PKCE | Token request |
+|---|---|
+| With `code_challenge` | Checked as for any other Client: `code_verifier` required and must match. |
+| Without `code_challenge` | `code_verifier` must not be sent (`invalid_grant`), so a code obtained without PKCE cannot be injected into a flow that uses it. If PKCE was required again in the meantime, the code is rejected (`invalid_grant`). |
+
 ### Response
 
 A `303 See Other` redirect to the Redirect URI with `code`, `state` (if sent) and `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)).
@@ -72,7 +81,7 @@ Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsuppo
 | Parameter | Rule |
 |---|---|
 | `code` | Required. Single use; valid for `Authora:OAuth:AuthorizationCodeLifetime` (1 minute). |
-| `code_verifier` | Required. Must match the `code_challenge`. |
+| `code_verifier` | Required if the authorization request had a `code_challenge`, and must match it. Otherwise must not be sent, see [PKCE](#pkce). |
 | `redirect_uri` | Required if it was sent in the authorization request, and then identical. |
 | Client authentication | See above. Must be the Client the code was issued to. |
 

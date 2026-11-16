@@ -47,6 +47,11 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
         builder.Property(x => x.IsFirstParty)
             .IsRequired();
 
+        builder.Property(x => x.IsPkceOptional)
+            .IsRequired();
+
+        builder.Ignore(x => x.RequiresPkce);
+
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 

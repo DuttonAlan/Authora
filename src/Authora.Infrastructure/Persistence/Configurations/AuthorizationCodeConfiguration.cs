@@ -45,7 +45,6 @@ public sealed class AuthorizationCodeConfiguration : IEntityTypeConfiguration<Au
             .HasMaxLength(Schemas.ScopeMaxLength);
 
         builder.Property(x => x.CodeChallenge)
-            .IsRequired()
             .HasMaxLength(Pkce.CodeChallengeLength);
 
         builder.Property(x => x.Nonce)

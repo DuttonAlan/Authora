@@ -196,6 +196,12 @@ public static class AuditEventTypes
 
         /// <summary>A Client was marked as third-party again, so Users are asked for consent.</summary>
         public const string MarkedThirdParty = "client.marked-third-party";
+
+        /// <summary>A Confidential Client may now send authorization requests without PKCE.</summary>
+        public const string PkceMadeOptional = "client.pkce-made-optional";
+
+        /// <summary>A Client must send PKCE again.</summary>
+        public const string PkceRequired = "client.pkce-required";
     }
 
     /// <summary>

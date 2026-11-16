@@ -27,6 +27,7 @@ Running Authora:
 - [Rotate signing keys](how-to/rotate-signing-keys.md)
 - [Back up and restore](how-to/back-up-and-restore.md)
 - [Run Authora from source](how-to/run-from-source.md)
+- [Run the conformance tests](how-to/run-the-conformance-tests.md)
 
 Using Authora:
 

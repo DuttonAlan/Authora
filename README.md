@@ -4,6 +4,7 @@
 
 [![Build](https://github.com/DuttonAlan/Authora/actions/workflows/build.yml/badge.svg)](https://github.com/DuttonAlan/Authora/actions/workflows/build.yml)
 [![CodeQL](https://github.com/DuttonAlan/Authora/actions/workflows/codeql.yml/badge.svg)](https://github.com/DuttonAlan/Authora/actions/workflows/codeql.yml)
+[![OpenID conformance: Basic OP](https://github.com/DuttonAlan/Authora/actions/workflows/conformance.yml/badge.svg)](docs/reference/standards.md#conformance-testing)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
 
 Authora is a lightweight, self-hosted **identity and access management (IAM)** server for small projects and applications: an **OAuth 2.1** authorization server and **OpenID Connect** provider with an admin interface, built on .NET 10 and PostgreSQL.
@@ -14,7 +15,7 @@ Your applications let users sign in through Authora instead of each building the
 
 ## Features
 
-- 🔐 **OAuth 2.1 and OpenID Connect**: Authorization Code flow with mandatory PKCE, rotating Refresh Tokens with reuse detection, ID Tokens, UserInfo, discovery, revocation and introspection
+- 🔐 **OAuth 2.1 and OpenID Connect**: Authorization Code flow with PKCE required by default, rotating Refresh Tokens with reuse detection, ID Tokens, UserInfo, discovery, revocation and introspection
 - 👤 **Users, Groups and Roles**: manage who may administer Authora, with fine-grained Permissions
 - 🔑 **Applications**: register public and confidential Clients with exact Redirect URIs, allowed Scopes and expiring Secrets
 - 🖥️ **Admin interface** at `/admin`, which never exposes tokens to the browser
@@ -55,6 +56,8 @@ The [documentation](docs/README.md), also on the website at <https://authora.ala
 ## Supported standards
 
 OAuth 2.1 (Authorization Code with PKCE, Refresh Tokens), RFC 7636 (PKCE, `S256`), RFC 7009 (revocation), RFC 7662 (introspection), RFC 9207 (`iss` in the authorization response), OpenID Connect Core 1.0 and Discovery 1.0. Details: [Standards and limitations](docs/reference/standards.md).
+
+The OpenID Foundation's conformance suite runs its **Basic OP** test plan against every pull request; no test fails, and the documented warnings and skips are listed in [Conformance testing](docs/reference/standards.md#conformance-testing). Authora is not certified.
 
 ## Roadmap
 

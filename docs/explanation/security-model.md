@@ -47,7 +47,11 @@ Access Tokens carry no data and are checked against the database on every use, s
 
 ### PKCE for everyone, exact Redirect URIs
 
-Every Client must use PKCE with `S256`, Confidential Clients included. Redirect URIs must match a registered URI exactly; there are no wildcards or prefix matches. An invalid Redirect URI is shown as an error and never redirected to, so Authora cannot be used as an open redirector. The authorization response includes `iss`, so Clients can detect mix-up attacks.
+Every Client must use PKCE with `S256`, Confidential Clients included. PKCE protects a code that leaks, e.g. through a log or a malicious app on the device, from being redeemed by someone else, and from being injected into another user's sign-in.
+
+An administrator can make PKCE optional for a single Confidential Client, for OpenID Connect libraries that do not send it; the OpenID conformance suite's Basic OP tests are one such Client. OAuth 2.1 (Section 7.5.1) allows this for Confidential Clients that check the `nonce` in the ID Token, which stops code injection, while the Secret stops others from redeeming the code. It stays an exception: Public Clients always need PKCE, a request that does send PKCE is checked in full, and a `code_verifier` for a code issued without PKCE is rejected, so an attacker cannot downgrade a flow that uses PKCE.
+
+Redirect URIs must match a registered URI exactly; there are no wildcards or prefix matches. An invalid Redirect URI is shown as an error and never redirected to, so Authora cannot be used as an open redirector. The authorization response includes `iss`, so Clients can detect mix-up attacks.
 
 ### Reuse revokes everything
 

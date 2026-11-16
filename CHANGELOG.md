@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - Website with the documentation at <https://authora.alandutton.de/>, built from `docs/`.
+- The OpenID Foundation conformance suite's Basic OP test plan runs against the container on every pull request (`.github/workflows/conformance.yml`, `tests/conformance/`); deviations from the recorded results fail the build. See [Run the conformance tests](docs/how-to/run-the-conformance-tests.md).
+- PKCE can be made optional for a single Confidential Client, for OpenID Connect libraries that do not send it: `PUT`/`DELETE /api/clients/{id}/pkce-optional` (Permission `clients.update`), *Make PKCE optional* in the admin interface, `isPkceOptional` in the Client details, audit events `client.pkce-made-optional` and `client.pkce-required`, log events 4017 and 4018. PKCE stays required by default and for Public Clients, and existing Clients keep requiring it. A `code_verifier` for a code requested without `code_challenge` is rejected, so a flow that uses PKCE cannot be downgraded.
+- Authorization requests sent with `POST /oauth/authorize` as a form (OpenID Connect Core 1.0, Section 3.1.2.1). They are redirected to the same request as GET, so a signed-in User is recognized. Before, they failed with `400 Bad Request`.
 
 ### Changed
 

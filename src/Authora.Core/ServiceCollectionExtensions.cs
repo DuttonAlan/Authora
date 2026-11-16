@@ -25,6 +25,7 @@ using Authora.Core.Application.Clients.Register;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
 using Authora.Core.Application.Clients.SetFirstParty;
+using Authora.Core.Application.Clients.SetPkceOptional;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
@@ -132,6 +133,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<StopServingScopeService>();
         serviceCollection.AddTransient<EnableClientService>();
         serviceCollection.AddTransient<SetFirstPartyService>();
+        serviceCollection.AddTransient<SetPkceOptionalService>();
         serviceCollection.AddTransient<GetAllClientsService>();
         serviceCollection.AddTransient<GetClientService>();
         serviceCollection.AddTransient<RegisterClientService>();

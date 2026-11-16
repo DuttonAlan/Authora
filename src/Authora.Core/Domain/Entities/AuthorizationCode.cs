@@ -12,8 +12,8 @@ namespace Authora.Core.Domain.Entities;
 /// </summary>
 /// <remarks>
 ///     The code itself is a random value without any readable content, and only its hash is stored. It is short-lived
-///     and can only be used once. It is bound to the Client, the User, the Redirect URI, the approved Scopes and the
-///     PKCE code challenge of the authorization request.
+///     and can only be used once. It is bound to the Client, the User, the Redirect URI, the approved Scopes and, if
+///     sent, the PKCE code challenge of the authorization request.
 /// </remarks>
 public sealed class AuthorizationCode
 {
@@ -72,9 +72,10 @@ public sealed class AuthorizationCode
     public string Scope { get; private set; } = null!;
 
     /// <summary>
-    ///     The PKCE code challenge of the authorization request. The method is always <c>S256</c>.
+    ///     The PKCE code challenge of the authorization request (method <c>S256</c>), or <see langword="null"/> if a
+    ///     Client for which PKCE is optional sent none. Then the token request must not contain a <c>code_verifier</c>.
     /// </summary>
-    public string CodeChallenge { get; private set; } = null!;
+    public string? CodeChallenge { get; private set; }
 
     /// <summary>
     ///     The OpenID Connect <c>nonce</c> of the authorization request, returned unchanged in the ID Token, or
@@ -123,7 +124,7 @@ public sealed class AuthorizationCode
     /// <param name="user">The User who approved the request.</param>
     /// <param name="redirectUri">The <c>redirect_uri</c> as sent in the request, or null if it was omitted.</param>
     /// <param name="scopes">The approved Scope Names.</param>
-    /// <param name="codeChallenge">The PKCE code challenge (method <c>S256</c>).</param>
+    /// <param name="codeChallenge">The PKCE code challenge (method <c>S256</c>), or null if the request had none.</param>
     /// <param name="nonce">The OpenID Connect <c>nonce</c>, or null if it was not sent.</param>
     /// <param name="authenticatedAt">When the User signed in (UTC).</param>
     /// <param name="now">The current point in time (UTC).</param>
@@ -136,7 +137,7 @@ public sealed class AuthorizationCode
         User user,
         string? redirectUri,
         IEnumerable<string> scopes,
-        string codeChallenge,
+        string? codeChallenge,
         string? nonce,
         DateTime authenticatedAt,
         DateTime now,
@@ -145,7 +146,10 @@ public sealed class AuthorizationCode
         ArgumentNullException.ThrowIfNull(codeHash);
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(user);
-        ArgumentException.ThrowIfNullOrWhiteSpace(codeChallenge);
+        if (codeChallenge is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(codeChallenge);
+        }
         ArgumentOutOfRangeException.ThrowIfGreaterThan(nonce?.Length ?? 0, NonceMaxLength, nameof(nonce));
         UtcGuard.EnsureUtc(authenticatedAt);
         UtcGuard.EnsureUtc(now);

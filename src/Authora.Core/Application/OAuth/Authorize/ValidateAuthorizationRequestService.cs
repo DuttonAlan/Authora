@@ -167,18 +167,29 @@ public sealed class ValidateAuthorizationRequestService(
 
         if (request.CodeChallenge is null)
         {
-            return Fail(OAuthErrors.InvalidRequest, "PKCE is required: the code_challenge parameter is missing.");
-        }
+            if (client.RequiresPkce)
+            {
+                return Fail(OAuthErrors.InvalidRequest, "PKCE is required: the code_challenge parameter is missing.");
+            }
 
-        // Without a method, RFC 7636 defaults to plain, which is not allowed.
-        if (request.CodeChallengeMethod != Pkce.MethodS256)
-        {
-            return Fail(OAuthErrors.InvalidRequest, "The code_challenge_method must be S256.");
+            if (request.CodeChallengeMethod is not null)
+            {
+                return Fail(OAuthErrors.InvalidRequest, "The code_challenge_method was sent without a code_challenge.");
+            }
         }
-
-        if (!Pkce.IsValidCodeChallenge(request.CodeChallenge))
+        else
         {
-            return Fail(OAuthErrors.InvalidRequest, "The code_challenge must be a Base64Url encoded SHA-256 hash.");
+            // A sent code_challenge is checked even if the Client may omit PKCE. Without a method, RFC 7636 defaults to
+            // plain, which is not allowed.
+            if (request.CodeChallengeMethod != Pkce.MethodS256)
+            {
+                return Fail(OAuthErrors.InvalidRequest, "The code_challenge_method must be S256.");
+            }
+
+            if (!Pkce.IsValidCodeChallenge(request.CodeChallenge))
+            {
+                return Fail(OAuthErrors.InvalidRequest, "The code_challenge must be a Base64Url encoded SHA-256 hash.");
+            }
         }
 
         if (!ScopeList.TryParse(request.Scope, out var scopeNames))
