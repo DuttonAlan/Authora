@@ -39,7 +39,7 @@ Outside development, Authora refuses to start with an HTTP Issuer, with `Allowed
 
 ### Nothing in the database is directly usable
 
-Passwords are hashed with PBKDF2-HMAC-SHA512 (210,000 iterations). Codes, tokens, Session tokens and Client Secrets are random 256-bit values stored only as SHA-256 hashes. Signing keys are files, never in the database. A stolen backup therefore gives an attacker neither working tokens nor the ability to forge ID Tokens.
+Passwords are hashed with PBKDF2-HMAC-SHA512 (210,000 iterations). Codes, tokens, Session tokens, the one-time tokens of email links and Client Secrets are random 256-bit values stored only as SHA-256 hashes. Signing keys are files, never in the database. A stolen backup therefore gives an attacker neither working tokens nor the ability to forge ID Tokens.
 
 ### Opaque Access Tokens
 

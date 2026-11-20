@@ -31,6 +31,7 @@ using Authora.Core.Application.Clients.SetPkceOptional;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
+using Authora.Core.Application.Email;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
 using Authora.Core.Application.OAuth.ClientAuthentication;
@@ -111,6 +112,10 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<VerifyAuditChainService>();
 
         serviceCollection.AddTransient<GetAdminUiSettingsService>();
+
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<EmailOptions>, EmailOptionsValidator>());
+        serviceCollection.AddTransient<EmailTokenIssuer>();
+        serviceCollection.AddTransient<EmailTokenRedeemer>();
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OAuthOptions>, OAuthOptionsValidator>());
         serviceCollection.AddTransient<AccessTokenValidator>();

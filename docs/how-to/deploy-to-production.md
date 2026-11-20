@@ -17,6 +17,7 @@ This guide shows how to run Authora for real users: with its own database users,
 - [ ] Health checks are wired to the orchestrator, and the logs are shipped to a separate log system.
 - [ ] With several instances, or without a persistent home directory: Data Protection keys are persisted and encrypted ([Persist Data Protection keys](persist-data-protection-keys.md)).
 - [ ] Database backups run and a restore was tested ([Back up and restore](back-up-and-restore.md)).
+- [ ] If Authora sends email: the SMTP server is reached over TLS (`StartTls` or `Implicit`), its password comes from a secret store, and the sender domain has SPF and DKIM records, so the emails are not marked as spam.
 
 ## 1. Get the images
 
@@ -105,9 +106,21 @@ Authora__ForwardedHeaders__KnownNetworks__0=10.0.0.0/24
 Authora__DataProtection__KeysPath=/var/lib/authora/keys
 Authora__DataProtection__CertificatePath=/run/secrets/authora-data-protection.pfx
 Authora__DataProtection__CertificatePassword=…
+
+# Email delivery, e.g. for password resets (optional; without it, features that send email are off):
+Authora__Email__Host=smtp.example.com
+Authora__Email__Username=authora
+Authora__Email__Password=…
+Authora__Email__SenderAddress=no-reply@example.com
 ```
 
 All settings are listed in the [configuration reference](../reference/configuration.md).
+
+### Email
+
+Authora sends email through an SMTP server you provide: your mail provider's submission service or a relay in your network. It uses STARTTLS on port 587 by default; set `Authora__Email__TlsMode=Implicit` for port 465. The server's certificate is always validated. If the server uses a certificate from a private CA, point `Authora__Email__TrustedCertificatePath` at that CA's certificate instead of adding it to the system's store.
+
+Authora logs event 14001 at startup when email is on, 14002 when it is off, and 14004 for every email the server did not accept ([Log events](../reference/log-events.md#email)). Alert on 14004.
 
 ### What Authora checks before it starts
 
@@ -118,6 +131,7 @@ Authora refuses to start when a setting is invalid, with a message that names th
 | `Authora:OAuth:Issuer` | HTTPS. |
 | `AllowedHosts` | Set, and without `*`. `appsettings.json` contains `*` for development, so you must override it. |
 | `Authora:ForwardedHeaders` | Valid addresses and networks, none broader than `/8` (IPv4) or `/7` (IPv6). Checked in every environment. |
+| `Authora:Email:TlsMode` | Not `None` while `Authora:Email:Host` is set: email links contain one-time tokens, and the SMTP password is sent too. |
 
 Swagger UI and the OpenAPI document are only served in `Development`.
 

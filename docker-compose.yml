@@ -1,4 +1,4 @@
-# Runs Authora with PostgreSQL on https://localhost:8443 for local evaluation.
+# Runs Authora with PostgreSQL on https://localhost:8443 and a mail catcher on http://localhost:8025 for local evaluation.
 # Step by step: docs/tutorials/getting-started.md. For production: docs/how-to/deploy-to-production.md.
 #
 # Before the first start:
@@ -35,6 +35,20 @@ services:
       db:
         condition: service_healthy
 
+  # Catches every email Authora sends; read them at http://localhost:8025. Requires STARTTLS with the certificate
+  # from ./secrets, like a real mail server outside Development.
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    environment:
+      MP_SMTP_TLS_CERT: /run/mailpit/tls.crt
+      MP_SMTP_TLS_KEY: /run/mailpit/tls.key
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+    ports:
+      - "127.0.0.1:8025:8025"
+    volumes:
+      - ./secrets/mail-tls.crt:/run/mailpit/tls.crt:ro
+      - ./secrets/mail-tls.key:/run/mailpit/tls.key:ro
+
   authora:
     build:
       context: .
@@ -43,6 +57,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     ports:
       - "8443:8443"
     environment:
@@ -57,6 +73,11 @@ services:
       Authora__Bootstrap__Administrator__Email: ${AUTHORA_ADMIN_EMAIL:-admin@example.com}
       # Only needed until the first administrator exists. Remove it from .env afterwards.
       Authora__Bootstrap__Administrator__Password: ${AUTHORA_ADMIN_PASSWORD:-}
+      # Emails go to Mailpit, whose self-signed certificate is trusted explicitly.
+      Authora__Email__Host: mailpit
+      Authora__Email__Port: "1025"
+      Authora__Email__SenderAddress: no-reply@example.com
+      Authora__Email__TrustedCertificatePath: /run/authora/mail-tls.crt
     volumes:
       - ./secrets:/run/authora:ro
       - dataprotection-keys:/var/lib/authora/keys

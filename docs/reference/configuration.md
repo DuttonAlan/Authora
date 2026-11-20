@@ -74,6 +74,24 @@ The forwarded headers are only read when one of the lists is set. See [Configure
 
 See [Persist Data Protection keys](../how-to/persist-data-protection-keys.md).
 
+## Email
+
+Authora sends email through an SMTP server, for links with one-time tokens such as password resets and address verification. Without `Authora:Email:Host`, email delivery is off, and so are the features that send email; Authora logs event 14002 at startup. Once the host is set, the other settings are checked at startup.
+
+| Setting | Default | Limits | Description |
+|---|---|---|---|
+| `Authora:Email:Host` | not set | host name or IP address, without scheme or port | The SMTP server, e.g. `smtp.example.com`. Setting it turns email delivery on. |
+| `Authora:Email:Port` | by `TlsMode`: `587`, `465` or `25` | 1 to 65535 | Port of the SMTP server. |
+| `Authora:Email:TlsMode` | `StartTls` | `StartTls`, `Implicit`, `None` | `StartTls` connects in plain text and requires the server to upgrade with STARTTLS (submission, port 587). `Implicit` uses TLS from the start (port 465). `None` sends links and credentials unencrypted and is refused outside `Development` and `Testing`. |
+| `Authora:Email:Username` | not set | set together with `Password` | User name for SMTP authentication. Without it, Authora sends without authentication. |
+| `Authora:Email:Password` | not set | set together with `Username` | Password for SMTP authentication. Keep it in a secret store. |
+| `Authora:Email:SenderAddress` | not set | required when `Host` is set; one address without display name | The `From` address, e.g. `no-reply@example.com`. Also gives the domain of the `Message-ID`. |
+| `Authora:Email:SenderName` | `Authora` | 1 to 100 characters, no line breaks | The display name of the sender. |
+| `Authora:Email:Timeout` | `00:00:30` | 1 second to 5 minutes | How long connecting, signing in and sending may take per email. |
+| `Authora:Email:TrustedCertificatePath` | not set | PEM or DER certificate file; requires `StartTls` or `Implicit` | A certificate trusted as the only root for the SMTP server's certificate, e.g. a private CA or a self-signed certificate. Without it, the system's trusted CAs apply. The host name is checked either way. Relative paths are resolved against the content root. Startup fails if the file cannot be loaded. |
+
+The certificate of the SMTP server is always validated; there is no setting to turn that off. Every email has a plain-text and an HTML version.
+
 ## Bootstrap
 
 Used when Authora starts. Nothing is created a second time.
@@ -100,7 +118,7 @@ A background service deletes expired data.
 | Setting | Default | Limits | Description |
 |---|---|---|---|
 | `Authora:Cleanup:Interval` | `01:00:00` | 1 minute to 1 day | How often the cleanup runs. The first run is one interval after startup. |
-| `Authora:Cleanup:Retention` | `7.00:00:00` | at least 1 day | How long Authorization Codes, Grants, tokens and Sessions are kept after they expired or were revoked. Reuse of a consumed code or Refresh Token is only detected while its row exists. |
+| `Authora:Cleanup:Retention` | `7.00:00:00` | at least 1 day | How long Authorization Codes, Grants, tokens, Sessions and the one-time tokens of email links are kept after they expired or were revoked. Reuse of a consumed code or Refresh Token is only detected while its row exists. |
 | `Authora:Cleanup:BatchSize` | `1000` | 1 to 10000 | Rows deleted per statement. |
 | `Authora:Cleanup:AuditRetention` | `365.00:00:00` | at least 30 days | How long audit events are kept. |
 

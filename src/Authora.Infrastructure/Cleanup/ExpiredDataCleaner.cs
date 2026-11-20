@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 namespace Authora.Infrastructure.Cleanup;
 
 /// <summary>
-///     Deletes Authorization Codes, Grants, Access and Refresh Tokens and Sessions that expired or were revoked more
+///     Deletes Authorization Codes, Grants, Access and Refresh Tokens, Sessions and email tokens that expired or were revoked more
 ///     than <see cref="CleanupOptions.Retention"/> ago, and audit events older than
 ///     <see cref="CleanupOptions.AuditRetention"/> with their links of the hash chain.
 /// </summary>
@@ -90,7 +90,13 @@ public sealed class ExpiredDataCleaner(
             ids => context.Sessions.Where(session => ids.Contains(session.Id)),
             cancellationToken);
 
-        logger.ExpiredDataDeleted(authorizationCodes, accessTokens, refreshTokens, grants, sessions, cutoff);
+        // Used tokens are kept until the cutoff like the others; they cannot be used again anyway.
+        var emailTokens = await DeleteInBatchesAsync(
+            context.EmailTokens.Where(token => token.ExpiresAt < cutoff).Select(token => token.Id),
+            ids => context.EmailTokens.Where(token => ids.Contains(token.Id)),
+            cancellationToken);
+
+        logger.ExpiredDataDeleted(authorizationCodes, accessTokens, refreshTokens, grants, sessions, emailTokens, cutoff);
 
         var auditCutoff = now - options.Value.AuditRetention;
         var auditEvents = await DeleteAuditEventsAsync(auditCutoff, cancellationToken);

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Email;
 using Authora.Core.Application.OAuth;
 
 namespace Authora.Api.Security;
@@ -62,6 +63,20 @@ internal static class ProductionSettingsCheck
         {
             failures.Add(
                 "'AllowedHosts' must list the host names of Authora outside Development, e.g. 'auth.example.com', not '*'.");
+        }
+
+        // Email links contain one-time tokens, e.g. to reset a password, and the SMTP credentials are sent too, so
+        // they must not travel in plain text.
+        var emailHost = configuration[$"{EmailOptions.SectionName}:{nameof(EmailOptions.Host)}"];
+        var tlsMode = configuration[$"{EmailOptions.SectionName}:{nameof(EmailOptions.TlsMode)}"];
+
+        if (!string.IsNullOrWhiteSpace(emailHost)
+            && Enum.TryParse<SmtpTlsMode>(tlsMode, ignoreCase: true, out var parsedTlsMode)
+            && parsedTlsMode == SmtpTlsMode.None)
+        {
+            failures.Add(
+                $"'{EmailOptions.SectionName}:{nameof(EmailOptions.TlsMode)}' must be {nameof(SmtpTlsMode.StartTls)} or "
+                + $"{nameof(SmtpTlsMode.Implicit)} outside Development, not {nameof(SmtpTlsMode.None)}.");
         }
 
         return failures;
