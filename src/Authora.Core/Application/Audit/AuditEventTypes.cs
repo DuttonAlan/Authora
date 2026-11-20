@@ -36,6 +36,13 @@ public static class AuditEventTypes
         ///     whether the User confirmed it or an <c>id_token_hint</c> of the Session was sent.
         /// </summary>
         public const string SignedOutByClient = "account.signed-out-by-client";
+
+        /// <summary>
+        ///     A User changed their own password (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>; all other Sessions
+        ///     and all tokens of the User were revoked), or the change failed
+        ///     (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the Details).
+        /// </summary>
+        public const string PasswordChanged = "account.password-changed";
     }
 
     /// <summary>

@@ -6,7 +6,7 @@
 // of the current address (hash routing, e.g. #/users/{id}).
 
 import { api } from './api.js';
-import { signIn, signOut, takeSignInError } from './auth.js';
+import { basePath, signIn, signOut, takeSignInError } from './auth.js';
 import { h, initials, replace, toast } from './dom.js';
 import { icon } from './icons.js';
 import * as audit from './views/audit.js';
@@ -101,6 +101,11 @@ async function start() {
     document.getElementById('account-name').textContent = `${me.firstName} ${me.lastName}`;
     document.getElementById('account-email').textContent = me.email;
     document.getElementById('account').hidden = false;
+
+    // The page of Authora itself, which offers to come back here afterwards.
+    const changePassword = document.getElementById('change-password');
+    changePassword.href = `${basePath()}/account/password?returnUrl=${encodeURIComponent(`${basePath()}/admin/`)}`;
+    changePassword.appendChild(icon('password'));
 
     const signOutButton = document.getElementById('sign-out');
     signOutButton.appendChild(icon('signOut'));

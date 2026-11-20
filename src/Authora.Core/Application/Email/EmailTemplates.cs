@@ -60,6 +60,25 @@ public static class EmailTemplates
     }
 
     /// <summary>
+    ///     The email that tells a User that their password was changed, so they notice if someone else did it.
+    /// </summary>
+    /// <param name="user">The User whose password was changed.</param>
+    /// <param name="changedAt">When the password was changed (UTC).</param>
+    /// <returns>The email to send to the User.</returns>
+    public static EmailMessage PasswordChanged(User user, DateTime changedAt)
+    {
+        return Build(
+            user,
+            link: null,
+            subject: "Your password was changed",
+            intro: $"the password of your account {user?.Email} was changed on "
+                + $"{changedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC. You were signed out "
+                + "everywhere else, and applications will ask you to sign in again.",
+            buttonText: null,
+            outro: "If you did not change your password, contact your administrator right away.");
+    }
+
+    /// <summary>
     ///     Formats a duration for an email, e.g. <c>30 minutes</c> or <c>24 hours</c>.
     /// </summary>
     /// <param name="duration">The duration, at least one minute.</param>
@@ -80,25 +99,30 @@ public static class EmailTemplates
         return string.Create(CultureInfo.InvariantCulture, $"{minutes} {(minutes == 1 ? "minute" : "minutes")}");
     }
 
-    private static EmailMessage Build(User? user, Uri link, string subject, string intro, string buttonText, string outro)
+    // Without a link, the email only informs and has no button.
+    private static EmailMessage Build(User? user, Uri? link, string subject, string intro, string? buttonText, string outro)
     {
         ArgumentNullException.ThrowIfNull(user);
-        ArgumentNullException.ThrowIfNull(link);
 
-        if (!link.IsAbsoluteUri || (link.Scheme != Uri.UriSchemeHttps && link.Scheme != Uri.UriSchemeHttp))
+        if (link is not null
+            && (!link.IsAbsoluteUri || (link.Scheme != Uri.UriSchemeHttps && link.Scheme != Uri.UriSchemeHttp)))
         {
             throw new ArgumentException("The link must be an absolute HTTP(S) URL.", nameof(link));
         }
 
         var greeting = $"Hello {user.FirstName},";
-        var url = link.AbsoluteUri;
+        var url = link?.AbsoluteUri;
 
         var text = new StringBuilder()
             .Append(greeting).Append("\r\n\r\n")
-            .Append(intro).Append("\r\n\r\n")
-            .Append(url).Append("\r\n\r\n")
-            .Append(outro).Append("\r\n")
-            .ToString();
+            .Append(intro).Append("\r\n\r\n");
+
+        if (url is not null)
+        {
+            text.Append(url).Append("\r\n\r\n");
+        }
+
+        text.Append(outro).Append("\r\n");
 
         var html = new StringBuilder()
             .Append("<!DOCTYPE html>\r\n")
@@ -108,16 +132,20 @@ public static class EmailTemplates
             .Append("<body style=\"margin:0;padding:24px;background:#f5f5f7;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;\">\r\n")
             .Append("<div style=\"max-width:560px;margin:0 auto;padding:32px;background:#ffffff;border-radius:8px;line-height:1.5;\">\r\n")
             .Append("<p>").Append(Encode(greeting)).Append("</p>\r\n")
-            .Append("<p>").Append(Encode(intro)).Append("</p>\r\n")
-            .Append("<p><a href=\"").Append(Encode(url))
-            .Append("\" style=\"display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;\">")
-            .Append(Encode(buttonText)).Append("</a></p>\r\n")
-            .Append("<p style=\"font-size:13px;color:#6e6e73;word-break:break-all;\">").Append(Encode(url)).Append("</p>\r\n")
-            .Append("<p>").Append(Encode(outro)).Append("</p>\r\n")
-            .Append("</div>\r\n</body>\r\n</html>\r\n")
-            .ToString();
+            .Append("<p>").Append(Encode(intro)).Append("</p>\r\n");
 
-        return new EmailMessage(user.Email, $"{user.FirstName} {user.LastName}", subject, text, html);
+        if (url is not null)
+        {
+            html.Append("<p><a href=\"").Append(Encode(url))
+                .Append("\" style=\"display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;\">")
+                .Append(Encode(buttonText ?? url)).Append("</a></p>\r\n")
+                .Append("<p style=\"font-size:13px;color:#6e6e73;word-break:break-all;\">").Append(Encode(url)).Append("</p>\r\n");
+        }
+
+        html.Append("<p>").Append(Encode(outro)).Append("</p>\r\n")
+            .Append("</div>\r\n</body>\r\n</html>\r\n");
+
+        return new EmailMessage(user.Email, $"{user.FirstName} {user.LastName}", subject, text.ToString(), html.ToString());
     }
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);

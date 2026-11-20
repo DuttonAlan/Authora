@@ -36,6 +36,28 @@ public sealed class SessionRepository(AuthoraContext context) : ISessionReposito
     }
 
     /// <inheritdoc/>
+    public async Task<bool> RevokeSessionIfSecurityStampChanged(Guid id, DateTime now, CancellationToken cancellationToken = default)
+    {
+        // A single UPDATE compares the stamps of the Session and the User as they are stored now, so a Session that a
+        // password change renewed in the meantime is not revoked.
+        var revoked = await context.Sessions
+            .Where(session => session.Id == id
+                && session.RevokedAt == null
+                && context.Users.Any(user => user.Id == session.UserId && user.SecurityStamp != session.SecurityStamp))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(session => session.RevokedAt, now), cancellationToken);
+
+        return revoked > 0;
+    }
+
+    /// <inheritdoc/>
+    public async Task ReloadSession(Session session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        await context.Entry(session).ReloadAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         await context.SaveChangesAsync(cancellationToken);

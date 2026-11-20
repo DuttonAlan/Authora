@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -55,13 +56,19 @@ public sealed class ValidateSessionService(
 
         var user = await userRepository.GetUserById(session.UserId, cancellationToken);
 
-        if (user is null || !user.CanSignIn || user.SecurityStamp != session.SecurityStamp)
+        if (user is null || !user.CanSignIn)
         {
             session.Revoke(now);
             await sessionRepository.SaveChangesAsync(cancellationToken);
 
             logger.SessionInvalidated(session.Id, session.UserId);
 
+            return null;
+        }
+
+        if (user.SecurityStamp != session.SecurityStamp
+            && !await IsStillValidAsync(session, user.SecurityStamp, now, cancellationToken))
+        {
             return null;
         }
 
@@ -76,5 +83,22 @@ public sealed class ValidateSessionService(
         }
 
         return new AuthenticatedSession(session.Id, user.Id, user.Email, user.FirstName, user.LastName, session.CreatedAt);
+    }
+
+    // The Session and the User are loaded one after the other. A password change in this Session that commits in
+    // between renews the Session's stamp together with the User's, so the loaded Session only looks outdated. The
+    // stamps are compared again in the database before revoking, and a renewed Session stays valid.
+    private async Task<bool> IsStillValidAsync(Session session, Guid userSecurityStamp, DateTime now, CancellationToken cancellationToken)
+    {
+        if (await sessionRepository.RevokeSessionIfSecurityStampChanged(session.Id, now, cancellationToken))
+        {
+            logger.SessionInvalidated(session.Id, session.UserId);
+
+            return false;
+        }
+
+        await sessionRepository.ReloadSession(session, cancellationToken);
+
+        return session.RevokedAt is null && session.SecurityStamp == userSecurityStamp;
     }
 }

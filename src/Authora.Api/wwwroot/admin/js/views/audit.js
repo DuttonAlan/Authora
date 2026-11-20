@@ -10,7 +10,7 @@ const pageSize = 50;
 
 const areas = [
     { value: '', label: 'All areas' },
-    { value: 'account', label: 'Sign-in and sign-out' },
+    { value: 'account', label: 'Sign-in and account' },
     { value: 'user', label: 'Users' },
     { value: 'group', label: 'Groups' },
     { value: 'role', label: 'Roles' },

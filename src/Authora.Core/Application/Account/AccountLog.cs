@@ -34,4 +34,14 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5008, Level = LogLevel.Information, Message = "User {UserId} signed out of Session {SessionId} at the request of Client {ClientId}.")]
     public static partial void SignedOutByClient(this ILogger logger, Guid userId, Guid sessionId, Guid clientId);
+
+    [LoggerMessage(EventId = 5009, Level = LogLevel.Information, Message = "User {UserId} changed their password in Session {SessionId}. All other Sessions and all tokens of the User were revoked.")]
+    public static partial void PasswordChanged(this ILogger logger, Guid userId, Guid sessionId);
+
+    [LoggerMessage(EventId = 5010, Level = LogLevel.Warning, Message = "Password change of User {UserId} failed: {Reason}.")]
+    public static partial void PasswordChangeFailed(this ILogger logger, Guid userId, string reason);
+
+    // Only the message: the inner SMTP error can quote addresses, see SmtpEmailSender.
+    [LoggerMessage(EventId = 5011, Level = LogLevel.Warning, Message = "The notification about the password change of User {UserId} could not be sent: {Reason}")]
+    public static partial void PasswordChangeNotificationFailed(this ILogger logger, Guid userId, string reason);
 }

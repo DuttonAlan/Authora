@@ -11,6 +11,7 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `POST /oauth/introspect` | Resource server | Introspection ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)). |
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
+| `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
 | `GET/POST /oauth/logout` | Browser | End-session endpoint: a Client signs the User out (RP-initiated logout). See [Logout](openid-connect.md#logout). |
 
 ## Common rules
@@ -165,6 +166,17 @@ A token is active only if:
 - Every sign-in starts a new Session and ends the previous Session of the browser.
 
 `/account/logout` revokes the Session on the server and deletes the cookie. Applications sign Users out through the end-session endpoint `/oauth/logout` instead, see [Logout](openid-connect.md#logout).
+
+## Password change
+
+`/account/password` lets a signed-in User change their own password. Without a Session, it redirects to the sign-in page and back. An optional local `returnUrl` is offered as a link afterwards (the admin interface uses it).
+
+- The User enters the current password and the new one twice. The new password follows the same policy as the admin API: 12 to 128 characters.
+- A wrong current password counts as a failed sign-in: after `Authora:SignIn:MaxFailedAttempts` (5) in a row, the User is locked out for `Authora:SignIn:LockoutDuration`, here and at sign-in.
+- Attempts share the sign-in rate limit per IP address (`Authora:RateLimiting:SignInPermitsPerMinute`).
+- The new password rotates the User's security stamp: every other Session and every Grant of the User, with its Access and Refresh Tokens, ends at once. The Session the password was changed in stays valid.
+- If email delivery is configured, the User gets an email about the change. A failed delivery does not undo the change (log event 5011).
+- Recorded as audit event `account.password-changed`.
 
 ## Events that invalidate tokens
 

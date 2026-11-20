@@ -8,7 +8,11 @@ This guide covers the everyday tasks in the admin interface: adding users, givin
 
 **Users** → **New User** (`users.create`). Enter the Email, first and last name, and an initial password of 12 to 128 characters. Give the password to the person through a secure channel.
 
-Users cannot change or reset their own password yet. To set a new one: open the User → **Set password** (`users.set-password`). This signs the User out everywhere.
+## Change or set a password
+
+Users change their own password at `/account/password` on Authora (e.g. `https://auth.example.com/account/password`), after entering the current one; the admin interface links there from the lock icon next to **Sign out**. They stay signed in in that browser and are signed out everywhere else, and if email is configured, they get a notification. A wrong current password counts towards the lockout like a failed sign-in. Share the link with your users; no Permission is needed.
+
+Users cannot reset a forgotten password yet. To set a new one for them: open the User → **Set password** (`users.set-password`). This signs the User out everywhere, including the browser they use.
 
 ## Give someone administrative rights
 
