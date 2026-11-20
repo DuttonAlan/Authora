@@ -50,7 +50,7 @@ Per client IP address. Behind a reverse proxy, configure `Authora:ForwardedHeade
 | Setting | Default | Limits | Description |
 |---|---|---|---|
 | `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts per minute. |
-| `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/admin/callback` and `/admin/session/refresh` per minute. `/oauth/introspect` is not limited. |
+| `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/admin/callback` and `/admin/session/refresh` per minute, together. A resource server that introspects tokens for every request should cache the results or get a higher limit. |
 
 Requests over the limit get `429 Too Many Requests`.
 

@@ -22,6 +22,13 @@ public sealed class SessionRepository(AuthoraContext context) : ISessionReposito
     }
 
     /// <inheritdoc/>
+    public async Task<Session?> GetSessionById(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await context.Sessions
+            .FirstOrDefaultAsync(session => session.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<Session?> GetSessionByTokenHash(SecretHash tokenHash, CancellationToken cancellationToken = default)
     {
         return await context.Sessions

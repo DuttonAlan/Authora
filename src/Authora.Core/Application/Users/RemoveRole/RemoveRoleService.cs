@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Authora.Core.Application.Users.RemoveRole;
 ///     The Service to remove a Role from a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
+/// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the removal.</param>
 public sealed class RemoveRoleService(
     IUserRepository userRepository,
+    PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<RemoveRoleService> logger)
 {
@@ -30,12 +33,13 @@ public sealed class RemoveRoleService(
     /// <returns>A Task that completes once the Role is removed.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
     /// <exception cref="ConflictException">Thrown when the User is deleted, or the administrator Role would be removed from the last administrator.</exception>
+    /// <exception cref="ForbiddenException">Thrown when the caller may not act on the User.</exception>
     public async Task ExecuteAsync(
         Guid userId,
         Guid roleId,
         CancellationToken cancellationToken = default)
     {
-        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
 
         var user = await userRepository.GetUserById(userId, cancellationToken)
             ?? throw new NotFoundException($"User '{userId}' was not found.");
@@ -49,13 +53,17 @@ public sealed class RemoveRoleService(
             return;
         }
 
+        var entry = AuditEntry.ForUser(AuditEventTypes.Users.RoleRemoved, user.Id, $"Role '{role.Name}' ({role.Id})");
+
+        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
+
         if (role.IsAdministrator)
         {
             await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
         }
 
         user.RemoveRole(role.Id);
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.RoleRemoved, user.Id, $"Role '{role.Name}' ({role.Id})"));
+        auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

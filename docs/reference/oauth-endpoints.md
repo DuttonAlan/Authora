@@ -18,6 +18,7 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 - `/oauth/token`, `/oauth/revoke` and `/oauth/introspect` take `application/x-www-form-urlencoded` bodies.
 - Errors are JSON: `{"error": "…", "error_description": "…"}`. A failed Client authentication returns `401` with `WWW-Authenticate: Basic`; all other errors return `400`.
 - Responses carry `Cache-Control: no-store`.
+- **Rate limit:** `/oauth/token`, `/oauth/revoke` and `/oauth/introspect` share one limit per IP address (`Authora:RateLimiting:TokenPermitsPerMinute`, 300 per minute); requests over it get `429 Too Many Requests`. A resource server that introspects tokens should cache the result for a short time.
 - **CORS:** `/oauth/token` and `/oauth/revoke` allow the origins (scheme, host and port) of the Redirect URIs of enabled Clients, method `POST`, the header `Content-Type`, and no credentials. `/oauth/introspect`, `/oauth/authorize`, `/oauth/logout` and `/account/*` send no CORS headers.
 
 ## Client authentication
@@ -81,7 +82,7 @@ Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsuppo
 
 | Parameter | Rule |
 |---|---|
-| `code` | Required. Single use; valid for `Authora:OAuth:AuthorizationCodeLifetime` (1 minute). |
+| `code` | Required. Single use; valid for `Authora:OAuth:AuthorizationCodeLifetime` (1 minute), and only while the Session in which the User approved the request is active: after the User signs out, the code gets `invalid_grant`. |
 | `code_verifier` | Required if the authorization request had a `code_challenge`, and must match it. Otherwise must not be sent, see [PKCE](#pkce). |
 | `redirect_uri` | Required if it was sent in the authorization request, and then identical. |
 | Client authentication | See above. Must be the Client the code was issued to. |

@@ -52,4 +52,7 @@ internal static partial class OAuthLog
 
     [LoggerMessage(EventId = 6014, Level = LogLevel.Information, Message = "Grant {GrantId} with an Access Token was created for Client {ClientId} itself (client_credentials) with Scopes '{Scope}'.")]
     public static partial void ClientCredentialsTokenIssued(this ILogger logger, Guid grantId, Guid clientId, string scope);
+
+    [LoggerMessage(EventId = 6015, Level = LogLevel.Information, Message = "Authorization Code {CodeId} was rejected, because its Session {SessionId} has ended.")]
+    public static partial void AuthorizationCodeOfEndedSession(this ILogger logger, Guid codeId, Guid sessionId);
 }

@@ -197,10 +197,12 @@ public sealed class RolesController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the Permission is granted.</returns>
     /// <response code="204">Responds with no content once the Permission was granted.</response>
+    /// <response code="403">Responds with problem details if the caller does not hold the Permission. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no Role or no Permission with the given Id exists.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/permissions/{permissionId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Roles.GrantPermissions)]

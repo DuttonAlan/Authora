@@ -192,7 +192,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             : await context.Clients.SingleAsync(client => client.Id == clientId);
 
         var authorizationCode = AuthorizationCode.Create(
-            secretHasher.Hash(secretGenerator.Generate()), client, user, null, scopes, "test-challenge", null, now, now, TimeSpan.FromMinutes(1));
+            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, "test-challenge", null, now, now, TimeSpan.FromMinutes(1));
         var grant = Grant.Create(authorizationCode, now, TimeSpan.FromDays(1));
 
         var token = secretGenerator.Generate();

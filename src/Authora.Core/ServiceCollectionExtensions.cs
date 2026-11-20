@@ -104,6 +104,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<ValidateSessionService>();
 
         serviceCollection.AddTransient<PermissionEvaluator>();
+        serviceCollection.AddTransient<PrivilegeGuard>();
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<AuditChainOptions>, AuditChainOptionsValidator>());
         serviceCollection.AddTransient<SearchAuditEventsService>();

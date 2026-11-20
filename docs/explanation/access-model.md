@@ -45,6 +45,18 @@ The System Role `admin` always holds every Permission and cannot be changed, del
 
 If your application needs roles of its own, keep them in the application, keyed by the User Id. Releasing application roles through Authora is not supported today.
 
+### Nobody grants more than they hold
+
+Permissions can be delegated, e.g. a help desk Role with `users.set-password` and `users.manage-access`. Such a Permission must not become a way to more rights, so the admin API compares every change that gives out rights or acts on a User with the caller's own effective Permissions:
+
+- a caller can only assign a Role, or add a User to a Group, if they hold every Permission it brings, and only grant a Permission to a Role that they hold themselves;
+- a caller can only act on a User (set the password, deactivate, update, delete, remove a Role, …) whose effective Permissions they all hold too;
+- only an administrator can assign `admin` or act on an administrator, and administrators are never restricted.
+
+A help desk User can therefore reset the passwords of ordinary Users, but not of an administrator or of a colleague with more Permissions. A denied change returns `403` with the reason and is recorded in the audit log. The exact rules are in [Admin API](../reference/admin-api.md#nobody-grants-more-than-they-hold).
+
+One Permission is equivalent to `admin` anyway: `clients.manage-first-party` lets its holder skip the consent screen for a Client they control, and so collect the codes of any signed-in User. Give it only to administrators.
+
 ## How the two meet: `authora.admin`
 
 The admin API is protected by both models at once:

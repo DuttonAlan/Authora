@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -15,10 +16,12 @@ namespace Authora.Core.Application.Users.Delete;
 ///     The Service to delete a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to delete a User.</param>
+/// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteUserService(
     IUserRepository userRepository,
+    PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<DeleteUserService> logger)
 {
@@ -35,11 +38,12 @@ public sealed class DeleteUserService(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the User is deleted.</returns>
     /// <exception cref="ConflictException">Thrown when the User is the last administrator.</exception>
+    /// <exception cref="ForbiddenException">Thrown when the caller may not act on the User.</exception>
     public async Task ExecuteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
 
         var user = await userRepository.GetUserById(id, cancellationToken);
 
@@ -48,10 +52,13 @@ public sealed class DeleteUserService(
             return;
         }
 
+        var entry = AuditEntry.ForUser(AuditEventTypes.Users.Deleted, user.Id);
+
+        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
         user.MarkDeleted();
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Deleted, user.Id));
+        auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

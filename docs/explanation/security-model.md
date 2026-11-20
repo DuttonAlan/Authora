@@ -25,9 +25,9 @@ This page explains what Authora protects, against whom, and the reasoning behind
 | `/.well-known/*` | Anyone | Public metadata only. |
 | `/oauth/authorize`, `/account/*` | Browsers | Session cookie, antiforgery tokens, exact Redirect URI match, PKCE, rate limit, lockout. |
 | `/oauth/token`, `/oauth/revoke` | Clients | Client authentication (Secret or PKCE), rate limit. |
-| `/oauth/introspect` | Confidential Clients | Client Secret; only tokens with a served Scope are reported. |
+| `/oauth/introspect` | Confidential Clients | Client Secret, rate limit (shared with `/oauth/token` and `/oauth/revoke`); only tokens with a served Scope are reported. |
 | `/oauth/userinfo` | Clients | Access Token with `openid`. |
-| `/api/*` | Administrators, through a Client | Access Token with `authora.admin`, plus a Permission per action. |
+| `/api/*` | Administrators, through a Client | Access Token with `authora.admin`, plus a Permission per action; nobody grants more than they hold. |
 | `/admin/*` | Administrators' browsers | Static files and a backend for frontend; tokens never reach the browser. |
 | `/health`, `/health/live` | Anyone | Overall status only. |
 
@@ -67,8 +67,16 @@ Third-party Clients ask for consent on every sign-in. First-party Clients, appli
 
 Skipping consent is powerful: a first-party Client gets any allowed Scope for any signed-in User who opens a link. So:
 
-- marking a Client as first-party needs its own Permission, `clients.manage-first-party`, which only `admin` has by default;
+- marking a Client as first-party needs its own Permission, `clients.manage-first-party`, which only `admin` has by default; treat it as equivalent to `admin`, because whoever can make a Client of their own first-party collects the codes of any signed-in User, administrators included;
 - while a Client is first-party, no Redirect URI and no Scope can be added to it. Otherwise anyone with the ordinary `clients.update` Permission could add their own Redirect URI to the admin interface's Client and collect the codes of every administrator who clicks a link.
+
+### Nobody grants more than they hold
+
+Permissions are meant to be delegated: a help desk Role may reset passwords without being able to manage Clients. Delegation is only safe if a Permission cannot be turned into more rights. Without a check, `users.assign-roles` could assign `admin` to its holder, `roles.grant-permissions` could extend its holder's own Role, and `users.set-password` could set the password of an administrator and then sign in as them.
+
+So every change that gives out rights or acts on a User is also checked against the caller's own effective Permissions: a caller who is not an administrator can only give out Permissions they hold, and can only act on Users whose Permissions are a subset of their own. Only an administrator assigns `admin` or acts on an administrator. The check lives in the Core services, not the controllers, holds a database lock until the change is saved, and records denied attempts in the audit log. See [Admin API](../reference/admin-api.md#nobody-grants-more-than-they-hold).
+
+`clients.manage-first-party` is the exception the rule cannot catch: it gives out no Permission, but lets its holder skip consent for a Client they control (see above), so it is equivalent to `admin`.
 
 ### Two authentication schemes, kept apart
 

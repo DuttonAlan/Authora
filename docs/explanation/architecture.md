@@ -53,7 +53,7 @@ PostgreSQL holds all state, in three schemas:
 
 The schemas separate data by how it is used and protected. `auth` changes constantly and can be wiped (e.g. after restoring a backup) without losing configuration. `audit` is append-only for the application user.
 
-Rules that must hold across concurrent requests, such as "never remove the last administrator", run in a transaction with a PostgreSQL advisory lock, so two instances cannot both pass the check.
+Rules that must hold across concurrent requests, such as "never remove the last administrator" and "nobody grants more than they hold", run in a transaction with a PostgreSQL advisory lock, so two instances cannot both pass the check.
 
 Authora never changes its schema at startup. Migrations are a separate, explicit step, so a deployment never alters the database by accident and the application user needs no rights to change the schema.
 

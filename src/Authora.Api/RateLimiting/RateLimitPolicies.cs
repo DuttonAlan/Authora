@@ -21,7 +21,7 @@ internal static class RateLimitPolicies
     public const string SignIn = "sign-in";
 
     /// <summary>
-    ///     Limits requests to the token and revocation endpoints per client IP address.
+    ///     Limits requests to the token, revocation and introspection endpoints per client IP address.
     /// </summary>
     public const string Token = "token";
 

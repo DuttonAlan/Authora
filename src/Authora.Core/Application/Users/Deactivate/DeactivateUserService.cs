@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
 
@@ -15,10 +16,12 @@ namespace Authora.Core.Application.Users.Deactivate;
 ///     The Service to deactivate a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to deactivate a User.</param>
+/// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deactivation.</param>
 public sealed class DeactivateUserService(
     IUserRepository userRepository,
+    PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<DeactivateUserService> logger)
 {
@@ -34,11 +37,12 @@ public sealed class DeactivateUserService(
     /// <returns>A Task that completes once the User is deactivated.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
     /// <exception cref="ConflictException">Thrown when the User is deleted or the last administrator.</exception>
+    /// <exception cref="ForbiddenException">Thrown when the caller may not act on the User.</exception>
     public async Task ExecuteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var transaction = await userRepository.BeginAdministratorChangeAsync(cancellationToken);
+        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
 
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
@@ -48,6 +52,10 @@ public sealed class DeactivateUserService(
             throw new ConflictException("A deleted User cannot be deactivated.");
         }
 
+        var entry = AuditEntry.ForUser(AuditEventTypes.Users.Deactivated, user.Id);
+
+        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
+
         if (user.State == UserState.Deactivated)
         {
             return;
@@ -56,7 +64,7 @@ public sealed class DeactivateUserService(
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
         user.Deactivate();
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Deactivated, user.Id));
+        auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

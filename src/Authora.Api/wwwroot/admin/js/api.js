@@ -83,7 +83,8 @@ async function send(method, path, body) {
 
 function describe(status, problem) {
     if (status === 403) {
-        return 'You do not have the Permission for this action.';
+        // A missing Permission has no body; a change that would give out more rights than the User holds says why.
+        return problem?.detail ?? 'You do not have the Permission for this action.';
     }
 
     if (status === 429) {

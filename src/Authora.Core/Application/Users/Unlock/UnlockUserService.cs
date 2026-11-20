@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
 
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Authora.Core.Application.Users.Unlock;
 ///     The Service to unlock a User that is locked out after too many failed login attempts.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to unlock a User.</param>
+/// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the unlock.</param>
 public sealed class UnlockUserService(
     IUserRepository userRepository,
+    PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<UnlockUserService> logger)
 {
@@ -29,14 +32,21 @@ public sealed class UnlockUserService(
     /// <returns>A Task that completes once the User is unlocked.</returns>
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
     /// <exception cref="ConflictException">Thrown when the User is deleted.</exception>
+    /// <exception cref="ForbiddenException">Thrown when the caller may not act on the User.</exception>
     public async Task ExecuteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
+
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
 
         DeletedUserGuard.EnsureNotDeleted(user);
+
+        var entry = AuditEntry.ForUser(AuditEventTypes.Users.Unlocked, user.Id);
+
+        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
 
         if (user.FailedLoginCount == 0 && user.LockoutEndAt is null)
         {
@@ -44,9 +54,10 @@ public sealed class UnlockUserService(
         }
 
         user.Unlock();
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Unlocked, user.Id));
+        auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.UserUnlocked(user.Id);
     }

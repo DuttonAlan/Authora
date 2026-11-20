@@ -29,6 +29,14 @@ public interface ISessionRepository
     public Task<Session?> GetSessionByTokenHash(SecretHash tokenHash, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Get a Session by its Id.
+    /// </summary>
+    /// <param name="id">Id of the Session.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The tracked Session, or null if it does not exist (anymore).</returns>
+    public Task<Session?> GetSessionById(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Saves all changes made to tracked Sessions.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

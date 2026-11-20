@@ -216,7 +216,8 @@ public sealed class AuthorizeModel(
     private async Task<StatusCodeResult> IssueCodeAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
-        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, GetAuthenticatedAt(), cancellationToken);
+        var sessionId = Guid.Parse(User.FindFirst(SessionClaimTypes.SessionId)!.Value);
+        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, sessionId, GetAuthenticatedAt(), cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
         {
