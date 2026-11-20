@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 import { api } from '../api.js';
-import { badge, button, details, form, formatDate, h, onceOnlyValue, pageHeader, panel, table } from '../dom.js';
+import { badge, button, copyable, details, entityHeader, form, formatDate, h, hint, initials, onceOnlyValue, pageHeader, panel, table } from '../dom.js';
 import { auditLink, confirmed, run } from './common.js';
 
 const grantTypes = [
@@ -27,19 +27,29 @@ let issuedSecret = null;
 export async function list(context) {
     const clients = await api('GET', '/clients');
 
-    return h('div', {},
+    return h('div', { class: 'stack' },
         pageHeader('Clients', 'Applications that sign Users in with Authora.',
             context.can('clients.create') ? button('Register Client', () => context.navigate('/clients?new=1'), 'primary') : null),
         context.parameters.has('new') && context.can('clients.create') ? await registerPanel(context) : null,
-        panel(null, table([
-            { label: 'Client', render: client => client.name },
+        h('section', { class: 'panel flush' }, table([
+            {
+                label: 'Client', render: client => h('span', { class: 'person' },
+                    h('span', { class: 'avatar square', 'aria-hidden': 'true', text: initials(client.name).toUpperCase() }),
+                    h('span', { class: 'person-text' },
+                        h('span', { class: 'person-name', text: client.name }),
+                        h('code', { class: 'person-email', text: client.id })))
+            },
             { label: 'Type', render: client => client.type },
-            { label: 'Status', render: client => statusBadge(client.status) },
-            { label: 'Id', render: client => h('code', { text: client.id }) }
-        ], clients, { onClick: client => context.navigate(`/clients/${client.id}`), empty: 'No Clients exist.' })));
+            { label: 'Status', render: client => statusBadge(client.status) }
+        ], clients, { href: client => `#/clients/${client.id}`, empty: 'No Clients exist yet. Register one to let an application sign Users in.' })));
 }
 
-function statusBadge(status) {
+/**
+ * A badge for the Status of a Client.
+ * @param {string} status The Status.
+ * @returns {HTMLElement} The badge.
+ */
+export function statusBadge(status) {
     return badge(status, status === 'Enabled' ? 'ok' : 'bad');
 }
 
@@ -79,7 +89,7 @@ async function registerPanel(context) {
             issuedSecret = registered.secret ? { clientId: registered.id, secret: registered.secret.secret } : null;
             context.navigate(`/clients/${registered.id}`);
         }
-    });
+    }, { onCancel: () => context.navigate('/clients') });
 
     // Client Credentials is only for Confidential Clients: hide and clear it while Public is selected.
     const type = element.querySelector('select[name="type"]');
@@ -103,6 +113,13 @@ function lines(text) {
     return text.split('\n').map(line => line.trim()).filter(line => line !== '');
 }
 
+function duration(seconds) {
+    const units = [['day', 86400], ['hour', 3600], ['minute', 60]];
+    const [unit, size] = units.find(([, length]) => seconds >= length && seconds % length === 0) ?? [null, 1];
+
+    return unit ? `${seconds / size} ${unit}${seconds / size === 1 ? '' : 's'} (${seconds.toLocaleString()} s)` : `${seconds.toLocaleString()} s`;
+}
+
 /**
  * The page of a Client.
  * @param {object} context The context of the view.
@@ -121,18 +138,23 @@ export async function detail(context, id) {
     const canUpdate = context.can('clients.update');
 
     return h('div', { class: 'stack' },
-        pageHeader(client.name, `${client.type} Client`, auditLink(context, 'client', client.id)),
+        entityHeader({
+            kind: `${client.type} Client`,
+            title: client.name,
+            monogram: initials(client.name),
+            status: h('span', { class: 'badge-row' }, statusBadge(client.status), client.isFirstParty ? badge('First-party') : null),
+            actions: [auditLink(context, 'client', client.id)]
+        }),
         secret ? onceOnlyValue('Client Secret', secret) : null,
         h('div', { class: 'grid' },
             panel('Client',
                 details([
-                    ['Client Id', h('code', { text: client.id })],
-                    ['Status', statusBadge(client.status)],
-                    ['Consent', client.isFirstParty ? badge('First-party: not asked') : 'Asked on every sign-in'],
-                    ['PKCE', client.isPkceOptional ? badge('Optional') : 'Required'],
-                    ['Grant Types', client.grantTypes.join(', ')],
-                    ['Access Token lifetime', `${client.accessTokenTTL} s`],
-                    ['Refresh Token lifetime', `${client.refreshTokenTTL} s`],
+                    ['Client Id', copyable(client.id, 'Client Id')],
+                    ['Consent', client.isFirstParty ? 'First-party: not asked' : 'Asked on every sign-in'],
+                    ['PKCE', client.isPkceOptional ? badge('Optional', 'warn') : 'Required'],
+                    ['Grant Types', h('span', { class: 'badge-row' }, client.grantTypes.map(grantType => h('code', { class: 'token', text: grantType })))],
+                    ['Access Token lifetime', duration(client.accessTokenTTL)],
+                    ['Refresh Token lifetime', duration(client.refreshTokenTTL)],
                     ['Created', formatDate(client.createdAt)],
                     ['Modified', formatDate(client.modifiedAt)]
                 ]),
@@ -154,8 +176,8 @@ function clientActions(context, client) {
 
     if (context.can('clients.update')) {
         actions.push(client.status === 'Enabled'
-            ? button('Disable', () => {
-                if (confirmed(`Disable ${client.name}? All its Grants and tokens are revoked.`)) {
+            ? button('Disable', async () => {
+                if (await confirmed('Disable', `Disable ${client.name}? All its Grants and tokens are revoked.`)) {
                     run(() => api('POST', `/clients/${client.id}/disable`), 'The Client was disabled.', context);
                 }
             })
@@ -165,8 +187,8 @@ function clientActions(context, client) {
         if (client.type === 'Confidential') {
             actions.push(client.isPkceOptional
                 ? button('Require PKCE', () => run(() => api('DELETE', `/clients/${client.id}/pkce-optional`), 'PKCE is required again.', context))
-                : button('Make PKCE optional', () => {
-                    if (confirmed(`Make PKCE optional for ${client.name}? Only for OpenID Connect Clients that cannot send PKCE: they must send a nonce in every authorization request instead.`)) {
+                : button('Make PKCE optional', async () => {
+                    if (await confirmed('Make PKCE optional', `Make PKCE optional for ${client.name}? Only for OpenID Connect Clients that cannot send PKCE: they must send a nonce in every authorization request instead.`)) {
                         run(() => api('PUT', `/clients/${client.id}/pkce-optional`), 'PKCE is optional for the Client.', context);
                     }
                 }));
@@ -176,49 +198,52 @@ function clientActions(context, client) {
     if (context.can('clients.manage-first-party')) {
         actions.push(client.isFirstParty
             ? button('Ask for consent', () => run(() => api('DELETE', `/clients/${client.id}/first-party`), 'Users are asked for consent again.', context))
-            : button('Mark as first-party', () => {
-                if (confirmed(`Mark ${client.name} as first-party? Users are no longer asked for consent, so it gets every Scope it is allowed without asking. Only for Clients of your own deployment.`)) {
+            : button('Mark as first-party', async () => {
+                if (await confirmed('Mark as first-party', `Mark ${client.name} as first-party? Users are no longer asked for consent, so it gets every Scope it is allowed without asking. Only for Clients of your own deployment.`)) {
                     run(() => api('PUT', `/clients/${client.id}/first-party`), 'The Client is first-party.', context);
                 }
             }));
     }
 
     if (context.can('clients.delete')) {
-        actions.push(button('Delete', () => {
-            if (confirmed(`Delete ${client.name}? All its Grants and tokens are deleted. This cannot be undone.`)) {
+        actions.push(button('Delete', async () => {
+            if (await confirmed('Delete', `Delete ${client.name}? All its Grants and tokens are deleted. This cannot be undone.`)) {
                 run(() => api('DELETE', `/clients/${client.id}`), 'The Client was deleted.')
                     .then(result => result !== undefined && context.navigate('/clients'));
             }
-        }, 'danger'));
+        }, 'destructive'));
     }
 
-    return actions.length > 0 ? h('div', { class: 'button-row spaced' }, actions) : null;
+    return actions.length > 0 ? h('div', { class: 'button-row panel-actions' }, actions) : null;
 }
 
 // A first-party Client gets codes without asking the User, so the server refuses new Redirect URIs and Scopes for it.
 const firstPartyLockedText = 'This Client is first-party, so no Redirect URIs or Scopes can be added. Mark it as third-party first to change them.';
 
+function uriList(uris, empty, remove) {
+    if (uris.length === 0) {
+        return h('p', { class: 'empty', text: empty });
+    }
+
+    return h('ul', { class: 'uri-list' }, uris.map(uri => h('li', {},
+        h('code', { text: uri }),
+        remove ? button('Remove', () => remove(uri), 'small') : null)));
+}
+
 function redirectUrisPanel(context, client, canUpdate) {
     const input = h('input', { type: 'url', placeholder: 'https://app.example.com/callback', 'aria-label': 'Redirect URI' });
 
     return panel('Redirect URIs',
-        table([
-            { label: 'Redirect URI', render: uri => h('code', { text: uri }) },
-            {
-                label: '', class: 'actions-cell', render: uri => canUpdate
-                    ? button('Remove', () => run(
-                        () => api('DELETE', `/clients/${client.id}/redirect-uris?uri=${encodeURIComponent(uri)}`),
-                        'The Redirect URI was removed.',
-                        context), 'small')
-                    : null
-            }
-        ], client.redirectUris, { empty: 'The Client has no Redirect URIs, so it cannot sign Users in.' }),
+        hint('Where Authora may send the authorization code. Matched exactly.'),
+        uriList(client.redirectUris, 'The Client has no Redirect URIs, so it cannot sign Users in.', canUpdate
+            ? uri => run(() => api('DELETE', `/clients/${client.id}/redirect-uris?uri=${encodeURIComponent(uri)}`), 'The Redirect URI was removed.', context)
+            : null),
         canUpdate && client.isFirstParty
-            ? h('p', { class: 'muted spaced', text: firstPartyLockedText })
+            ? h('p', { class: 'hint locked', text: firstPartyLockedText })
             : null,
         canUpdate && !client.isFirstParty
             ? h('form', {
-                class: 'inline spaced', onSubmit: event => {
+                class: 'inline add-row', onSubmit: event => {
                     event.preventDefault();
                     run(() => api('POST', `/clients/${client.id}/redirect-uris`, { uri: input.value.trim() }), 'The Redirect URI was added.', context);
                 }
@@ -232,20 +257,13 @@ function postLogoutRedirectUrisPanel(context, client, canUpdate) {
     const input = h('input', { type: 'url', placeholder: 'https://app.example.com/signed-out', 'aria-label': 'Post-logout Redirect URI' });
 
     return panel('Post-logout Redirect URIs',
-        table([
-            { label: 'Post-logout Redirect URI', render: uri => h('code', { text: uri }) },
-            {
-                label: '', class: 'actions-cell', render: uri => canUpdate
-                    ? button('Remove', () => run(
-                        () => api('DELETE', `/clients/${client.id}/post-logout-redirect-uris?uri=${encodeURIComponent(uri)}`),
-                        'The Post-logout Redirect URI was removed.',
-                        context), 'small')
-                    : null
-            }
-        ], client.postLogoutRedirectUris, { empty: 'None: after signing a User out, Authora shows its own page instead of returning to the application.' }),
+        hint('Where the application may send Users back after signing them out.'),
+        uriList(client.postLogoutRedirectUris, 'None: after signing a User out, Authora shows its own page instead of returning to the application.', canUpdate
+            ? uri => run(() => api('DELETE', `/clients/${client.id}/post-logout-redirect-uris?uri=${encodeURIComponent(uri)}`), 'The Post-logout Redirect URI was removed.', context)
+            : null),
         canUpdate
             ? h('form', {
-                class: 'inline spaced', onSubmit: event => {
+                class: 'inline add-row', onSubmit: event => {
                     event.preventDefault();
                     run(() => api('POST', `/clients/${client.id}/post-logout-redirect-uris`, { uri: input.value.trim() }), 'The Post-logout Redirect URI was added.', context);
                 }
@@ -256,11 +274,14 @@ function postLogoutRedirectUrisPanel(context, client, canUpdate) {
 function scopesPanel(context, client, scopes, canUpdate) {
     const allowed = new Set(client.scopes.map(scope => scope.id));
     const served = new Set(client.servedScopes.map(scope => scope.id));
+    const tokens = list => list.length > 0
+        ? h('span', { class: 'badge-row' }, list.map(scope => h('code', { class: 'token', text: scope.name })))
+        : '–';
 
     if (!canUpdate || scopes === null) {
         return panel('Scopes', details([
-            ['Allowed', client.scopes.map(scope => scope.name).join(', ') || '–'],
-            ['Served', client.servedScopes.map(scope => scope.name).join(', ') || '–']
+            ['Allowed', tokens(client.scopes)],
+            ['Served', tokens(client.servedScopes)]
         ]));
     }
 
@@ -270,12 +291,12 @@ function scopesPanel(context, client, scopes, canUpdate) {
         context);
 
     return panel('Scopes',
-        h('p', { class: 'muted', text: 'Allowed: the Client may request the Scope. Served: the Client is a resource server for the Scope and may introspect tokens with it (Confidential Clients only).' }),
-        client.isFirstParty ? h('p', { class: 'muted', text: firstPartyLockedText }) : null,
+        hint('Allowed: the Client may request the Scope. Served: the Client is a resource server for the Scope and may introspect tokens with it (Confidential Clients only).'),
+        client.isFirstParty ? h('p', { class: 'hint locked', text: firstPartyLockedText }) : null,
         table([
-            { label: 'Scope', render: scope => h('code', { text: scope.name }) },
+            { label: 'Scope', render: scope => h('code', { class: 'token', text: scope.name }) },
             {
-                label: 'Allowed', render: scope => h('input', {
+                label: 'Allowed', class: 'check-cell', render: scope => h('input', {
                     type: 'checkbox',
                     'aria-label': `Allow ${scope.name}`,
                     checked: allowed.has(scope.id),
@@ -285,7 +306,7 @@ function scopesPanel(context, client, scopes, canUpdate) {
                 })
             },
             {
-                label: 'Served', render: scope => h('input', {
+                label: 'Served', class: 'check-cell', render: scope => h('input', {
                     type: 'checkbox',
                     'aria-label': `Serve ${scope.name}`,
                     checked: served.has(scope.id),
@@ -300,6 +321,7 @@ function secretsPanel(context, client) {
     const canManage = context.can('clients.manage-secrets');
 
     return panel('Secrets',
+        hint('The Client authenticates at the token endpoint with one of its active Secrets. Authora stores only their hashes.'),
         table([
             { label: 'Id', render: secret => h('code', { text: secret.id }) },
             { label: 'Created', render: secret => formatDate(secret.createdAt) },
@@ -307,15 +329,15 @@ function secretsPanel(context, client) {
             { label: 'Status', render: secret => secret.isActive ? badge('Active', 'ok') : badge(secret.revokedAt ? 'Revoked' : 'Expired', 'bad') },
             {
                 label: '', class: 'actions-cell', render: secret => canManage && !secret.revokedAt
-                    ? button('Revoke', () => {
-                        if (confirmed('Revoke this Secret? The Client can no longer authenticate with it.')) {
+                    ? button('Revoke', async () => {
+                        if (await confirmed('Revoke', 'Revoke this Secret? The Client can no longer authenticate with it.')) {
                             run(() => api('POST', `/clients/${client.id}/secrets/${secret.id}/revoke`), 'The Secret was revoked.', context);
                         }
                     }, 'small')
                     : null
             }
         ], client.secrets, { empty: 'The Client has no Secrets.' }),
-        canManage ? h('div', { class: 'spaced' }, form([
+        canManage ? h('div', { class: 'subsection' }, form([
             { name: 'expiresAt', label: 'Expires at', type: 'datetime-local', help: 'Optional, at most 730 days from now. Defaults to 365 days.' }
         ], 'Create Secret', async values => {
             const secret = await run(() => api('POST', `/clients/${client.id}/secrets`, {

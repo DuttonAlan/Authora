@@ -39,6 +39,8 @@ curl "https://auth.example.com/api/audit-events/verification?checkpointSequence=
 
 Without the checkpoint parameters, Authora checks the chain on its own, and `checkpointMatches` is `null`.
 
+The admin interface runs the same check without a checkpoint: **Audit log** → **Verify chain**. It shows whether the chain is intact and the Sequence and hash of the last link, which you can compare with the latest checkpoint in your logs.
+
 ## 3. Read the result
 
 The chain is fine when `isIntact` is `true`, `unsealedEvents` is `0` and `checkpointMatches` is `true`.

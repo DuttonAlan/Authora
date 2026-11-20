@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
-import { h, toast } from '../dom.js';
+import { confirmDialog, h, toast } from '../dom.js';
+import { icon } from '../icons.js';
 
 /**
  * Runs a change, shows whether it succeeded and shows the current state afterwards.
@@ -28,12 +29,18 @@ export async function run(action, successMessage, context) {
 }
 
 /**
- * Asks before a change that cannot be undone.
- * @param {string} message The question.
- * @returns {boolean} True if the User agreed.
+ * Asks before a change that cannot be undone or that weakens security.
+ * @param {string} action The label of the button that performs the change, e.g. "Delete".
+ * @param {string} message The question and what happens, e.g. "Delete alice@example.com? This cannot be undone.".
+ * @returns {Promise<boolean>} True if the User chose the action.
  */
-export function confirmed(message) {
-    return window.confirm(message);
+export function confirmed(action, message) {
+    // The first sentence is the question, the rest explains what happens.
+    const end = message.search(/[?.](\s|$)/);
+    const title = end === -1 ? message : message.slice(0, end + 1);
+    const rest = end === -1 ? '' : message.slice(end + 1).trim();
+
+    return confirmDialog({ title, message: rest, confirmLabel: action });
 }
 
 /**
@@ -49,7 +56,7 @@ export function auditLink(context, targetType, targetId) {
     }
 
     const parameters = new URLSearchParams({ targetType, targetId });
-    return h('a', { href: `#/audit?${parameters}` }, 'Show audit log');
+    return h('a', { class: 'button', href: `#/audit?${parameters}` }, icon('audit'), 'Show audit log');
 }
 
 /**

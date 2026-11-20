@@ -1,0 +1,130 @@
+/*
+ * Homepage layout, shared by the components in this folder and the quickstart in index.md.
+ * Colors come from VitePress's tokens (indigo brand, neutral greys) plus one signal color:
+ * teal, from the logo, marks what is protected or verified (the sign-in step, passing tests).
+ * Type is Inter, which VitePress bundles, so the site loads no fonts from third parties.
+ */
+
+:root {
+  --authora-c-safe: #0f766e; /* 5.1:1 on --vp-c-bg-soft #f6f6f7 */
+  --authora-c-safe-text: #115e59; /* 6.3:1 on --authora-c-safe-soft */
+  --authora-c-safe-soft: rgba(15, 118, 110, 0.08);
+}
+
+.dark {
+  --authora-c-safe: #5eead4; /* 10.9:1 on --vp-c-bg-soft #202127 */
+  --authora-c-safe-text: #99f6e4; /* 10.6:1 on --authora-c-safe-soft */
+  --authora-c-safe-soft: rgba(94, 234, 212, 0.08);
+}
+
+.home-container {
+  width: 100%;
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (min-width: 640px) {
+  .home-container {
+    padding: 0 48px;
+  }
+}
+
+@media (min-width: 960px) {
+  .home-container {
+    padding: 0 64px;
+  }
+}
+
+.home-section {
+  padding: 64px 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+@media (min-width: 960px) {
+  .home-section {
+    padding: 96px 0;
+  }
+}
+
+.home-heading {
+  margin: 0;
+  color: var(--vp-c-text-1);
+  font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.home-subheading {
+  max-width: 40rem;
+  margin: 12px 0 0;
+  color: var(--vp-c-text-2);
+  font-size: 17px;
+  line-height: 27px;
+}
+
+.home-link {
+  align-self: flex-start;
+  color: var(--vp-c-brand-1);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.home-link::after {
+  content: ' →';
+}
+
+.home-link:hover {
+  color: var(--vp-c-brand-2);
+}
+
+/* Quickstart: intro and next steps beside the commands on wide screens, in reading order on narrow ones. */
+.quickstart-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.quickstart-grid > * {
+  min-width: 0;
+}
+
+/* VitePress pulls code blocks to the screen edge on phones; here the block stays inside the gutter. */
+.home-quickstart .vp-doc div[class*='language-'] {
+  margin: 0;
+  border-radius: 12px;
+}
+
+.quickstart-next p {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+@media (min-width: 960px) {
+  .quickstart-grid {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-areas:
+      'intro code'
+      'next code';
+    grid-template-rows: auto 1fr;
+    column-gap: 64px;
+  }
+
+  .quickstart-intro {
+    grid-area: intro;
+  }
+
+  .quickstart-code {
+    grid-area: code;
+    align-self: start;
+  }
+
+  .quickstart-next {
+    grid-area: next;
+  }
+}
