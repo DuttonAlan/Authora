@@ -1,20 +1,23 @@
-import { h } from 'vue'
 import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
-import HeroStatus from './HeroStatus.vue'
 import Mermaid from './Mermaid.vue'
-import SignInFlow from './SignInFlow.vue'
+import HomeAudiences from './home/HomeAudiences.vue'
+import HomeDocs from './home/HomeDocs.vue'
+import HomeHero from './home/HomeHero.vue'
+import HomeScope from './home/HomeScope.vue'
+import HomeStandards from './home/HomeStandards.vue'
 import './custom.css'
+import './home/home.css'
 
 export default {
   extends: DefaultTheme,
-  Layout() {
-    return h(DefaultTheme.Layout, null, {
-      'home-hero-actions-after': () => h(HeroStatus),
-      'home-hero-image': () => h(SignInFlow),
-    })
-  },
   enhanceApp({ app }) {
     app.component('Mermaid', Mermaid)
+    // The homepage (index.md) is built from these sections.
+    app.component('HomeHero', HomeHero)
+    app.component('HomeAudiences', HomeAudiences)
+    app.component('HomeStandards', HomeStandards)
+    app.component('HomeScope', HomeScope)
+    app.component('HomeDocs', HomeDocs)
   },
 } satisfies Theme

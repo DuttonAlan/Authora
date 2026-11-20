@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Website: the homepage states the project's status next to the call to action and shows how an application signs users in through Authora, and its icons, button contrast, 404 page and link previews are improved.
+- Website: redesigned homepage. The sign-in flow is drawn as a sequence diagram between the application and Authora; features are grouped by who uses them (applications, administrators, operators); a section lists the implemented specifications and the conformance test plans that run on every pull request; another states what is not supported and the project's status; the four parts of the documentation are linked at the end.
 
 ### Fixed
 

@@ -1,51 +1,10 @@
 :root {
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #3451b2 30%, #1d8a7a);
-  --vp-home-hero-image-background-image: none;
+  /* White text on the brand button reaches 4.5:1. */
   --vp-button-brand-bg: #3451b2;
 }
 
 .dark {
-  --vp-home-hero-name-background: linear-gradient(120deg, #a8b1ff 30%, #5eead4);
   --vp-button-brand-bg: #3e63dd;
-}
-
-/* The hero's second column holds the sign-in flow: below the call to action on small screens. */
-.VPHero.has-image .image {
-  order: 3;
-  margin: 40px 0 0;
-}
-
-.VPHero.has-image .image-container {
-  width: 100%;
-  max-width: 480px;
-  height: auto;
-  transform: none;
-}
-
-@media (max-width: 959px) {
-  .VPHero .actions .VPButton.medium {
-    line-height: 42px;
-  }
-}
-
-@media (min-width: 960px) {
-  .VPHero.has-image .image {
-    order: 2;
-    margin: 0 0 0 48px;
-    min-height: 0;
-  }
-
-  .VPHero.has-image .image-container {
-    max-width: none;
-  }
-}
-
-/* Feature icons are one set of inline SVGs that take the brand color. */
-.VPFeature .icon svg {
-  width: 24px;
-  height: 24px;
-  color: var(--vp-c-brand-1);
 }
 
 /* Touch screens have no hover, so the copy button stays visible and takes the place of the language label. */
@@ -85,22 +44,4 @@
   font-family: var(--vp-font-family-mono);
   font-size: 14px;
   overflow-x: auto;
-}
-
-.home-content {
-  max-width: 1152px;
-  margin: 48px auto 0;
-  padding: 0 24px;
-}
-
-@media (min-width: 640px) {
-  .home-content {
-    padding: 0 48px;
-  }
-}
-
-@media (min-width: 960px) {
-  .home-content {
-    padding: 0 64px;
-  }
 }
