@@ -6,7 +6,7 @@ Authora records security-relevant events in the table `audit.events`. Events are
 
 | Area | Types |
 |---|---|
-| Sign-in | `account.sign-in` (succeeded, or failed with the reason: unknown Email, wrong password, locked out, cannot sign in), `account.locked-out`, `account.signed-out` (at `/account/logout`), `account.signed-out-by-client` (RP-initiated logout; the Details name the Client and whether the User confirmed or an `id_token_hint` of the Session was sent) |
+| Sign-in and account | `account.sign-in` (succeeded, or failed with the reason: unknown Email, wrong password, locked out, cannot sign in), `account.locked-out` (after failed sign-ins or wrong current passwords), `account.signed-out` (at `/account/logout`), `account.signed-out-by-client` (RP-initiated logout; the Details name the Client and whether the User confirmed or an `id_token_hint` of the Session was sent), `account.password-changed` (a User changed their own password at `/account/password`; the Details name the Session that stays valid, all others and all tokens of the User were revoked. Failed with the reason: wrong current password, locked out) |
 | Attacks on tokens | `oauth.authorization-code-reused`, `oauth.refresh-token-reused` |
 | Users | `user.created`, `user.updated`, `user.deleted`, `user.activated`, `user.deactivated`, `user.unlocked`, `user.sessions-revoked`, `user.password-set`, `user.role-assigned`, `user.role-removed` |
 | Groups | `group.created`, `group.updated`, `group.deleted`, `group.member-added`, `group.member-removed`, `group.role-assigned`, `group.role-removed` |
@@ -33,8 +33,8 @@ The Email of the acting User and the name of the acting Client are looked up whe
 
 - Changes are recorded in the same database transaction as the change itself, so an event exists if and only if the change was saved.
 - Requests that change nothing (e.g. assigning a Role that is already assigned) and rejected requests record nothing, except for the cases below.
-- Failed sign-ins, token reuse and admin API changes denied because they exceed the caller's rights (see [Nobody grants more than they hold](admin-api.md#nobody-grants-more-than-they-hold)) are recorded immediately, independent of other changes, with outcome `Failed`. A denied change has the type of the attempted change, e.g. `user.role-assigned`, and the reason in the Details.
-- Sign-in events have the User as their *target*, because nobody is signed in yet when they occur. Search by `targetId` to see a User's sign-ins.
+- Failed sign-ins, failed password changes, token reuse and admin API changes denied because they exceed the caller's rights (see [Nobody grants more than they hold](admin-api.md#nobody-grants-more-than-they-hold)) are recorded immediately, independent of other changes, with outcome `Failed`. A denied change has the type of the attempted change, e.g. `user.role-assigned`, and the reason in the Details.
+- Sign-in events have the User as their *target*, because nobody is signed in yet when they occur. Search by `targetId` to see a User's sign-ins. `account.password-changed` also has the User as its target, and as its actor.
 - **Never recorded:** passwords, Session tokens, codes, Access and Refresh Tokens, Client Secrets, private keys. The Email of a failed sign-in for an unknown account is not recorded either, because it may be a password typed into the wrong field.
 
 ## Search

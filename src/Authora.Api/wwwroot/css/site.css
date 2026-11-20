@@ -8,6 +8,8 @@
     --primary-text: #ffffff;
     --error-background: #fdecec;
     --error-text: #9b1c1c;
+    --success-background: #e7f6ec;
+    --success-text: #17643a;
     color-scheme: light dark;
 }
 
@@ -22,6 +24,8 @@
         --primary-text: #0f1218;
         --error-background: #3a1d1f;
         --error-text: #f4b4b4;
+        --success-background: #173322;
+        --success-text: #a6e3bd;
     }
 }
 
@@ -144,4 +148,15 @@ button.primary {
 
 a {
     color: var(--primary);
+}
+
+.success {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--success-background);
+    color: var(--success-text);
+}
+
+.hint {
+    margin-top: -12px;
 }

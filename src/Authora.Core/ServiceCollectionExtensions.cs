@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Application.Account;
+using Authora.Core.Application.Account.ChangePassword;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
@@ -100,6 +101,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<SignInOptions>, SignInOptionsValidator>());
+        serviceCollection.AddTransient<ChangePasswordService>();
         serviceCollection.AddTransient<SignInService>();
         serviceCollection.AddTransient<SignOutService>();
         serviceCollection.AddTransient<ValidateSessionService>();

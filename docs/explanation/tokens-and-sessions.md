@@ -58,6 +58,8 @@ Every check, whether introspection, UserInfo or the admin API, walks the whole c
 
 The security stamp is a random value on the User that changes when the User is deactivated or deleted, gets a new password, or is signed out everywhere. Changing it invalidates every Session and token of the User at once, without touching each one.
 
+There is one exception. When Users change their own password at `/account/password`, the Session they did it in takes over the new stamp in the same transaction, so they stay signed in in that browser. Every other Session ends, and so does every Grant with its Access and Refresh Tokens, including the Grants that applications got through this very Session: whoever knew the old password, or held a token, is locked out, and applications ask the User to sign in again. Because that browser's Session is still valid, this usually happens without typing the password. An administrator who sets a password through the admin API keeps no Session alive.
+
 ## Single use and reuse detection
 
 **Authorization Codes** are marked as used in one atomic database statement before anything else is checked. Even two simultaneous requests cannot both use a code, and a failed attempt (e.g. a wrong PKCE verifier) still uses it up.

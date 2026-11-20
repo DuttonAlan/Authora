@@ -45,6 +45,21 @@ public sealed class EmailTemplateTests
         Assert.Contains("1 hour", message.TextBody, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PasswordChanged_NamesTheTime_AndHasNoLink()
+    {
+        var user = User.Create("ada@example.com", "<b>Ada</b>", "Lovelace", "hash");
+
+        var message = EmailTemplates.PasswordChanged(user, new DateTime(2026, 11, 20, 14, 5, 0, DateTimeKind.Utc));
+
+        Assert.Equal("ada@example.com", message.ToAddress);
+        Assert.Contains("2026-11-20 14:05 UTC", message.TextBody, StringComparison.Ordinal);
+        Assert.Contains("2026-11-20 14:05 UTC", message.HtmlBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("http", message.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("<a ", message.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains("&lt;b&gt;Ada&lt;/b&gt;", message.HtmlBody, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("javascript:alert(1)")]
     [InlineData("mailto:ada@example.com")]

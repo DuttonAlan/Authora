@@ -123,6 +123,24 @@ public sealed class Session
     }
 
     /// <summary>
+    ///     Takes over the current <see cref="User.SecurityStamp"/>, so the Session stays valid after the User changed
+    ///     their password in it, while all other Sessions of the User end.
+    /// </summary>
+    /// <param name="user">The User of the Session, with the new Security Stamp.</param>
+    /// <exception cref="ArgumentException">Thrown when the Session belongs to another User.</exception>
+    public void RenewSecurityStamp(User user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        if (user.Id != UserId)
+        {
+            throw new ArgumentException("The Session belongs to another User.", nameof(user));
+        }
+
+        SecurityStamp = user.SecurityStamp;
+    }
+
+    /// <summary>
     ///     Revokes the Session. Revoking an already revoked Session keeps the original revocation time.
     /// </summary>
     /// <param name="now">The current point in time (UTC).</param>
