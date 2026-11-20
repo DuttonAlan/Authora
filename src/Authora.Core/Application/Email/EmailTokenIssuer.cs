@@ -43,11 +43,11 @@ public sealed class EmailTokenIssuer(
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var token = secretGenerator.Generate();
-        var emailToken = EmailToken.Create(secretHasher.Hash(token), user, purpose, now, lifetime);
+        var issued = EmailToken.Create(secretHasher.Hash(token), user, purpose, now, lifetime);
 
-        await emailTokenRepository.ReplaceEmailTokens(emailToken, cancellationToken);
+        await emailTokenRepository.ReplaceEmailTokens(issued, cancellationToken);
 
-        logger.EmailTokenIssued(emailToken.Id, purpose, user.Id, emailToken.ExpiresAt);
+        logger.EmailTokenIssued(issued.Id, purpose.LogName(), user.Id, issued.ExpiresAt);
 
         return token;
     }

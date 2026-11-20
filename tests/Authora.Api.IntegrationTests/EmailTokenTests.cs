@@ -11,6 +11,8 @@ using Authora.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Api.IntegrationTests;
 
@@ -207,6 +209,42 @@ public sealed class EmailTokenTests(AuthoraApiFactory factory) : IClassFixture<A
 
             Assert.Equal(2, remaining.Count);
             Assert.All(remaining, token => Assert.True(token.ExpiresAt > now.AddDays(-7)));
+        }
+    }
+
+    [Fact]
+    public async Task Cleanup_DeletesExpiredTokensInSeveralBatches()
+    {
+        var now = DateTime.UtcNow;
+        var userId = await factory.CreateUserAsync();
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var secretHasher = scope.ServiceProvider.GetRequiredService<ISecretHasher>();
+            var user = await context.Users.SingleAsync(user => user.Id == userId, TestContext.Current.CancellationToken);
+
+            context.EmailTokens.AddRange(Enumerable.Range(0, 3).Select(_ => EmailToken.Create(
+                secretHasher.Hash(Guid.NewGuid().ToString()), user, EmailTokenPurpose.PasswordReset, now.AddDays(-30), Lifetime)));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var cleaner = new ExpiredDataCleaner(
+                scope.ServiceProvider.GetRequiredService<AuthoraContext>(),
+                Options.Create(new CleanupOptions { BatchSize = 2 }),
+                scope.ServiceProvider.GetRequiredService<IAuditLog>(),
+                NullLogger<ExpiredDataCleaner>.Instance);
+
+            await cleaner.CleanAsync(now, TestContext.Current.CancellationToken);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+            Assert.False(await context.EmailTokens.AnyAsync(token => token.UserId == userId, TestContext.Current.CancellationToken));
         }
     }
 

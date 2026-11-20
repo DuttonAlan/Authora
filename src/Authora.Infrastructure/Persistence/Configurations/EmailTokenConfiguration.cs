@@ -15,10 +15,24 @@ namespace Authora.Infrastructure.Persistence.Configurations;
 /// </summary>
 public sealed class EmailTokenConfiguration : IEntityTypeConfiguration<EmailToken>
 {
+    /// <summary>
+    ///     Name of the table in the <c>auth</c> schema.
+    /// </summary>
+    internal const string TableName = "email_tokens";
+
+    /// <summary>
+    ///     Deletes up to <c>{1}</c> tokens that expired before <c>{0}</c>, see <c>ExpiredDataCleaner</c>. Uses the
+    ///     index on <c>ExpiresAt</c>.
+    /// </summary>
+    internal const string DeleteExpiredBatchSql =
+        "DELETE FROM " + Schemas.Auth + "." + TableName
+        + " WHERE \"" + nameof(EmailToken.Id) + "\" IN (SELECT \"" + nameof(EmailToken.Id) + "\" FROM " + Schemas.Auth + "." + TableName
+        + " WHERE \"" + nameof(EmailToken.ExpiresAt) + "\" < {0} LIMIT {1})";
+
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<EmailToken> builder)
     {
-        builder.ToTable("email_tokens", Schemas.Auth);
+        builder.ToTable(TableName, Schemas.Auth);
 
         builder.HasKey(x => x.Id);
 

@@ -44,57 +44,59 @@ public sealed class EmailTokenRedeemer(
     /// <returns>The tracked User of the token, or null if the token is not accepted.</returns>
     public async Task<User?> RedeemAsync(string? token, EmailTokenPurpose purpose, CancellationToken cancellationToken = default)
     {
+        var purposeName = purpose.LogName();
+
         if (string.IsNullOrEmpty(token) || token.Length > MaxTokenLength)
         {
-            logger.EmailTokenUnknown(purpose);
+            logger.EmailTokenUnknown(purposeName);
 
             return null;
         }
 
-        var emailToken = await emailTokenRepository.GetEmailTokenByHash(secretHasher.Hash(token), cancellationToken);
+        var stored = await emailTokenRepository.GetEmailTokenByHash(secretHasher.Hash(token), cancellationToken);
 
-        if (emailToken is null)
+        if (stored is null)
         {
-            logger.EmailTokenUnknown(purpose);
+            logger.EmailTokenUnknown(purposeName);
 
             return null;
         }
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
-        var reason = emailToken switch
+        var reason = stored switch
         {
-            _ when emailToken.Purpose != purpose => $"issued for {emailToken.Purpose}",
-            _ when emailToken.ConsumedAt is not null => "already used or replaced",
-            _ when emailToken.IsExpired(now) => "expired",
+            _ when stored.Purpose != purpose => $"issued for {stored.Purpose.LogName()}",
+            _ when stored.ConsumedAt is not null => "already used or replaced",
+            _ when stored.IsExpired(now) => "expired",
             _ => null
         };
 
         if (reason is not null)
         {
-            logger.EmailTokenRejected(emailToken.Id, emailToken.UserId, purpose, reason);
+            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, reason);
 
             return null;
         }
 
-        var user = await userRepository.GetUserById(emailToken.UserId, cancellationToken);
+        var user = await userRepository.GetUserById(stored.UserId, cancellationToken);
 
-        if (user is null || user.State == UserState.Deleted || !emailToken.IsFor(user))
+        if (user is null || user.State == UserState.Deleted || !stored.IsFor(user))
         {
-            logger.EmailTokenRejected(emailToken.Id, emailToken.UserId, purpose, "the User no longer has the address it was sent to");
+            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "the User no longer has the address it was sent to");
 
             return null;
         }
 
         // Atomic, so of concurrent requests with the same token only one gets the User.
-        if (!await emailTokenRepository.TryConsume(emailToken.Id, now, cancellationToken))
+        if (!await emailTokenRepository.TryConsume(stored.Id, now, cancellationToken))
         {
-            logger.EmailTokenRejected(emailToken.Id, emailToken.UserId, purpose, "already used or replaced");
+            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "already used or replaced");
 
             return null;
         }
 
-        logger.EmailTokenUsed(emailToken.Id, purpose, user.Id);
+        logger.EmailTokenUsed(stored.Id, purposeName, user.Id);
 
         return user;
     }
