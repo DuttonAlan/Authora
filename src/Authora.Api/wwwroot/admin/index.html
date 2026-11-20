@@ -9,23 +9,40 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
     <title>Authora Admin</title>
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="admin.css" />
     <script type="module" src="js/app.js"></script>
 </head>
 <body>
-    <header class="topbar">
-        <a class="brand" href="#/">Authora <span>Admin</span></a>
-        <div class="account" id="account" hidden>
-            <span id="account-name"></span>
-            <button type="button" id="sign-out">Sign out</button>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app" id="app">
+        <aside class="sidebar" id="sidebar" aria-label="Navigation">
+            <a class="brand" href="#/">
+                <img src="logo.svg" alt="" width="28" height="28" />
+                <span class="brand-text">Authora <span class="brand-sub">Admin</span></span>
+            </a>
+            <nav id="navigation" aria-label="Main"></nav>
+        </aside>
+        <div class="scrim" id="scrim" hidden></div>
+        <div class="content">
+            <header class="toolbar">
+                <button type="button" class="icon-button menu-button" id="menu-button" aria-label="Show navigation" aria-controls="sidebar" aria-expanded="false"></button>
+                <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb"></nav>
+                <div class="account" id="account" hidden>
+                    <span class="avatar" id="account-avatar" aria-hidden="true"></span>
+                    <span class="account-text">
+                        <span class="account-name" id="account-name"></span>
+                        <span class="account-email" id="account-email"></span>
+                    </span>
+                    <button type="button" class="icon-button" id="sign-out" aria-label="Sign out" title="Sign out"></button>
+                </div>
+            </header>
+            <main id="main" tabindex="-1">
+                <div class="loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading…</div>
+            </main>
         </div>
-    </header>
-    <div class="layout">
-        <nav class="sidebar" id="navigation" aria-label="Main" hidden></nav>
-        <main id="main" tabindex="-1">
-            <p class="muted">Loading…</p>
-        </main>
     </div>
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
     <noscript><p class="error">The admin interface needs JavaScript.</p></noscript>

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 import { api } from '../api.js';
-import { badge, button, details, form, formatDate, h, pageHeader, panel, table } from '../dom.js';
+import { badge, button, details, entityHeader, form, formatDate, h, hint, initials, pageHeader, panel, table } from '../dom.js';
 import { auditLink, confirmed, emptyToNull, run } from './common.js';
 
 // Role.AdministratorName: the System Role that always has all Permissions.
@@ -17,16 +17,15 @@ const administratorName = 'admin';
 export async function list(context) {
     const roles = await api('GET', '/roles');
 
-    return h('div', {},
+    return h('div', { class: 'stack' },
         pageHeader('Roles', 'Roles bundle Permissions. Users get them directly or through Groups.',
             context.can('roles.create') ? button('New Role', () => context.navigate('/roles?new=1'), 'primary') : null),
         context.parameters.has('new') && context.can('roles.create') ? createPanel(context) : null,
-        panel(null, table([
-            { label: 'Role', render: role => role.displayName },
+        h('section', { class: 'panel flush' }, table([
+            { label: 'Role', render: role => h('span', { class: 'badge-row' }, h('span', { class: 'strong', text: role.displayName }), role.isSystem ? badge('System') : null) },
             { label: 'Name', render: role => h('code', { text: role.name }) },
-            { label: 'Description', render: role => role.description ?? '' },
-            { label: '', render: role => role.isSystem ? badge('System') : null }
-        ], roles, { onClick: role => context.navigate(`/roles/${role.id}`), empty: 'No Roles exist.' })));
+            { label: 'Description', class: 'secondary', render: role => role.description ?? '' }
+        ], roles, { href: role => `#/roles/${role.id}`, empty: 'No Roles exist yet.' })));
 }
 
 function createPanel(context) {
@@ -42,7 +41,7 @@ function createPanel(context) {
         if (created) {
             context.navigate(`/roles/${created.id}`);
         }
-    }));
+    }, { onCancel: () => context.navigate('/roles') }));
 }
 
 /**
@@ -61,22 +60,29 @@ export async function detail(context, id) {
     const granted = new Set(role.permissions.map(permission => permission.id));
 
     return h('div', { class: 'stack' },
-        pageHeader(role.displayName, role.description, auditLink(context, 'role', role.id)),
+        entityHeader({
+            kind: role.isSystem ? 'System Role' : 'Role',
+            title: role.displayName,
+            subtitle: role.description,
+            monogram: initials(role.displayName),
+            id: role.id,
+            actions: [auditLink(context, 'role', role.id)]
+        }),
         h('div', { class: 'grid' },
             panel('Role', details([
                 ['Name', h('code', { text: role.name })],
                 ['System Role', role.isSystem ? 'Yes, it cannot be deleted' : 'No'],
+                ['Permissions', isAdministrator ? 'All' : role.permissions.length.toLocaleString()],
                 ['Created', formatDate(role.createdAt)],
-                ['Modified', formatDate(role.modifiedAt)],
-                ['Id', h('code', { text: role.id })]
+                ['Modified', formatDate(role.modifiedAt)]
             ]),
             context.can('roles.delete') && !role.isSystem
-                ? h('div', { class: 'button-row spaced' }, button('Delete Role', () => {
-                    if (confirmed(`Delete the Role ${role.displayName}? All Users and Groups lose it.`)) {
+                ? h('div', { class: 'button-row panel-actions' }, button('Delete Role', async () => {
+                    if (await confirmed('Delete Role', `Delete the Role ${role.displayName}? All Users and Groups lose it.`)) {
                         run(() => api('DELETE', `/roles/${id}`), 'The Role was deleted.')
                             .then(result => result !== undefined && context.navigate('/roles'));
                     }
-                }, 'danger'))
+                }, 'destructive'))
                 : null),
             context.can('roles.update') ? panel('Edit', form([
                 { name: 'name', label: 'Name', required: true, value: role.name, disabled: role.isSystem, maxLength: 100 },
@@ -91,26 +97,43 @@ export async function detail(context, id) {
         permissionsPanel(context, role, permissions, granted, isAdministrator));
 }
 
+// Permission names are "<area>.<action>"; grouping them by area keeps the long list scannable.
+function byArea(permissions) {
+    const areas = new Map();
+
+    for (const permission of permissions) {
+        const area = permission.name.split('.')[0];
+        areas.set(area, [...(areas.get(area) ?? []), permission]);
+    }
+
+    return [...areas.entries()];
+}
+
 function permissionsPanel(context, role, permissions, granted, isAdministrator) {
     const canGrant = context.can('roles.grant-permissions') && !isAdministrator;
 
     if (permissions === null || !canGrant) {
         return panel('Permissions',
-            isAdministrator ? h('p', { class: 'muted', text: 'The administrator Role always has all Permissions.' }) : null,
-            table([{ label: 'Permission', render: permission => h('code', { text: permission.name }) }],
-                role.permissions, { empty: 'The Role has no Permissions.' }));
+            isAdministrator ? hint('The administrator Role always has all Permissions.') : null,
+            role.permissions.length === 0
+                ? h('p', { class: 'empty', text: 'The Role has no Permissions.' })
+                : h('div', { class: 'permission-areas' }, byArea(role.permissions).map(([area, items]) => h('div', { class: 'permission-area' },
+                    h('h3', { text: area }),
+                    h('div', { class: 'badge-row' }, items.map(permission => h('code', { class: 'token', text: permission.name })))))));
     }
 
     return panel('Permissions',
-        h('p', { class: 'muted', text: 'Changes take effect on the next request of the Users.' }),
-        h('div', { class: 'checks' }, permissions.map(permission => h('label', {},
-            h('input', {
-                type: 'checkbox',
-                checked: granted.has(permission.id),
-                onChange: event => run(
-                    () => api(event.target.checked ? 'PUT' : 'DELETE', `/roles/${role.id}/permissions/${permission.id}`),
-                    event.target.checked ? `${permission.name} was granted.` : `${permission.name} was revoked.`,
-                    context)
-            }),
-            h('code', { text: permission.name })))));
+        hint(`${granted.size} of ${permissions.length} granted. Changes take effect on the next request of the Users.`),
+        h('div', { class: 'permission-areas' }, byArea(permissions).map(([area, items]) => h('fieldset', { class: 'permission-area' },
+            h('legend', { text: area }),
+            h('div', { class: 'checks' }, items.map(permission => h('label', { class: 'check' },
+                h('input', {
+                    type: 'checkbox',
+                    checked: granted.has(permission.id),
+                    onChange: event => run(
+                        () => api(event.target.checked ? 'PUT' : 'DELETE', `/roles/${role.id}/permissions/${permission.id}`),
+                        event.target.checked ? `${permission.name} was granted.` : `${permission.name} was revoked.`,
+                        context)
+                }),
+                h('code', { text: permission.name }))))))));
 }

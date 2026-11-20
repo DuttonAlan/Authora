@@ -3,7 +3,8 @@
 // See the LICENSE file in the project root for license information.
 
 import { api, query } from '../api.js';
-import { badge, button, details, form, formatDate, h, pageHeader, pager, panel, table } from '../dom.js';
+import { badge, button, details, entityHeader, form, formatDate, h, hint, initials, pageHeader, pager, panel, relativeTime, table } from '../dom.js';
+import { icon } from '../icons.js';
 import { auditLink, confirmed, run } from './common.js';
 
 const pageSize = 25;
@@ -16,7 +17,20 @@ const states = ['Active', 'Inactive', 'Deactivated', 'Deleted'];
  * @returns {HTMLElement} The badge.
  */
 export function stateBadge(state) {
-    return badge(state, state === 'Active' ? 'ok' : state === 'Inactive' ? '' : 'bad');
+    return badge(state, state === 'Active' ? 'ok' : state === 'Inactive' ? 'neutral' : 'bad');
+}
+
+/**
+ * A User's name with their monogram, for lists.
+ * @param {object} user The User.
+ * @returns {HTMLElement} The cell content.
+ */
+export function userCell(user) {
+    return h('span', { class: 'person' },
+        h('span', { class: 'avatar', 'aria-hidden': 'true', text: initials(user.firstName, user.lastName).toUpperCase() }),
+        h('span', { class: 'person-text' },
+            h('span', { class: 'person-name', text: `${user.firstName} ${user.lastName}` }),
+            h('span', { class: 'person-email', text: user.email })));
 }
 
 /**
@@ -43,30 +57,29 @@ export async function list(context) {
         context.navigate(`/users${parameters.size > 0 ? `?${parameters}` : ''}`);
     };
 
-    const searchInput = h('input', { type: 'search', value: search, placeholder: 'Email or name', 'aria-label': 'Search' });
-    const stateSelect = h('select', { 'aria-label': 'State' },
+    const searchInput = h('input', { type: 'search', value: search, placeholder: 'Search by email or name', 'aria-label': 'Search' });
+    const stateSelect = h('select', { 'aria-label': 'State', onChange: () => show({ search: searchInput.value.trim(), state: stateSelect.value }) },
         h('option', { value: '' }, 'All but deleted'),
         states.map(value => h('option', { value, selected: value === state }, value)));
 
-    return h('div', {},
-        pageHeader('Users', null,
+    return h('div', { class: 'stack' },
+        pageHeader('Users', 'People who sign in with Authora.',
             context.can('users.create') ? button('New User', () => context.navigate('/users?new=1'), 'primary') : null),
         context.parameters.has('new') && context.can('users.create') ? createPanel(context) : null,
-        panel(null,
+        h('section', { class: 'panel flush' },
             h('form', {
-                class: 'filters', onSubmit: event => {
+                class: 'toolbar-row', role: 'search', onSubmit: event => {
                     event.preventDefault();
                     show({ search: searchInput.value.trim(), state: stateSelect.value });
                 }
             },
-            h('div', { class: 'field' }, h('label', { text: 'Search' }), searchInput),
-            h('div', { class: 'field' }, h('label', { text: 'State' }), stateSelect),
-            h('div', {}, h('button', { type: 'submit' }, 'Search'))),
+            h('div', { class: 'search-field' }, icon('search'), searchInput),
+            stateSelect,
+            h('button', { type: 'submit' }, 'Search')),
             table([
-                { label: 'Email', render: user => user.email },
-                { label: 'Name', render: user => `${user.firstName} ${user.lastName}` },
+                { label: 'User', render: userCell },
                 { label: 'State', render: user => stateBadge(user.state) }
-            ], result.items, { onClick: user => context.navigate(`/users/${user.id}`), empty: 'No Users found.' }),
+            ], result.items, { href: user => `#/users/${user.id}`, empty: search || state ? 'No Users match the search.' : 'No Users exist yet.' }),
             pager(page, pageSize, result.total, next => show({ page: String(next) }))));
 }
 
@@ -85,7 +98,7 @@ function createPanel(context) {
         if (created) {
             context.navigate(`/users/${created.id}`);
         }
-    }));
+    }, { onCancel: () => context.navigate('/users') }));
 }
 
 /**
@@ -104,52 +117,60 @@ export async function detail(context, id) {
     ]);
 
     const deleted = user.state === 'Deleted';
+    const locked = user.lockoutEndAt && new Date(user.lockoutEndAt) > new Date();
 
     return h('div', { class: 'stack' },
-        pageHeader(user.email, `${user.firstName} ${user.lastName}`, auditLink(context, 'user', user.id)),
+        entityHeader({
+            kind: 'User',
+            title: `${user.firstName} ${user.lastName}`,
+            subtitle: user.email,
+            monogram: initials(user.firstName, user.lastName),
+            status: h('span', { class: 'badge-row' }, stateBadge(user.state), locked ? badge('Locked out', 'warn') : null),
+            id: user.id,
+            actions: [auditLink(context, 'user', user.id)]
+        }),
         h('div', { class: 'grid' },
             panel('Account',
                 details([
-                    ['State', stateBadge(user.state)],
+                    ['Last sign-in', relativeTime(user.lastLoginAt)],
                     ['Failed sign-ins', String(user.failedLoginCount)],
                     ['Locked out until', formatDate(user.lockoutEndAt)],
-                    ['Last sign-in', formatDate(user.lastLoginAt)],
                     ['Created', formatDate(user.createdAt)],
-                    ['Modified', formatDate(user.modifiedAt)],
-                    ['Id', h('code', { text: user.id })]
+                    ['Modified', formatDate(user.modifiedAt)]
                 ]),
                 deleted ? null : accessActions(context, user)),
             !deleted && context.can('users.update') ? panel('Profile', form([
                 { name: 'email', label: 'Email', type: 'email', required: true, value: user.email, maxLength: 254 },
                 { name: 'firstName', label: 'First name', required: true, value: user.firstName, maxLength: 100 },
                 { name: 'lastName', label: 'Last name', required: true, value: user.lastName, maxLength: 100 }
-            ], 'Save', values => run(() => api('PUT', `/users/${id}`, values), 'The User was saved.', context))) : null,
-            !deleted && context.can('users.set-password') ? panel('Password', form([
-                {
-                    name: 'password', label: 'New password', type: 'password', required: true, minLength: 12, maxLength: 128,
-                    autocomplete: 'new-password', help: 'Signs the User out everywhere and revokes all their tokens.'
-                }
-            ], 'Set password', async (values, element) => {
-                if (await run(() => api('PUT', `/users/${id}/password`, values), 'The password was set.') !== undefined) {
-                    element.reset();
-                }
-            })) : null),
+            ], 'Save', values => run(() => api('PUT', `/users/${id}`, values), 'The User was saved.', context))) : null),
         rolesPanel(context, user, roles, allRoles, deleted),
         panel('Groups',
+            hint('Memberships are managed on the page of the Group.'),
             table([
-                { label: 'Group', render: group => context.can('groups.read') ? h('a', { href: `#/groups/${group.id}` }, group.displayName) : group.displayName },
+                { label: 'Group', render: group => group.displayName },
                 { label: 'Name', render: group => h('code', { text: group.name }) }
-            ], groups, { empty: 'The User is in no Group.' }),
-            h('p', { class: 'muted', text: 'Memberships are managed on the page of the Group.' })),
+            ], groups, { href: context.can('groups.read') ? group => `#/groups/${group.id}` : undefined, empty: 'The User is in no Group.' })),
         panel('Effective Permissions',
+            hint('Everything the User may do, and the Roles that grant it.'),
             table([
-                { label: 'Permission', render: permission => h('code', { text: permission.name }) },
+                { label: 'Permission', render: permission => h('code', { class: 'token', text: permission.name }) },
                 {
-                    label: 'Granted by', render: permission => permission.grantedBy.map(role => role.isDirect
-                        ? `${role.displayName} (direct)`
-                        : `${role.displayName} (through ${role.groups.map(group => group.displayName).join(', ')})`).join('; ')
+                    label: 'Granted by', render: permission => h('span', { class: 'badge-row' }, permission.grantedBy.map(role => role.isDirect
+                        ? badge(`${role.displayName} · direct`)
+                        : badge(`${role.displayName} · through ${role.groups.map(group => group.displayName).join(', ')}`)))
                 }
-            ], permissions, { empty: 'The User has no Permissions.' })));
+            ], permissions, { empty: 'The User has no Permissions.' })),
+        !deleted && context.can('users.set-password') ? panel('Password', form([
+            {
+                name: 'password', label: 'New password', type: 'password', required: true, minLength: 12, maxLength: 128,
+                autocomplete: 'new-password', help: 'Signs the User out everywhere and revokes all their tokens.'
+            }
+        ], 'Set password', async (values, element) => {
+            if (await run(() => api('PUT', `/users/${id}/password`, values), 'The password was set.') !== undefined) {
+                element.reset();
+            }
+        })) : null);
 }
 
 function accessActions(context, user) {
@@ -159,8 +180,8 @@ function accessActions(context, user) {
         if (user.state === 'Deactivated') {
             actions.push(button('Activate', () => run(() => api('POST', `/users/${user.id}/activate`), 'The User was activated.', context)));
         } else {
-            actions.push(button('Deactivate', () => {
-                if (confirmed(`Deactivate ${user.email}? The User is signed out everywhere and cannot sign in until activated again.`)) {
+            actions.push(button('Deactivate', async () => {
+                if (await confirmed('Deactivate', `Deactivate ${user.email}? The User is signed out everywhere and cannot sign in until activated again.`)) {
                     run(() => api('POST', `/users/${user.id}/deactivate`), 'The User was deactivated.', context);
                 }
             }));
@@ -170,23 +191,23 @@ function accessActions(context, user) {
             actions.push(button('Unlock', () => run(() => api('POST', `/users/${user.id}/unlock`), 'The User was unlocked.', context)));
         }
 
-        actions.push(button('Sign out everywhere', () => {
-            if (confirmed(`Revoke all Sessions and tokens of ${user.email}?`)) {
+        actions.push(button('Sign out everywhere', async () => {
+            if (await confirmed('Sign out everywhere',`Revoke all Sessions and tokens of ${user.email}? The User has to sign in again in every application.`)) {
                 run(() => api('POST', `/users/${user.id}/revoke-sessions`), 'All Sessions and tokens were revoked.', context);
             }
         }));
     }
 
     if (context.can('users.delete') && user.id !== context.me.id) {
-        actions.push(button('Delete', () => {
-            if (confirmed(`Delete ${user.email}? This cannot be undone.`)) {
+        actions.push(button('Delete', async () => {
+            if (await confirmed('Delete', `Delete ${user.email}? This cannot be undone.`)) {
                 run(() => api('DELETE', `/users/${user.id}`), 'The User was deleted.')
                     .then(result => result !== undefined && context.navigate('/users'));
             }
-        }, 'danger'));
+        }, 'destructive'));
     }
 
-    return actions.length > 0 ? h('div', { class: 'button-row spaced' }, actions) : null;
+    return actions.length > 0 ? h('div', { class: 'button-row panel-actions' }, actions) : null;
 }
 
 function rolesPanel(context, user, roles, allRoles, deleted) {
@@ -197,16 +218,16 @@ function rolesPanel(context, user, roles, allRoles, deleted) {
 
     return panel('Roles',
         table([
-            { label: 'Role', render: role => context.can('roles.read') ? h('a', { href: `#/roles/${role.id}` }, role.displayName) : role.displayName },
-            { label: 'From', render: role => [role.isDirect ? badge('direct', 'ok') : null, ...role.groups.map(group => badge(group.displayName))] },
+            { label: 'Role', render: role => role.displayName },
+            { label: 'From', render: role => h('span', { class: 'badge-row' }, role.isDirect ? badge('Direct', 'ok') : null, role.groups.map(group => badge(group.displayName))) },
             {
                 label: '', class: 'actions-cell', render: role => canAssign && role.isDirect
                     ? button('Remove', () => run(() => api('DELETE', `/users/${user.id}/roles/${role.id}`), 'The Role was removed.', context), 'small')
                     : null
             }
-        ], roles, { empty: 'The User has no Roles.' }),
+        ], roles, { href: context.can('roles.read') ? role => `#/roles/${role.id}` : undefined, empty: 'The User has no Roles.' }),
         canAssign && available.length > 0
-            ? h('div', { class: 'inline spaced' },
+            ? h('div', { class: 'inline add-row' },
                 roleSelect,
                 button('Assign Role', () => run(() => api('PUT', `/users/${user.id}/roles/${roleSelect.value}`), 'The Role was assigned.', context), 'primary'))
             : null);
