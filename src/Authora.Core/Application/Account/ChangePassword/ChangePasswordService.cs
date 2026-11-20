@@ -111,7 +111,7 @@ public sealed class ChangePasswordService(
             catch (EmailDeliveryException exception)
             {
                 // The password is changed either way; a lost notification must not report the change as failed.
-                logger.PasswordChangeNotificationFailed(user.Id, exception);
+                logger.PasswordChangeNotificationFailed(user.Id, exception.Message);
             }
         }
 

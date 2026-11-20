@@ -8,6 +8,8 @@ using System.Net.Http.Headers;
 using Authora.Api.Authentication;
 using Authora.Api.Pages.Account;
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.ChangePassword;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Domain.Enums;
 using Authora.Infrastructure.Persistence;
@@ -149,6 +151,39 @@ public sealed class ChangePasswordTests(AuthoraApiFactory factory) : IClassFixtu
         Assert.Contains(message, html, StringComparison.Ordinal);
         Assert.True(await HasPasswordAsync(userId, Password));
         Assert.Empty(await GetEventsAsync(userId));
+    }
+
+    [Fact]
+    public async Task Validation_OfThisSession_DuringTheChange_DoesNotRevokeIt()
+    {
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        var sessionToken = await factory.CreateSessionAsync(userId);
+
+        // A concurrent request of the same browser: it loaded the Session before the change committed, and loads the
+        // User after it, so it sees the old Session stamp and the new User stamp.
+        await using var concurrentRequest = factory.Services.CreateAsyncScope();
+        var secretHasher = concurrentRequest.ServiceProvider.GetRequiredService<ISecretHasher>();
+        var sessions = concurrentRequest.ServiceProvider.GetRequiredService<ISessionRepository>();
+        var staleSession = await sessions.GetSessionByTokenHash(secretHasher.Hash(sessionToken), TestContext.Current.CancellationToken);
+
+        Assert.NotNull(staleSession);
+
+        await using (var change = factory.Services.CreateAsyncScope())
+        {
+            var result = await change.ServiceProvider.GetRequiredService<ChangePasswordService>().ExecuteAsync(
+                userId,
+                staleSession.Id,
+                new ChangePasswordRequest(Password, NewPassword),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(ChangePasswordResult.Changed, result);
+        }
+
+        var validated = await concurrentRequest.ServiceProvider.GetRequiredService<ValidateSessionService>()
+            .ExecuteAsync(sessionToken, TestContext.Current.CancellationToken);
+
+        Assert.Equal(staleSession.Id, validated?.SessionId);
+        Assert.Equal(HttpStatusCode.OK, await GetPageStatusAsync(sessionToken));
     }
 
     [Fact]

@@ -41,6 +41,7 @@ internal static partial class AccountLog
     [LoggerMessage(EventId = 5010, Level = LogLevel.Warning, Message = "Password change of User {UserId} failed: {Reason}.")]
     public static partial void PasswordChangeFailed(this ILogger logger, Guid userId, string reason);
 
-    [LoggerMessage(EventId = 5011, Level = LogLevel.Warning, Message = "The notification about the password change of User {UserId} could not be sent.")]
-    public static partial void PasswordChangeNotificationFailed(this ILogger logger, Guid userId, Exception exception);
+    // Only the message: the inner SMTP error can quote addresses, see SmtpEmailSender.
+    [LoggerMessage(EventId = 5011, Level = LogLevel.Warning, Message = "The notification about the password change of User {UserId} could not be sent: {Reason}")]
+    public static partial void PasswordChangeNotificationFailed(this ILogger logger, Guid userId, string reason);
 }
