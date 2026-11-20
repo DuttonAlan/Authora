@@ -69,6 +69,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     /// <summary>
+    ///     The one-time tokens of email links in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+
+    /// <summary>
     ///     The Audit Events Table in the <c>audit</c> schema.
     /// </summary>
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();

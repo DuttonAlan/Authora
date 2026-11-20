@@ -21,12 +21,13 @@ cd Authora
 
 ## 2. Create the keys
 
-Authora needs two keys that you create yourself:
+Authora needs three keys that you create yourself:
 
-- a **signing key**, which signs the ID Tokens Authora issues, and
-- a **TLS certificate**, because Authora only works over HTTPS: the sign-in page refuses to work without it.
+- a **signing key**, which signs the ID Tokens Authora issues,
+- a **TLS certificate**, because Authora only works over HTTPS: the sign-in page refuses to work without it, and
+- a **TLS certificate for the mail catcher**, a local mail server that keeps the emails Authora sends. Authora sends email only over an encrypted connection.
 
-Create both in a folder called `secrets` (Git ignores it):
+Create them in a folder called `secrets` (Git ignores it):
 
 ```sh
 mkdir -p secrets
@@ -36,6 +37,10 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/signin
 openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
   -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
   -keyout secrets/tls.key -out secrets/tls.crt
+
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -subj "/CN=mailpit" -addext "subjectAltName=DNS:mailpit" \
+  -keyout secrets/mail-tls.key -out secrets/mail-tls.crt
 
 chmod 644 secrets/*
 ```
@@ -66,11 +71,12 @@ AUTHORA_ADMIN_PASSWORD=choose-a-password-of-12-or-more-characters
 docker compose up --build
 ```
 
-The first start takes a few minutes, because Docker builds Authora from the source. You see three services start, one after the other:
+The first start takes a few minutes, because Docker builds Authora from the source. You see four services start:
 
 1. `db`, the PostgreSQL database.
 2. `migrate`, which creates the database tables and then exits with `Done.`
-3. `authora`, the server.
+3. `mailpit`, the mail catcher. Every email Authora sends ends up there instead of in a real mailbox; you read them at <http://localhost:8025>.
+4. `authora`, the server.
 
 Authora is ready when the log shows:
 
@@ -123,7 +129,7 @@ Sign in with your new password.
 ## What you have learned
 
 - Authora runs as a server next to a PostgreSQL database. Migrations are a separate step that runs before the server starts.
-- Authora needs a signing key and HTTPS.
+- Authora needs a signing key and HTTPS, and sends email only over an encrypted connection.
 - The first administrator comes from the configuration, and only on the first start.
 - The admin interface is itself an application that signs in at Authora.
 

@@ -45,7 +45,7 @@ For a small, self-hosted deployment, immediate revocation and a smaller attack s
 
 ## Only hashes are stored
 
-Codes, Access Tokens, Refresh Tokens, Session tokens and Client Secrets are stored only as SHA-256 hashes. Someone with a copy of the database cannot use any of them.
+Codes, Access Tokens, Refresh Tokens, Session tokens, the one-time tokens of email links and Client Secrets are stored only as SHA-256 hashes. Someone with a copy of the database cannot use any of them.
 
 ## When is a token valid?
 

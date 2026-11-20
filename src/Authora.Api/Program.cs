@@ -21,6 +21,7 @@ using Authora.Core.Application.Account;
 using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.Email;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
 using Authora.Infrastructure;
@@ -129,6 +130,9 @@ builder.Services.AddOptions<AuditChainOptions>()
     .ValidateOnStart();
 builder.Services.AddOptions<AdminUiOptions>()
     .Bind(builder.Configuration.GetSection(AdminUiOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<EmailOptions>()
+    .Bind(builder.Configuration.GetSection(EmailOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddOptions<RateLimitOptions>()
     .Bind(builder.Configuration.GetSection(RateLimitOptions.SectionName))

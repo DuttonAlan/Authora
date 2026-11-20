@@ -25,4 +25,10 @@ internal static class AdvisoryLockKeys
     ///     Serializes the sealing of audit events, so the Sequence of the chain has no gaps or forks.
     /// </summary>
     public const long AuditChain = 0x4155_4443_4841_494E; // "AUDCHAIN"
+
+    /// <summary>
+    ///     First key of the two-key locks (<c>pg_advisory_xact_lock(int, int)</c>, a key space of its own) that
+    ///     serialize replacing the email tokens of one User and purpose. The second key is derived from both.
+    /// </summary>
+    public const int EmailTokens = 0x454D_4C54; // "EMLT"
 }

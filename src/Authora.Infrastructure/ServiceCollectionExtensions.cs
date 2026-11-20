@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Email;
 using Authora.Core.Application.Oidc;
 using Authora.Infrastructure.Auditing;
 using Authora.Infrastructure.Cleanup;
+using Authora.Infrastructure.Email;
 using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
 using Authora.Infrastructure.Persistence.Interceptors;
@@ -65,6 +67,11 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddHostedService<SigningKeyReloadService>();
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OidcOptions>, OidcSigningKeysValidator>());
 
+        // Disabled while Authora:Email:Host is not set, see IEmailSender.IsEnabled.
+        serviceCollection.AddSingleton<IEmailSender, SmtpEmailSender>();
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<EmailOptions>, EmailCertificateValidator>());
+        serviceCollection.AddHostedService<EmailStatusService>();
+
         // The actor comes from the host, e.g. the HTTP request, see IAuditActorAccessor.
         serviceCollection.AddScoped<IAuditLog, AuditLog>();
         serviceCollection.AddTransient<IAuditEventRepository, AuditEventRepository>();
@@ -74,6 +81,7 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddTransient<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
         serviceCollection.AddTransient<IClientRepository, ClientRepository>();
+        serviceCollection.AddTransient<IEmailTokenRepository, EmailTokenRepository>();
         serviceCollection.AddTransient<IGroupRepository, GroupRepository>();
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();

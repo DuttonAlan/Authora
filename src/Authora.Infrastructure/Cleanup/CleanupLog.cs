@@ -11,7 +11,7 @@ namespace Authora.Infrastructure.Cleanup;
 /// </summary>
 internal static partial class CleanupLog
 {
-    [LoggerMessage(EventId = 8001, Level = LogLevel.Information, Message = "Deleted {AuthorizationCodes} Authorization Codes, {AccessTokens} Access Tokens, {RefreshTokens} Refresh Tokens, {Grants} Grants and {Sessions} Sessions that expired or were revoked before {Cutoff:O}.")]
+    [LoggerMessage(EventId = 8001, Level = LogLevel.Information, Message = "Deleted {AuthorizationCodes} Authorization Codes, {AccessTokens} Access Tokens, {RefreshTokens} Refresh Tokens, {Grants} Grants, {Sessions} Sessions and {LinkTokens} email link tokens that expired or were revoked before {Cutoff:O}.")]
     public static partial void ExpiredDataDeleted(
         this ILogger logger,
         int authorizationCodes,
@@ -19,6 +19,7 @@ internal static partial class CleanupLog
         int refreshTokens,
         int grants,
         int sessions,
+        int linkTokens,
         DateTime cutoff);
 
     [LoggerMessage(EventId = 8003, Level = LogLevel.Information, Message = "Deleted {AuditEvents} audit events that occurred before {Cutoff:O}.")]

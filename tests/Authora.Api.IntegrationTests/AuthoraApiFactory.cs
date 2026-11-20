@@ -11,8 +11,10 @@ using Authora.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Testcontainers.PostgreSql;
 
@@ -54,6 +56,11 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     ///     Path of the PEM file with the public key of a previous signing key, which is only published.
     /// </summary>
     public string PreviousKeyPath => Path.Combine(_keyDirectory, "previous-key.pem");
+
+    /// <summary>
+    ///     Receives the emails the Api sends instead of an SMTP server.
+    /// </summary>
+    public FakeEmailSender EmailSender { get; } = new();
 
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
@@ -272,6 +279,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         // Clients created by a test must be allowed for CORS right away.
         builder.UseSetting("Authora:OAuth:CorsOriginsCacheDuration", "00:00:00");
+
+        // No SMTP server: the emails are kept by the fake.
+        builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<IEmailSender>(EmailSender)));
     }
 
     private static User CreateUser(string passwordHash = "not-a-password-hash")
