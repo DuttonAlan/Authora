@@ -5,6 +5,8 @@
 using System.Globalization;
 
 using Authora.Api.Authentication;
+using Authora.Core.Application.Consents.Check;
+using Authora.Core.Application.Consents.Remember;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
 
@@ -23,19 +25,22 @@ namespace Authora.Api.Pages.OAuth;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Consent policy: the User is asked on every authorization request, and decisions are not remembered.
-///         Only first-party Clients, e.g. the admin interface, get the code without asking, unless they send
-///         <c>prompt=consent</c>. The consent form repeats the request parameters, so they are validated
-///         again when it is submitted. The antiforgery token binds the form to the signed-in User.
+///         Consent policy: approving a third-party Client is remembered as the User's Consent, so the User is only
+///         asked again when the Client requests a Scope the Consent does not contain yet. First-party Clients, e.g.
+///         the admin interface, get the code without asking. <c>prompt=consent</c> always shows the screen. The
+///         consent form repeats the request parameters, so they are validated again when it is submitted. The
+///         antiforgery token binds the form to the signed-in User.
 ///     </para>
 ///     <para>
 ///         OpenID Connect: <c>prompt=login</c>, <c>prompt=select_account</c> and an exceeded <c>max_age</c> send a
 ///         signed-in User to the sign-in page again. <c>prompt=none</c> never shows a page: a signed-in User gets the
-///         code from a first-party Client, otherwise it is answered with <c>login_required</c> or
+///         code if no consent is needed, otherwise it is answered with <c>login_required</c> or
 ///         <c>consent_required</c>.
 ///     </para>
 /// </remarks>
 /// <param name="validateAuthorizationRequestService">The Service to validate the request.</param>
+/// <param name="checkConsentService">The Service to check whether the User must be asked for consent.</param>
+/// <param name="rememberConsentService">The Service to remember the approval of the User.</param>
 /// <param name="issueAuthorizationCodeService">The Service to issue the Authorization Code.</param>
 /// <param name="options">The OAuth settings with the Issuer.</param>
 /// <param name="timeProvider">The clock for <c>max_age</c>.</param>
@@ -43,6 +48,8 @@ namespace Authora.Api.Pages.OAuth;
 [IgnoreAntiforgeryToken]
 public sealed class AuthorizeModel(
     ValidateAuthorizationRequestService validateAuthorizationRequestService,
+    CheckConsentService checkConsentService,
+    RememberConsentService rememberConsentService,
     IssueAuthorizationCodeService issueAuthorizationCodeService,
     IOptions<OAuthOptions> options,
     TimeProvider timeProvider,
@@ -106,14 +113,16 @@ public sealed class AuthorizeModel(
         var mustSignIn = User.Identity?.IsAuthenticated != true
             || validated.RequiresSignIn(GetAuthenticatedAt(), timeProvider.GetUtcNow().UtcDateTime);
 
+        // Without a sign-in the User is unknown, so the Consent is only checked once the User is back from signing in.
+        var mustConsent = !mustSignIn && await checkConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken);
+
         if (validated.Prompts.Contains(PromptValues.None))
         {
-            if (!mustSignIn && !validated.RequiresConsent)
+            if (!mustSignIn && !mustConsent)
             {
                 return await IssueCodeAsync(validated, cancellationToken);
             }
 
-            // Consent is asked on every request of a third-party Client, so a signed-in User still needs a page.
             return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
             {
                 ["error"] = mustSignIn ? OAuthErrors.LoginRequired : OAuthErrors.ConsentRequired,
@@ -127,7 +136,7 @@ public sealed class AuthorizeModel(
             return SignIn(request);
         }
 
-        if (!validated.RequiresConsent)
+        if (!mustConsent)
         {
             return await IssueCodeAsync(validated, cancellationToken);
         }
@@ -188,6 +197,9 @@ public sealed class AuthorizeModel(
             return SignIn(request);
         }
 
+        // Remembered before the code is issued, so the code exchange finds the Consent.
+        await rememberConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken);
+
         return await IssueCodeAsync(validated, cancellationToken);
     }
 
@@ -215,9 +227,8 @@ public sealed class AuthorizeModel(
     /// </summary>
     private async Task<StatusCodeResult> IssueCodeAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
     {
-        var userId = Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
         var sessionId = Guid.Parse(User.FindFirst(SessionClaimTypes.SessionId)!.Value);
-        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, userId, sessionId, GetAuthenticatedAt(), cancellationToken);
+        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, GetUserId(), sessionId, GetAuthenticatedAt(), cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
         {
@@ -258,6 +269,14 @@ public sealed class AuthorizeModel(
             parameters.Select(parameter => new KeyValuePair<string, string?>(parameter.Key, parameter.Value)));
 
         return Challenge(new AuthenticationProperties { RedirectUri = returnUrl });
+    }
+
+    /// <summary>
+    ///     The Id of the signed-in User, from the Session.
+    /// </summary>
+    private Guid GetUserId()
+    {
+        return Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
     }
 
     /// <summary>

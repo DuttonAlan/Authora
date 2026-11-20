@@ -39,7 +39,7 @@ All URLs in the document are built from `Authora:OAuth:Issuer`, so they always m
 | `profile` | `name` (first and last name), `given_name`, `family_name` |
 | `email` | `email`, `email_verified` (always `false`; Authora does not verify Emails yet) |
 
-`openid`, `profile` and `email` are System Scopes that Authora creates. Like every Scope, an administrator must allow them for a Client, and the User approves them on the consent screen (unless the Client is first-party).
+`openid`, `profile` and `email` are System Scopes that Authora creates. Like every Scope, an administrator must allow them for a Client, and the User approves them on the consent screen (unless the Client is first-party or the User approved them before).
 
 - ID Tokens and UserInfo return the same claims for the same Scopes.
 - Claims Authora has no value for (e.g. `picture`, `birthdate`) are never returned, not even as `null`.
@@ -60,10 +60,10 @@ In addition to the [OAuth parameters](oauth-endpoints.md#authorization-request):
 
 | `prompt` | Behavior |
 |---|---|
-| `none` | No page is shown. `login_required` if the User is not signed in or must sign in again. Otherwise a first-party Client gets the code; any other Client gets `consent_required`, because consent is asked on every request. |
+| `none` | No page is shown. `login_required` if the User is not signed in or must sign in again. Otherwise the code is sent if no consent is needed: the Client is first-party, or the User's Consent contains every requested Scope. If not, `consent_required`. |
 | `login` | The User signs in again, even if signed in. |
 | `select_account` | Same as `login`; there is no account chooser. |
-| `consent` | The consent screen is shown, also for a first-party Client. |
+| `consent` | The consent screen is shown, also for a first-party Client and when the User's Consent already contains the requested Scopes. |
 
 If the sign-in is older than `max_age`, the User signs in again. This is checked when the consent screen is shown and again when it is approved.
 

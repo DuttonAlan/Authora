@@ -96,7 +96,8 @@ public sealed class PkceTests(AuthoraApiFactory factory) : IClassFixture<Authora
             await AssertErrorAsync(withoutVerifier, "invalid_request");
         }
 
-        code = await AuthorizationCodeFlow.GetCodeAsync(
+        // The Consent from the first request is remembered, so there is no consent screen.
+        code = await AuthorizationCodeFlow.GetCodeWithoutConsentAsync(
             _client, AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid"), sessionToken);
 
         using var wrongVerifier = await ExchangeAsync(clientId, redirectUri, code, new string('x', 43));

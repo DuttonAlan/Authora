@@ -33,10 +33,21 @@ public sealed record ValidatedAuthorizationRequest(
     TimeSpan? MaxAge)
 {
     /// <summary>
-    ///     Whether the User must be asked for consent: always, unless the Client is first-party and did not
-    ///     send <c>prompt=consent</c>.
+    ///     Whether the User must be asked for consent: always for <c>prompt=consent</c>, never for a first-party
+    ///     Client otherwise, and for a third-party Client unless the User's Consent already contains every requested
+    ///     Scope.
     /// </summary>
-    public bool RequiresConsent => !Client.IsFirstParty || Prompts.Contains(PromptValues.Consent);
+    /// <param name="consent">The Consent of the User for the Client, or null if there is none.</param>
+    /// <returns>True if the consent screen must be shown.</returns>
+    public bool RequiresConsent(Consent? consent)
+    {
+        if (Prompts.Contains(PromptValues.Consent))
+        {
+            return true;
+        }
+
+        return !Client.IsFirstParty && (consent is null || !consent.Covers(Scopes.Select(scope => scope.Name)));
+    }
 
     /// <summary>
     ///     Whether the User must sign in again, even if signed in: <c>prompt=login</c> or <c>prompt=select_account</c>

@@ -1,0 +1,38 @@
+@page "/account/consents"
+@model Authora.Api.Pages.Account.ConsentsModel
+@{
+    ViewData["Title"] = "Connected applications";
+}
+
+<h1>Connected applications</h1>
+<p>Signed in as <strong>@Model.SignedInEmail</strong>.</p>
+
+@if (Model.RevokedClientName is not null)
+{
+    <p class="success" role="status"><strong>@Model.RevokedClientName</strong> no longer has access to your account.</p>
+}
+
+@if (Model.Consents.Count == 0)
+{
+    <p class="muted">You have not allowed any application to access your account.</p>
+}
+else
+{
+    <p>These applications may access your account. If you remove one, it loses access right away and asks you again the next time you use it.</p>
+
+    <ul class="scopes consents">
+        @foreach (var consent in Model.Consents)
+        {
+            <li>
+                <strong>@consent.ClientName</strong>
+                <span class="description">Allowed on @consent.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture): @string.Join(", ", consent.Scopes.Select(scope => scope.DisplayName))</span>
+                <form method="post">
+                    <input type="hidden" name="clientId" value="@consent.ClientId" />
+                    <button type="submit" aria-label="Remove access of @consent.ClientName">Remove access</button>
+                </form>
+            </li>
+        }
+    </ul>
+}
+
+<p class="muted"><a href="/account/password">Change password</a> · <a href="/account/logout">Sign out</a></p>

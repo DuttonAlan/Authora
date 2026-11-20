@@ -33,6 +33,11 @@ else
 
     <p class="muted">You will be sent back to <strong>@Model.RedirectOrigin</strong>.</p>
 
+    @if (!Model.ConsentRequest.Client.IsFirstParty)
+    {
+        <p class="muted">Your decision is remembered. You can withdraw it at any time under <a href="@Authora.Api.Pages.Account.ConsentsModel.PagePath" target="_blank" rel="noopener">Connected applications</a>.</p>
+    }
+
     <form method="post">
         @foreach (var parameter in Model.Parameters)
         {

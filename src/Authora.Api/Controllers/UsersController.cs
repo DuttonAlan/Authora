@@ -6,6 +6,9 @@ using System.ComponentModel.DataAnnotations;
 
 using Authora.Api.Authorization;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.Consents;
+using Authora.Core.Application.Consents.GetAll;
+using Authora.Core.Application.Consents.Revoke;
 using Authora.Core.Application.Paging;
 using Authora.Core.Application.Users;
 using Authora.Core.Application.Users.Activate;
@@ -40,10 +43,12 @@ namespace Authora.Api.Controllers;
 /// <param name="deleteUserService">The Service to delete the User.</param>
 /// <param name="getAllUsersService">The Service to get all Users.</param>
 /// <param name="getEffectivePermissionsService">The Service to get the effective Permissions of the User.</param>
+/// <param name="getUserConsentsService">The Service to get the Consents of the User.</param>
 /// <param name="getUserGroupsService">The Service to get the Groups of the User.</param>
 /// <param name="getUserRolesService">The Service to get the Roles of the User.</param>
 /// <param name="getUserService">The Service to get the User.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
+/// <param name="revokeConsentService">The Service to revoke a Consent of the User.</param>
 /// <param name="revokeUserSessionsService">The Service to revoke all Sessions of the User.</param>
 /// <param name="setPasswordService">The Service to set the password of the User.</param>
 /// <param name="unlockUserService">The Service to unlock the User.</param>
@@ -60,10 +65,12 @@ public sealed class UsersController(
     DeleteUserService deleteUserService,
     GetAllUsersService getAllUsersService,
     GetEffectivePermissionsService getEffectivePermissionsService,
+    GetUserConsentsService getUserConsentsService,
     GetUserGroupsService getUserGroupsService,
     GetUserRolesService getUserRolesService,
     GetUserService getUserService,
     RemoveRoleService removeRoleService,
+    RevokeConsentService revokeConsentService,
     RevokeUserSessionsService revokeUserSessionsService,
     SetPasswordService setPasswordService,
     UnlockUserService unlockUserService,
@@ -538,5 +545,64 @@ public sealed class UsersController(
         var groups = await getUserGroupsService.ExecuteAsync(id, cancellationToken);
 
         return Ok(groups);
+    }
+
+    /// <summary>
+    ///     Gets the Consents of the User: the third-party Clients the User approved, with the approved Scopes.
+    /// </summary>
+    /// <remarks>
+    ///     The User is not asked again while a Client requests only approved Scopes, unless it sends
+    ///     <c>prompt=consent</c>. First-party Clients need no Consent.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>200 OK with the Consents of the User.</returns>
+    /// <response code="200">Responds with the Consents of the User ordered by the Name of the Client, or an empty list if the User approved no Client.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpGet("{id:guid}/consents")]
+    [ProducesResponseType<IReadOnlyList<ConsentResponse>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
+    public async Task<IActionResult> GetConsents(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var consents = await getUserConsentsService.ExecuteAsync(id, cancellationToken);
+
+        return Ok(consents);
+    }
+
+    /// <summary>
+    ///     Revokes the Consent of the User for a Client.
+    /// </summary>
+    /// <remarks>
+    ///     The Grants of the User for the Client are revoked as well, so all Access and Refresh Tokens the Client holds
+    ///     for the User become invalid, and the User is asked for consent again.
+    ///     This operation is idempotent: revoking a Consent that does not exist also succeeds.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="clientId" example="0199d1a2-7c3e-7b4a-9f10-1c963f66afa6">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Consent is revoked.</returns>
+    /// <response code="204">Responds with no content once the Consent was revoked, or if the User has no Consent for the Client.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/consents/{clientId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ManageAccess)]
+    public async Task<IActionResult> RevokeConsent(
+        Guid id,
+        Guid clientId,
+        CancellationToken cancellationToken)
+    {
+        await revokeConsentService.ExecuteAsync(id, clientId, cancellationToken);
+
+        return NoContent();
     }
 }

@@ -108,11 +108,12 @@ function createPanel(context) {
  * @returns {Promise<HTMLElement>} The page.
  */
 export async function detail(context, id) {
-    const [user, roles, groups, permissions, allRoles] = await Promise.all([
+    const [user, roles, groups, permissions, consents, allRoles] = await Promise.all([
         api('GET', `/users/${id}`),
         api('GET', `/users/${id}/roles`),
         api('GET', `/users/${id}/groups`),
         api('GET', `/users/${id}/permissions`),
+        api('GET', `/users/${id}/consents`),
         context.can('roles.read') && context.can('users.assign-roles') ? api('GET', '/roles') : Promise.resolve([])
     ]);
 
@@ -161,6 +162,7 @@ export async function detail(context, id) {
                         : badge(`${role.displayName} · through ${role.groups.map(group => group.displayName).join(', ')}`)))
                 }
             ], permissions, { empty: 'The User has no Permissions.' })),
+        consentsPanel(context, user, consents),
         !deleted && context.can('users.set-password') ? panel('Password', form([
             {
                 name: 'password', label: 'New password', type: 'password', required: true, minLength: 12, maxLength: 128,
@@ -231,4 +233,25 @@ function rolesPanel(context, user, roles, allRoles, deleted) {
                 roleSelect,
                 button('Assign Role', () => run(() => api('PUT', `/users/${user.id}/roles/${roleSelect.value}`), 'The Role was assigned.', context), 'primary'))
             : null);
+}
+
+function consentsPanel(context, user, consents) {
+    const canRevoke = context.can('users.manage-access');
+
+    return panel('Consents',
+        hint('The applications the User allowed to access their account. Revoking a Consent also revokes the application\'s tokens for the User, who is asked again on the next sign-in.'),
+        table([
+            { label: 'Client', render: consent => consent.clientName },
+            { label: 'Scopes', render: consent => h('span', { class: 'badge-row' }, consent.scopes.map(scope => h('code', { class: 'token', text: scope.name }))) },
+            { label: 'Allowed', render: consent => formatDate(consent.createdAt) },
+            {
+                label: '', class: 'actions-cell', render: consent => canRevoke
+                    ? button('Revoke', async () => {
+                        if (await confirmed('Revoke Consent', `Revoke the Consent of ${user.email} for ${consent.clientName}? Its tokens for the User stop working.`)) {
+                            run(() => api('DELETE', `/users/${user.id}/consents/${consent.clientId}`), 'The Consent was revoked.', context);
+                        }
+                    }, 'small')
+                    : null
+            }
+        ], consents, { href: context.can('clients.read') ? consent => `#/clients/${consent.clientId}` : undefined, empty: 'The User has not allowed any application.' }));
 }

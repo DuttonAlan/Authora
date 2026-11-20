@@ -12,6 +12,7 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
 | `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
+| `GET/POST /account/consents` | Browser | *Connected applications*: a signed-in User sees and withdraws their Consents. See [Consent](#consent). |
 | `GET/POST /oauth/logout` | Browser | End-session endpoint: a Client signs the User out (RP-initiated logout). See [Logout](openid-connect.md#logout). |
 
 ## Common rules
@@ -55,8 +56,10 @@ A disabled Client cannot obtain tokens, but can still revoke its tokens.
 
 | Client | Behavior |
 |---|---|
-| Third-party (default) | The User is asked on every authorization request. The consent screen shows the Client Name, the Display Name and Description of each Scope, the signed-in User, and where the browser will be sent. Decisions are not remembered. Denying sends `error=access_denied`. |
-| First-party | Not asked: a signed-in User gets the code right away, also with `prompt=none`. `prompt=consent` still shows the consent screen. |
+| Third-party (default) | The User is asked the first time. The consent screen shows the Client Name, the Display Name and Description of each Scope, the signed-in User, and where the browser will be sent. *Allow* is remembered as the User's Consent for the Client; later requests for Scopes it contains get the code right away, also with `prompt=none`. A request with a Scope the Consent does not contain shows the screen again, and approving adds the new Scopes. Denying sends `error=access_denied` and changes nothing. |
+| First-party | Not asked: a signed-in User gets the code right away, also with `prompt=none`. No Consent is stored. |
+
+`prompt=consent` always shows the consent screen. A Consent lasts until it is revoked: by the User at `/account/consents` (*Connected applications*) or by an administrator (`DELETE /api/users/{id}/consents/{clientId}`). Revoking it also revokes the Grants of the User for the Client, so its Access and Refresh Tokens for the User stop working, and an Authorization Code issued before is rejected at the token endpoint (`invalid_grant`). Deleting a Scope removes it from every Consent; deleting the User or the Client deletes the Consents.
 
 Marking a Client as first-party needs the Permission `clients.manage-first-party`. While a Client is first-party, no Redirect URI and no Scope can be added to it (`409 Conflict`). See [Security model](../explanation/security-model.md#first-party-clients).
 
@@ -186,5 +189,6 @@ A token is active only if:
 | An Authorization Code or Refresh Token is used a second time | The whole Grant |
 | The Grant reaches `Authora:OAuth:GrantLifetime` | The whole Grant |
 | A Client is disabled | All Grants of the Client. Enabling it again does not restore them. |
+| The User or an administrator revokes the User's Consent for a Client | All Grants of the User for that Client, and codes issued for it before |
 | A Client is deleted | All codes and Grants of the Client |
 | A User is deactivated or deleted, gets a new password, or is signed out everywhere | All Sessions and tokens of the User |

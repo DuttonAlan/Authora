@@ -11,7 +11,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 3001 – 3003 | Scopes |
 | 4001 – 4020 | Clients |
 | 5001 – 5011 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent) |
-| 6001 – 6015 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions |
+| 6001 – 6016 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016) |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8004 | Cleanup of expired data (including email tokens) and audit events |
 | 9001 – 9005 | Signing keys |
@@ -20,6 +20,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 12001 – 12002 | Admin interface sign-in and refresh |
 | 13001 | Admin API changes denied because they exceed the caller's rights |
 | 14001 – 14006, 14011 – 14014 | Email delivery; one-time tokens of email links |
+| 15001 – 15002 | Consents granted on the consent screen and revoked by the User or an administrator |
 
 ## Email
 
