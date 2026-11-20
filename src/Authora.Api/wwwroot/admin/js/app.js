@@ -31,7 +31,8 @@ const routes = [
     { pattern: new RegExp(`^/scopes/${id}$`), view: scopes.detail, permission: 'scopes.read' },
     { pattern: /^\/clients$/, view: clients.list, permission: 'clients.read' },
     { pattern: new RegExp(`^/clients/${id}$`), view: clients.detail, permission: 'clients.read' },
-    { pattern: /^\/audit$/, view: audit.list, permission: 'audit.read' }
+    // Users who may only verify the chain see the page without the events.
+    { pattern: /^\/audit$/, view: audit.list, permission: ['audit.read', 'audit.verify'] }
 ];
 
 // Two levels at most: a group heading and its pages.
@@ -52,7 +53,7 @@ const navigation = [
     },
     {
         label: 'Security', items: [
-            { path: '/audit', label: 'Audit log', icon: 'audit', permission: 'audit.read' }
+            { path: '/audit', label: 'Audit log', icon: 'audit', permission: ['audit.read', 'audit.verify'] }
         ]
     }
 ];
@@ -62,6 +63,7 @@ const app = document.getElementById('app');
 const sidebar = document.getElementById('sidebar');
 const scrim = document.getElementById('scrim');
 const menuButton = document.getElementById('menu-button');
+const content = document.querySelector('.content');
 const narrow = window.matchMedia('(max-width: 899px)');
 let me = null;
 let renderCount = 0;
@@ -106,7 +108,13 @@ async function start() {
 
     window.addEventListener('hashchange', async () => {
         closeDrawer(false);
-        await render();
+        const ticket = await render();
+
+        // A newer navigation has started meanwhile; the focus and the scroll position are its business.
+        if (ticket !== renderCount) {
+            return;
+        }
+
         // Screen readers and keyboard users continue at the new content, not at the link they chose.
         main.focus({ preventScroll: true });
         window.scrollTo(0, 0);
@@ -132,12 +140,13 @@ async function render() {
 
     if (!route) {
         show(ticket, path, message('Not found', 'This page does not exist.', h('a', { class: 'button', href: '#/' }, 'Back to the overview')));
-        return;
+        return ticket;
     }
 
-    if (route.permission && !context.can(route.permission)) {
-        show(ticket, path, message('No Permission', `You need the Permission '${route.permission}' to see this page.`));
-        return;
+    if (!isAllowed(route.permission)) {
+        const names = [route.permission].flat().map(name => `'${name}'`).join(' or ');
+        show(ticket, path, message('No Permission', `You need the Permission ${names} to see this page.`));
+        return ticket;
     }
 
     main.setAttribute('aria-busy', 'true');
@@ -151,6 +160,13 @@ async function render() {
     } finally {
         main.removeAttribute('aria-busy');
     }
+
+    return ticket;
+}
+
+// A route or navigation item needs one Permission, any one of a list, or none.
+function isAllowed(permission) {
+    return !permission || [permission].flat().some(name => me.permissions.includes(name));
 }
 
 // A newer navigation may have started in the meantime; then its content wins.
@@ -173,7 +189,7 @@ function message(title, text, ...actions) {
 }
 
 function visibleItems(group) {
-    return group.items.filter(item => !item.permission || me.permissions.includes(item.permission));
+    return group.items.filter(item => isAllowed(item.permission));
 }
 
 function sectionOf(path) {
@@ -212,7 +228,7 @@ function renderBreadcrumb(path, title) {
 }
 
 // On narrow screens, the sidebar is a drawer over the content. While closed, it is inert, so keyboard focus
-// cannot reach links that are off screen.
+// cannot reach links that are off screen. While open, the content behind the scrim is inert instead.
 function setupDrawer() {
     const apply = () => {
         if (narrow.matches) {
@@ -220,6 +236,7 @@ function setupDrawer() {
         } else {
             app.classList.remove('nav-open');
             sidebar.inert = false;
+            content.inert = false;
             scrim.hidden = true;
             menuButton.setAttribute('aria-expanded', 'false');
         }
@@ -239,6 +256,7 @@ function setupDrawer() {
 function openDrawer() {
     app.classList.add('nav-open');
     sidebar.inert = false;
+    content.inert = true;
     scrim.hidden = false;
     menuButton.setAttribute('aria-expanded', 'true');
     menuButton.setAttribute('aria-label', 'Hide navigation');
@@ -252,6 +270,7 @@ function closeDrawer(returnFocus) {
 
     app.classList.remove('nav-open');
     sidebar.inert = narrow.matches;
+    content.inert = false;
     scrim.hidden = true;
     menuButton.setAttribute('aria-expanded', 'false');
     menuButton.setAttribute('aria-label', 'Show navigation');

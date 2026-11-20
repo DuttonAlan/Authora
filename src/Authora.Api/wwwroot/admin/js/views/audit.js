@@ -37,6 +37,17 @@ const moreFilterNames = ['actorUserId', 'targetType', 'targetId', 'from', 'to'];
  * @returns {Promise<HTMLElement>} The page.
  */
 export async function list(context) {
+    // Verifying the chain needs only 'audit.verify', so that page works without the events.
+    if (!context.can('audit.read')) {
+        const verification = h('div', { 'aria-live': 'polite' });
+
+        return h('div', { class: 'stack' },
+            pageHeader('Audit log', 'Check that no sealed event was changed, deleted or inserted.', verifyButton(verification)),
+            verification,
+            h('section', { class: 'panel' },
+                h('p', { class: 'empty', text: "You need the Permission 'audit.read' to see the events." })));
+    }
+
     const filters = Object.fromEntries(filterNames.map(name => [name, context.parameters.get(name) ?? '']));
     const page = Number(context.parameters.get('page') ?? '1');
 
