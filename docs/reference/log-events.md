@@ -35,7 +35,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 8002 | Error | The cleanup of expired data failed | Retried with the next run. |
 | 9003 | Error | The changed key files could not be loaded | The previous keys stay in use; health check `signing-keys` is `Degraded`. |
 | 9004 | Warning | The signing key file … can be read or written by other users | Restrict the file to the user that runs Authora. |
-| 13001 | Warning | User … was denied … on … | A User tried to give out or act on more rights than they hold, see [Admin API](admin-api.md#nobody-grants-more-than-they-hold). Possibly a compromised account. |
+| 13001 | Warning | User … was denied a change of … | A User tried to give out or act on more rights than they hold, see [Admin API](admin-api.md#nobody-grants-more-than-they-hold). Possibly a compromised account. |
 | 11002 | Error | Sealing the audit events failed | Retried with the next run. |
 | 11011 | Critical | The audit chain is broken at Sequence … | The audit log was changed in the database. |
 

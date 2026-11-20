@@ -11,11 +11,10 @@ namespace Authora.Core.Application.Authorization;
 /// </summary>
 internal static partial class AuthorizationLog
 {
-    [LoggerMessage(EventId = 13001, Level = LogLevel.Warning, Message = "User {CallerId} was denied {EventType} on {TargetType} {TargetId}: {Reason}")]
+    [LoggerMessage(EventId = 13001, Level = LogLevel.Warning, Message = "User {CallerId} was denied a change of {TargetType} {TargetId}: {Reason}")]
     public static partial void PrivilegeDenied(
         this ILogger logger,
         Guid? callerId,
-        string eventType,
         string? targetType,
         string? targetId,
         string reason);

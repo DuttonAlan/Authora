@@ -8,6 +8,8 @@ using System.Net.Http.Json;
 
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.Exceptions;
+using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Infrastructure.Persistence;
@@ -175,6 +177,35 @@ public sealed class PrivilegeEscalationTests(AuthoraApiFactory factory) : IClass
         using var response = await SendAsync(HttpMethod.Put, $"/api/users/{targetId}/password", token, new { Password });
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetPassword_OutsideOfARequest_IsForbidden()
+    {
+        // Without a caller, even a User without Roles, whose empty set of Permissions any caller holds, is protected.
+        var targetId = await factory.CreateUserAsync();
+        await factory.RemoveRolesAsync(targetId);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<SetPasswordService>();
+
+            await Assert.ThrowsAsync<ForbiddenException>(
+                () => service.ExecuteAsync(targetId, new SetPasswordRequest(Password), TestContext.Current.CancellationToken));
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var target = targetId.ToString();
+
+            var auditEvent = await context.AuditEvents.SingleAsync(
+                auditEvent => auditEvent.Type == AuditEventTypes.Users.PasswordSet && auditEvent.TargetId == target,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(AuditOutcome.Failed, auditEvent.Outcome);
+            Assert.Null(auditEvent.ActorUserId);
+        }
     }
 
     [Fact]

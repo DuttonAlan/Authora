@@ -18,8 +18,8 @@ namespace Authora.Core.Application.Authorization;
 ///     Only an administrator can assign the administrator Role or act on an administrator.
 /// </summary>
 /// <remarks>
-///     The caller is the User of the current request (<see cref="IAuditActorAccessor"/>); without one, every check
-///     fails. Call <see cref="BeginChangeAsync"/> before loading what is checked and commit the transaction after
+///     The caller is the User of the current request (<see cref="IAuditActorAccessor"/>). Without one, or if that
+///     User cannot sign in, every check is denied, even against a User or Role without Permissions. Call <see cref="BeginChangeAsync"/> before loading what is checked and commit the transaction after
 ///     saving the change: every checked change holds the same lock, so e.g. the target cannot gain the administrator
 ///     Role between the check and setting its password. A denied attempt is recorded in the audit log with
 ///     <see cref="AuditOutcome.Failed"/> and throws a <see cref="ForbiddenException"/>.
@@ -101,11 +101,11 @@ public sealed class PrivilegeGuard(
     {
         ArgumentNullException.ThrowIfNull(permission);
 
-        var caller = await GetCallerAsync(cancellationToken);
+        var caller = await GetCallerAsync(attempt, cancellationToken);
 
         if (!caller.IsAdministrator && !caller.Permissions.Contains(permission.Name))
         {
-            await DenyAsync(caller, attempt, $"The caller does not hold the Permission '{permission.Name}'.", cancellationToken);
+            throw await DenyAsync(caller.Id, attempt, $"The caller does not hold the Permission '{permission.Name}'.", cancellationToken);
         }
     }
 
@@ -121,7 +121,7 @@ public sealed class PrivilegeGuard(
     /// <exception cref="ForbiddenException">Thrown when the User has rights that the caller does not hold.</exception>
     public async Task EnsureCanActOnUserAsync(Guid userId, AuditEntry attempt, CancellationToken cancellationToken = default)
     {
-        var caller = await GetCallerAsync(cancellationToken);
+        var caller = await GetCallerAsync(attempt, cancellationToken);
 
         if (caller.IsAdministrator)
         {
@@ -139,15 +139,15 @@ public sealed class PrivilegeGuard(
 
         if (targetRoles.Any(role => role.IsAdministrator))
         {
-            await DenyAsync(caller, attempt, "Only an administrator can act on an administrator.", cancellationToken);
+            throw await DenyAsync(caller.Id, attempt, "Only an administrator can act on an administrator.", cancellationToken);
         }
 
         var missing = MissingPermissions(caller, targetRoles);
 
         if (missing.Count > 0)
         {
-            await DenyAsync(
-                caller,
+            throw await DenyAsync(
+                caller.Id,
                 attempt,
                 $"The User has Permissions that the caller does not hold: {FormatNames(missing)}.",
                 cancellationToken);
@@ -159,7 +159,7 @@ public sealed class PrivilegeGuard(
         AuditEntry attempt,
         CancellationToken cancellationToken)
     {
-        var caller = await GetCallerAsync(cancellationToken);
+        var caller = await GetCallerAsync(attempt, cancellationToken);
 
         if (caller.IsAdministrator)
         {
@@ -168,27 +168,28 @@ public sealed class PrivilegeGuard(
 
         if (roles.Any(role => role.IsAdministrator))
         {
-            await DenyAsync(caller, attempt, "Only an administrator can assign the administrator Role.", cancellationToken);
+            throw await DenyAsync(caller.Id, attempt, "Only an administrator can assign the administrator Role.", cancellationToken);
         }
 
         var missing = MissingPermissions(caller, roles);
 
         if (missing.Count > 0)
         {
-            await DenyAsync(
-                caller,
+            throw await DenyAsync(
+                caller.Id,
                 attempt,
                 $"The caller does not hold all Permissions of the Role: {FormatNames(missing)}.",
                 cancellationToken);
         }
     }
 
-    private async Task<Caller> GetCallerAsync(CancellationToken cancellationToken)
+    private async Task<Caller> GetCallerAsync(AuditEntry attempt, CancellationToken cancellationToken)
     {
-        // Without a User (e.g. outside of a request), nobody holds any rights, so every check fails.
+        // Rejected explicitly: an empty set of Permissions would still pass the checks against a User or Role without
+        // Permissions, e.g. setting the password of a User without Roles outside of a request.
         if (actorAccessor.Current.UserId is not { } callerId)
         {
-            return new Caller(null, IsAdministrator: false, new HashSet<string>(StringComparer.Ordinal));
+            throw await DenyAsync(null, attempt, "The request has no signed-in User.", cancellationToken);
         }
 
         var user = await userRepository.GetUserWithPermissionsById(callerId, cancellationToken);
@@ -196,7 +197,7 @@ public sealed class PrivilegeGuard(
         // Same rule as the PermissionEvaluator: a User who cannot sign in holds no rights.
         if (user is null || !user.CanSignIn)
         {
-            return new Caller(callerId, IsAdministrator: false, new HashSet<string>(StringComparer.Ordinal));
+            throw await DenyAsync(callerId, attempt, "The caller does not exist or cannot sign in.", cancellationToken);
         }
 
         var roles = user.GetEffectiveRoles().ToList();
@@ -221,7 +222,15 @@ public sealed class PrivilegeGuard(
     private static string FormatNames(IEnumerable<string> names)
         => string.Join(", ", names.Select(name => $"'{name}'"));
 
-    private async Task DenyAsync(Caller caller, AuditEntry attempt, string reason, CancellationToken cancellationToken)
+    /// <summary>
+    ///     Records a denied attempt in the audit log and the log.
+    /// </summary>
+    /// <returns>The exception for the caller to throw.</returns>
+    private async Task<ForbiddenException> DenyAsync(
+        Guid? callerId,
+        AuditEntry attempt,
+        string reason,
+        CancellationToken cancellationToken)
     {
         await auditLog.RecordNowAsync(
             attempt with
@@ -231,16 +240,17 @@ public sealed class PrivilegeGuard(
             },
             cancellationToken);
 
-        logger.PrivilegeDenied(caller.Id, attempt.Type, attempt.TargetType, attempt.TargetId, reason);
+        // The type of the attempted change is in the audit event, so the log only names the target.
+        logger.PrivilegeDenied(callerId, attempt.TargetType, attempt.TargetId, reason);
 
-        throw new ForbiddenException(reason);
+        return new ForbiddenException(reason);
     }
 
     /// <summary>
     ///     The rights of the caller.
     /// </summary>
-    /// <param name="Id">Id of the caller, or null if the request has no User.</param>
+    /// <param name="Id">Id of the caller.</param>
     /// <param name="IsAdministrator">Whether the caller has the administrator Role.</param>
     /// <param name="Permissions">The Names of the effective Permissions of the caller.</param>
-    private sealed record Caller(Guid? Id, bool IsAdministrator, IReadOnlySet<string> Permissions);
+    private sealed record Caller(Guid Id, bool IsAdministrator, IReadOnlySet<string> Permissions);
 }
