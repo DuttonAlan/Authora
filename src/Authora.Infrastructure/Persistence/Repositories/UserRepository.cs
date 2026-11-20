@@ -107,7 +107,7 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
-    public async Task<ITransaction> BeginAdministratorChangeAsync(CancellationToken cancellationToken = default)
+    public async Task<ITransaction> BeginPrivilegeChangeAsync(CancellationToken cancellationToken = default)
     {
         var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
@@ -115,7 +115,7 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
         {
             // Released on commit or rollback, so a failed request cannot keep it.
             await context.Database.ExecuteSqlAsync(
-                $"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.Administrators})",
+                $"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.Privileges})",
                 cancellationToken);
         }
         catch

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.OAuth.ClientAuthentication;
 using Authora.Core.Application.Oidc;
@@ -24,12 +25,14 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="clientRepository">An Instance of a IClientRepository to check whether the Client was disabled meanwhile.</param>
 /// <param name="tokenRepository">An Instance of a ITokenRepository to store, consume and revoke tokens.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to check the User.</param>
+/// <param name="sessionRepository">An Instance of a ISessionRepository to check that the Session of a code is still active.</param>
 /// <param name="tokenIssuer">The issuer for new tokens.</param>
 /// <param name="idTokenIssuer">The issuer for ID Tokens.</param>
 /// <param name="secretHasher">The hasher to look up codes and tokens.</param>
 /// <param name="timeProvider">The TimeProvider for expiry checks and new tokens.</param>
 /// <param name="auditLog">The audit log to record attacks and tokens of Clients for themselves.</param>
 /// <param name="options">The OAuth settings with the lifetime of new Grants.</param>
+/// <param name="signInOptions">The sign-in settings with the idle timeout of Sessions.</param>
 /// <param name="logger">The Logger to record issued tokens and attacks.</param>
 public sealed class IssueTokenService(
     ClientAuthenticator clientAuthenticator,
@@ -37,12 +40,14 @@ public sealed class IssueTokenService(
     IClientRepository clientRepository,
     ITokenRepository tokenRepository,
     IUserRepository userRepository,
+    ISessionRepository sessionRepository,
     TokenIssuer tokenIssuer,
     IdTokenIssuer idTokenIssuer,
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
     IAuditLog auditLog,
     IOptions<OAuthOptions> options,
+    IOptions<SignInOptions> signInOptions,
     ILogger<IssueTokenService> logger)
 {
     /// <summary>
@@ -264,6 +269,17 @@ public sealed class IssueTokenService(
         {
             // PKCE was made required again after the code was issued.
             throw new OAuthException(OAuthErrors.InvalidGrant, "PKCE is required, but the authorization request contained no code_challenge.");
+        }
+
+        // A code issued before the User signed out must not sign them in again.
+        var session = await sessionRepository.GetSessionById(authorizationCode.SessionId, cancellationToken);
+
+        if (session is null
+            || session.UserId != authorizationCode.UserId
+            || !session.IsActive(now, signInOptions.Value.SessionIdleTimeout))
+        {
+            logger.AuthorizationCodeOfEndedSession(authorizationCode.Id, authorizationCode.SessionId);
+            throw new OAuthException(OAuthErrors.InvalidGrant, "The Session in which the Authorization Code was issued has ended.");
         }
 
         var user = await userRepository.GetUserById(authorizationCode.UserId, cancellationToken);

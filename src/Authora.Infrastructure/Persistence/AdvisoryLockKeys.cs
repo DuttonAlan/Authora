@@ -16,10 +16,10 @@ internal static class AdvisoryLockKeys
     public const long Seed = 0x4155_5448_4F52_41; // "AUTHORA"
 
     /// <summary>
-    ///     Serializes changes that can remove administrator access, so the last-administrator check stays valid
-    ///     until the change is committed.
+    ///     Serializes changes that can remove administrator access and changes that are checked against the
+    ///     Permissions of the caller (<c>PrivilegeGuard</c>), so these checks stay valid until the change is committed.
     /// </summary>
-    public const long Administrators = 0x4144_4D49_4E53; // "ADMINS"
+    public const long Privileges = 0x5052_4956_494C_4547; // "PRIVILEG"
 
     /// <summary>
     ///     Serializes the sealing of audit events, so the Sequence of the chain has no gaps or forks.

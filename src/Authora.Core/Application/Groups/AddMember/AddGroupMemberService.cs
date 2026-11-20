@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Users;
 
@@ -16,28 +17,38 @@ namespace Authora.Core.Application.Groups.AddMember;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="groupRepository">An Instance of a IGroupRepository to get the Group.</param>
+/// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the Group.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the new membership.</param>
 public sealed class AddGroupMemberService(
     IUserRepository userRepository,
     IGroupRepository groupRepository,
+    PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<AddGroupMemberService> logger)
 {
     /// <summary>
     ///     Adds a User to a Group, so the User has all Roles of the Group. Does nothing if the User is already a member.
     /// </summary>
+    /// <remarks>
+    ///     A caller who is not an administrator can only add Users to a Group whose Roles' Permissions they all hold,
+    ///     and only Users whose Permissions they all hold.
+    /// </remarks>
     /// <param name="groupId">Id of the Group.</param>
     /// <param name="userId">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the User is a member.</returns>
     /// <exception cref="NotFoundException">Thrown when the Group or the User does not exist.</exception>
     /// <exception cref="ConflictException">Thrown when the User is deleted.</exception>
+    /// <exception cref="ForbiddenException">Thrown when the caller may not grant the Roles of the Group or act on the User.</exception>
     public async Task ExecuteAsync(
         Guid groupId,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        // The lock also serializes concurrent additions of the same member, so the second one is a no-op.
+        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
+
         var group = await groupRepository.GetGroupById(groupId, cancellationToken)
             ?? throw new NotFoundException($"Group '{groupId}' was not found.");
 
@@ -51,23 +62,16 @@ public sealed class AddGroupMemberService(
             return;
         }
 
+        var entry = AuditEntry.ForGroup(AuditEventTypes.Groups.MemberAdded, group.Id, $"User {user.Id}");
+
+        await privilegeGuard.EnsureCanGrantRolesOfGroupAsync(group, entry, cancellationToken);
+        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
+
         user.JoinGroup(group);
-        auditLog.Record(AuditEntry.ForGroup(AuditEventTypes.Groups.MemberAdded, group.Id, $"User {user.Id}"));
+        auditLog.Record(entry);
 
-        try
-        {
-            await userRepository.SaveChangesAsync(cancellationToken);
-        }
-        catch (ConflictException)
-        {
-            // A concurrent request may have added the same membership first, which is the requested result.
-            if (await groupRepository.IsMember(group.Id, user.Id, cancellationToken))
-            {
-                return;
-            }
-
-            throw;
-        }
+        await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.MemberAdded(group.Id, group.Name, user.Id);
     }

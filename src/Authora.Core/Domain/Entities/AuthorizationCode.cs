@@ -61,6 +61,15 @@ public sealed class AuthorizationCode
     public Guid SecurityStamp { get; private set; }
 
     /// <summary>
+    ///     Id of the <see cref="Session"/> in which the User approved the request. The code cannot be exchanged once
+    ///     that Session has ended, e.g. because the User signed out.
+    /// </summary>
+    /// <remarks>
+    ///     Not a foreign key: the cleanup may delete an expired Session before the code, which then counts as ended.
+    /// </remarks>
+    public Guid SessionId { get; private set; }
+
+    /// <summary>
     ///     The <c>redirect_uri</c> exactly as sent in the authorization request, or <see langword="null"/> if it was
     ///     omitted. If it was sent, the token request must send the same value.
     /// </summary>
@@ -122,6 +131,7 @@ public sealed class AuthorizationCode
     /// <param name="codeHash">The hash of the code.</param>
     /// <param name="client">The Client the code is issued to.</param>
     /// <param name="user">The User who approved the request.</param>
+    /// <param name="sessionId">Id of the Session in which the User approved the request.</param>
     /// <param name="redirectUri">The <c>redirect_uri</c> as sent in the request, or null if it was omitted.</param>
     /// <param name="scopes">The approved Scope Names.</param>
     /// <param name="codeChallenge">The PKCE code challenge (method <c>S256</c>), or null if the request had none.</param>
@@ -135,6 +145,7 @@ public sealed class AuthorizationCode
         SecretHash codeHash,
         Client client,
         User user,
+        Guid sessionId,
         string? redirectUri,
         IEnumerable<string> scopes,
         string? codeChallenge,
@@ -146,6 +157,7 @@ public sealed class AuthorizationCode
         ArgumentNullException.ThrowIfNull(codeHash);
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(user);
+        ArgumentOutOfRangeException.ThrowIfEqual(sessionId, Guid.Empty);
         if (codeChallenge is not null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(codeChallenge);
@@ -162,6 +174,7 @@ public sealed class AuthorizationCode
             ClientId = client.Id,
             UserId = user.Id,
             SecurityStamp = user.SecurityStamp,
+            SessionId = sessionId,
             RedirectUri = redirectUri,
             Scope = ScopeList.Format(scopes),
             CodeChallenge = codeChallenge,

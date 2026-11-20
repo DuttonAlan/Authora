@@ -7,10 +7,11 @@ This page explains the objects Authora creates when someone signs in, how they r
 ```mermaid
 erDiagram
     accTitle: Objects created when someone signs in
-    accDescr: A User has Sessions. A User and a Client have Authorization Codes. An Authorization Code is exchanged for at most one Grant, and a Grant has Access Tokens and Refresh Tokens.
+    accDescr: A User has Sessions. A User and a Client have Authorization Codes. An Authorization Code is issued in a Session. An Authorization Code is exchanged for at most one Grant, and a Grant has Access Tokens and Refresh Tokens.
     User ||--o{ Session : "signs in at Authora"
     Client ||--o{ AuthorizationCode : ""
     User ||--o{ AuthorizationCode : ""
+    Session ||--o{ AuthorizationCode : "approved in"
     AuthorizationCode ||--o| Grant : "exchanged for"
     Grant ||--o{ AccessToken : ""
     Grant ||--o{ RefreshToken : ""
@@ -19,12 +20,12 @@ erDiagram
 | Object | What it is |
 |---|---|
 | **Session** | The User's sign-in at Authora itself, held in a browser cookie. It lets the User approve several applications without typing the password again (single sign-on). |
-| **Authorization Code** | A one-minute, single-use ticket that the browser carries from Authora back to the application. It is bound to the Client, the User, the Redirect URI, the Scopes and, if sent, the PKCE challenge. |
+| **Authorization Code** | A one-minute, single-use ticket that the browser carries from Authora back to the application. It is bound to the Client, the User, the Session, the Redirect URI, the Scopes and, if sent, the PKCE challenge. |
 | **Grant** | Created when the code is exchanged: the User's approval for this Client and these Scopes. It is the unit of revocation. A Client that obtains a token for itself (`client_credentials`) gets a Grant without a User, which holds just that Access Token. |
 | **Access Token** | What the application presents to APIs. Short-lived (1 hour by default). |
 | **Refresh Token** | What the application uses to get new Access Tokens without the user. Longer-lived (1 day by default) and single-use. |
 
-A Session and a Grant are independent. Signing out of Authora ends the Session but not the application's Grant; revoking a Grant does not sign the User out of Authora.
+A Session and a Grant are independent. Signing out of Authora ends the Session but not the application's Grant; revoking a Grant does not sign the User out of Authora. Only an Authorization Code that has not been exchanged yet depends on its Session, see [Sessions](#sessions).
 
 ## Why Access Tokens are opaque
 
@@ -83,3 +84,5 @@ The Grant's lifetime is absolute. Refreshing does not extend it, so a stolen Ref
 ## Sessions
 
 The Session cookie holds a random token; the database holds its hash. Authora checks the idle timeout, the absolute lifetime and the User's security stamp on every request, so ending a Session on the server takes effect immediately, even though the cookie itself has no expiry. Every sign-in creates a new Session and ends the previous one in that browser, which prevents session fixation.
+
+An Authorization Code remembers the Session in which the User approved the request, and can only be exchanged while that Session is still active (not signed out, not expired, not idle for too long). Otherwise a code issued just before the User signed out, e.g. on a shared computer, could still be redeemed until it expires and start a new Grant for a User who has left. Such a code gets `invalid_grant` and is logged as event 6015. The Grant created from a code does not depend on the Session afterwards.

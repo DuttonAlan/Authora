@@ -105,7 +105,7 @@ Each issued token is recorded in the audit log as `client.token-issued`. Disabli
 
 ## Caching
 
-Each introspection is a request to Authora. You may cache the result for a short time, keyed by a hash of the token, but every second of caching is a second in which a revoked token still works. Keep it short (seconds, not minutes), and never cache longer than `exp`.
+Each introspection is a request to Authora. You may cache the result for a short time, keyed by a hash of the token, but every second of caching is a second in which a revoked token still works. Keep it short (seconds, not minutes), and never cache longer than `exp`. Introspection shares the rate limit of the token endpoint per IP address (`Authora:RateLimiting:TokenPermitsPerMinute`, 300 per minute by default); over it, Authora answers `429 Too Many Requests`. A busy API needs a cache or a higher limit, see [Configuration](../reference/configuration.md#rate-limits).
 
 ## Rotate the API's Secret
 

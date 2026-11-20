@@ -87,6 +87,25 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
         Assert.Equal([HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests], statusCodes);
     }
 
+    [Fact]
+    public async Task IntrospectionEndpoint_IsRateLimited()
+    {
+        await using var limited = factory.WithWebHostBuilder(builder => builder.UseSetting("Authora:RateLimiting:TokenPermitsPerMinute", "2"));
+        using var client = limited.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = AuthoraApiFactory.BaseAddress });
+
+        var statusCodes = new List<HttpStatusCode>();
+
+        for (var request = 0; request < 3; request++)
+        {
+            using var content = new FormUrlEncodedContent([new("token", "not-a-token")]);
+            using var response = await client.PostAsync("/oauth/introspect", content, TestContext.Current.CancellationToken);
+            statusCodes.Add(response.StatusCode);
+        }
+
+        // Introspection authenticates the Client with its Secret, so guessing Secrets there is limited as well.
+        Assert.Equal([HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests], statusCodes);
+    }
+
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]

@@ -34,6 +34,7 @@ public sealed class IssueAuthorizationCodeService(
     /// </summary>
     /// <param name="request">The validated request the User approved.</param>
     /// <param name="userId">The Id of the signed-in User.</param>
+    /// <param name="sessionId">The Id of the Session of the User. The code can only be exchanged while it is active.</param>
     /// <param name="authenticatedAt">When the User signed in (UTC), for <c>auth_time</c> in the ID Token.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The plain-text code, which is only sent to the Client.</returns>
@@ -41,6 +42,7 @@ public sealed class IssueAuthorizationCodeService(
     public async Task<string> ExecuteAsync(
         ValidatedAuthorizationRequest request,
         Guid userId,
+        Guid sessionId,
         DateTime authenticatedAt,
         CancellationToken cancellationToken = default)
     {
@@ -60,6 +62,7 @@ public sealed class IssueAuthorizationCodeService(
             secretHasher.Hash(code),
             request.Client,
             user,
+            sessionId,
             request.RequestedRedirectUri,
             request.Scopes.Select(scope => scope.Name),
             request.CodeChallenge,

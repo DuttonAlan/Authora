@@ -30,10 +30,10 @@ public sealed class RateLimitOptions
     public int SignInPermitsPerMinute { get; set; } = 10;
 
     /// <summary>
-    ///     Requests to <c>/oauth/token</c> and <c>/oauth/revoke</c> per minute and IP address, against guessing
-    ///     Client Secrets and flooding. Defaults to 300, so a server-side Client that refreshes tokens for many Users
-    ///     is not throttled. <c>/oauth/introspect</c> is not limited, because resource servers call it for every
-    ///     request.
+    ///     Requests to <c>/oauth/token</c>, <c>/oauth/revoke</c> and <c>/oauth/introspect</c> together per minute and
+    ///     IP address, against guessing Client Secrets and flooding. Defaults to 300, so a server-side Client that
+    ///     refreshes tokens for many Users is not throttled. A resource server that introspects a token for every
+    ///     request should cache the result or get a higher limit.
     /// </summary>
     public int TokenPermitsPerMinute { get; set; } = 300;
 }

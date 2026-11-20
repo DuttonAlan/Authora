@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
@@ -13,8 +14,9 @@ namespace Authora.Core.Application.Users.Update;
 ///     The Service to update an existing User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to update a User.</param>
+/// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
-public sealed class UpdateUserService(IUserRepository userRepository, IAuditLog auditLog)
+public sealed class UpdateUserService(IUserRepository userRepository, PrivilegeGuard privilegeGuard, IAuditLog auditLog)
 {
     /// <summary>
     ///     Updates an existing User.
@@ -26,15 +28,33 @@ public sealed class UpdateUserService(IUserRepository userRepository, IAuditLog 
     /// <exception cref="NotFoundException">Thrown when the User does not exist.</exception>
     /// <exception cref="ConflictException">Thrown when the User is deleted, or the new Email is already used by another User.</exception>
     /// <exception cref="ArgumentException">Thrown when a value is empty, only whitespace, too long, or the Email is not valid.</exception>
+    /// <exception cref="ForbiddenException">Thrown when the caller may not act on the User.</exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateUserRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
+
         var user = await userRepository.GetUserById(id, cancellationToken)
             ?? throw new NotFoundException($"User '{id}' was not found.");
 
         DeletedUserGuard.EnsureNotDeleted(user);
+
+        string?[] fields =
+        [
+            request.Email is null ? null : "Email",
+            request.FirstName is null ? null : "First Name",
+            request.LastName is null ? null : "Last Name"
+        ];
+        var sentFields = fields.OfType<string>().ToList();
+
+        var entry = AuditEntry.ForUser(
+            AuditEventTypes.Users.Updated,
+            user.Id,
+            sentFields.Count == 0 ? null : $"Fields: {string.Join(", ", sentFields)}");
+
+        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
 
         if (request.Email is not null)
         {
@@ -59,20 +79,10 @@ public sealed class UpdateUserService(IUserRepository userRepository, IAuditLog 
             user.SetLastName(request.LastName);
         }
 
-        string?[] fields =
-        [
-            request.Email is null ? null : "Email",
-            request.FirstName is null ? null : "First Name",
-            request.LastName is null ? null : "Last Name"
-        ];
-        var sentFields = fields.OfType<string>().ToList();
-
-        auditLog.Record(AuditEntry.ForUser(
-            AuditEventTypes.Users.Updated,
-            user.Id,
-            sentFields.Count == 0 ? null : $"Fields: {string.Join(", ", sentFields)}"));
+        auditLog.Record(entry);
 
         // Only changed values are written; ModifiedAt is set when saving.
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 }

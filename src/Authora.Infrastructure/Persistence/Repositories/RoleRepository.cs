@@ -31,6 +31,18 @@ public sealed class RoleRepository(AuthoraContext context) : IRoleRepository
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<Role>> GetRolesWithPermissionsByIds(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Roles
+            .AsNoTracking()
+            .Include(role => role.Permissions)
+            .Where(role => ids.Contains(role.Id))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Role>> GetRoles(CancellationToken cancellationToken = default)
     {
         return await context.Roles

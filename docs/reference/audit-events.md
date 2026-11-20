@@ -32,8 +32,8 @@ The Email of the acting User and the name of the acting Client are looked up whe
 ## Rules
 
 - Changes are recorded in the same database transaction as the change itself, so an event exists if and only if the change was saved.
-- Requests that change nothing (e.g. assigning a Role that is already assigned) and rejected requests record nothing.
-- Failed sign-ins and token reuse are recorded immediately, independent of other changes.
+- Requests that change nothing (e.g. assigning a Role that is already assigned) and rejected requests record nothing, except for the cases below.
+- Failed sign-ins, token reuse and admin API changes denied because they exceed the caller's rights (see [Nobody grants more than they hold](admin-api.md#nobody-grants-more-than-they-hold)) are recorded immediately, independent of other changes, with outcome `Failed`. A denied change has the type of the attempted change, e.g. `user.role-assigned`, and the reason in the Details.
 - Sign-in events have the User as their *target*, because nobody is signed in yet when they occur. Search by `targetId` to see a User's sign-ins.
 - **Never recorded:** passwords, Session tokens, codes, Access and Refresh Tokens, Client Secrets, private keys. The Email of a failed sign-in for an unknown account is not recorded either, because it may be a password typed into the wrong field.
 

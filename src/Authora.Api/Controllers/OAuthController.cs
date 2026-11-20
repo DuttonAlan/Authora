@@ -103,6 +103,7 @@ public sealed class OAuthController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>200 OK with the introspection response, or an OAuth error.</returns>
     [HttpPost("introspect")]
+    [EnableRateLimiting(RateLimitPolicies.Token)]
     public async Task<IActionResult> Introspect(CancellationToken cancellationToken)
     {
         try

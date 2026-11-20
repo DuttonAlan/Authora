@@ -30,6 +30,9 @@ public sealed class ProblemDetailsExceptionHandler(IProblemDetailsService proble
         {
             NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
 
+            // The caller has the Permission for the action, but not the rights it would give out or act on.
+            ForbiddenException => (StatusCodes.Status403Forbidden, exception.Message),
+
             // InvalidOperationException is deliberately not mapped: framework code (e.g. EF Core) throws it for bugs,
             // which must stay a 500 without exposing the message. Services throw ConflictException for rule violations.
             ConflictException => (StatusCodes.Status409Conflict, exception.Message),

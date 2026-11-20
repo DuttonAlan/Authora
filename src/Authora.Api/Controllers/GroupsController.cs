@@ -210,11 +210,13 @@ public sealed class GroupsController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the Role is assigned.</returns>
     /// <response code="204">Responds with no content once the Role was assigned.</response>
+    /// <response code="403">Responds with problem details if the caller does not hold all Permissions of the Role. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no Group or no Role with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the Role is the administrator Role.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -304,11 +306,13 @@ public sealed class GroupsController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the User is a member.</returns>
     /// <response code="204">Responds with no content once the User was added.</response>
+    /// <response code="403">Responds with problem details if the Roles of the Group or the User have Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no Group or no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/members/{userId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]

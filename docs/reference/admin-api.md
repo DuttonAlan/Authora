@@ -3,8 +3,8 @@
 The admin API under `/api/*` manages Authora. The admin interface uses it, and scripts can too; see [Call the admin API](../how-to/call-the-admin-api.md).
 
 - **Authentication:** an Access Token of Authora with the Scope `authora.admin`, as `Authorization: Bearer …`. ID Tokens and Session cookies are not accepted. The admin interface's own cookie is accepted only together with the header `X-Authora-Admin: 1` from the same origin.
-- **Authorization:** every action needs the Permission in the tables below. Permissions come from the User's Roles, directly or through Groups, and are loaded on every request.
-- **Format:** JSON in and out; enums as strings. Errors are [problem details](https://www.rfc-editor.org/rfc/rfc9457): `400` (validation), `401`, `403`, `404`, `409` (conflict with the current state).
+- **Authorization:** every action needs the Permission in the tables below. Permissions come from the User's Roles, directly or through Groups, and are loaded on every request. Actions that give out rights or act on a User are also checked against the caller's own rights, see [Nobody grants more than they hold](#nobody-grants-more-than-they-hold).
+- **Format:** JSON in and out; enums as strings. Errors are [problem details](https://www.rfc-editor.org/rfc/rfc9457): `400` (validation), `401`, `403` (missing Permission without a body, or a change that would exceed the caller's rights with a `detail`), `404`, `409` (conflict with the current state).
 - **Lists:** `GET /api/users` and `GET /api/audit-events` are paged: they take `page` (from 1) and `pageSize` and return `{"items": […], "total": n}`. The other lists return a plain JSON array.
 - **No CORS:** the admin API cannot be called from other origins in a browser.
 - **Schema:** the OpenAPI document and Swagger UI (`/swagger`) are served in `Development`.
@@ -84,7 +84,7 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
 | `POST /api/clients/{id}/enable` | `clients.update` | Enable. |
 | `POST /api/clients/{id}/disable` | `clients.update` | Disable; revokes all its Grants. |
-| `PUT /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as first-party: no consent screen. |
+| `PUT /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as first-party: no consent screen. **Equivalent to administrator**, see [Permissions](#permissions). |
 | `DELETE /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as third-party again. |
 | `PUT /api/clients/{id}/pkce-optional` | `clients.update` | Let a Confidential Client send authorization requests without PKCE; `400` for a Public Client. See [PKCE](oauth-endpoints.md#pkce). |
 | `DELETE /api/clients/{id}/pkce-optional` | `clients.update` | Require PKCE again. |
@@ -123,3 +123,21 @@ All Permissions, as returned by `GET /api/permissions`. The System Role `admin` 
 | Clients | `clients.read`, `clients.create`, `clients.update`, `clients.delete`, `clients.manage-secrets`, `clients.manage-first-party` |
 | Health | `health.read` |
 | Audit | `audit.read`, `audit.verify` |
+
+**`clients.manage-first-party` is equivalent to the administrator Role.** Whoever holds it can make a Client of their own first-party, so it skips the consent screen, and collect the Authorization Codes of any signed-in User, including an administrator, without the User noticing. Give it only to administrators.
+
+## Nobody grants more than they hold
+
+A caller who is not an administrator (has no `admin` Role) can never give out more rights than they hold, and can never act on a User who has more rights than they do. "Rights" are the effective Permissions, from direct Roles and Groups.
+
+| Action | Allowed for a caller who is not an administrator, if … |
+|---|---|
+| `PUT /api/users/{id}/roles/{roleId}` | the Role is not `admin`, the caller holds every Permission of the Role, and the rule below holds for the User. |
+| `PUT /api/roles/{id}/permissions/{permissionId}` | the caller holds the Permission. |
+| `PUT /api/groups/{id}/roles/{roleId}` | the caller holds every Permission of the Role. |
+| `PUT /api/groups/{id}/members/{userId}` | the caller holds every Permission of all Roles of the Group, and the rule below holds for the User. |
+| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
+
+A caller may act on themselves and on Users with the same rights. An administrator is never restricted by this rule.
+
+A violation returns `403 Forbidden` with problem details whose `detail` names the reason, e.g. the missing Permissions. It is recorded in the audit log as the event of the attempted change (e.g. `user.password-set`) with outcome `Failed`, see [Audit events](audit-events.md), and logged as event 13001, see [Log events](log-events.md). These changes are serialized with a database lock, so a check stays valid until the change is saved: the target cannot gain the `admin` Role between the check and, say, setting its password.

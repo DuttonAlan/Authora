@@ -25,17 +25,16 @@ public sealed class LastAdministratorTests(AuthoraApiFactory factory) : IClassFi
     [Fact]
     public async Task ConcurrentDeactivationOfLastTwoAdministrators_KeepsOne()
     {
-        // The caller is no administrator, so exactly the two administrators below exist.
-        var callerId = await factory.CreateUserAsync(PermissionNames.Users.ManageAccess);
-        var token = await factory.IssueAccessTokenAsync(callerId, [AdminApiScope.Name]);
-
         // Repeated, because a single run can pass by chance even without the lock.
         for (var attempt = 0; attempt < Attempts; attempt++)
         {
+            // Only administrators may deactivate administrators, so each of the only two deactivates themselves.
             var first = await factory.CreateAdministratorAsync();
             var second = await factory.CreateAdministratorAsync();
+            var firstToken = await factory.IssueAccessTokenAsync(first, [AdminApiScope.Name]);
+            var secondToken = await factory.IssueAccessTokenAsync(second, [AdminApiScope.Name]);
 
-            var responses = await Task.WhenAll(DeactivateAsync(first, token), DeactivateAsync(second, token));
+            var responses = await Task.WhenAll(DeactivateAsync(first, firstToken), DeactivateAsync(second, secondToken));
 
             Assert.Single(responses, response => response.StatusCode == HttpStatusCode.NoContent);
             Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);

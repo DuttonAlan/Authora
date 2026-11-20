@@ -116,10 +116,12 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content.</returns>
     /// <response code="204">Responds with no content once the User was deleted, or if no User with the given Id exists.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="409">Responds with problem details if the User is the last administrator.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Users.Delete)]
@@ -210,6 +212,7 @@ public sealed class UsersController(
     /// <returns>204 No Content if the User was updated.</returns>
     /// <response code="204">Responds with no content once the User was updated.</response>
     /// <response code="400">Responds with validation problem details if the request body is invalid.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted, or the new Email is already used by another User.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
@@ -217,6 +220,7 @@ public sealed class UsersController(
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -245,11 +249,13 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the User is deactivated.</returns>
     /// <response code="204">Responds with no content once the User was deactivated.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted or the last administrator.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/deactivate")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -273,11 +279,13 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the User is activated.</returns>
     /// <response code="204">Responds with no content once the User was activated.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/activate")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -301,11 +309,13 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the User is unlocked.</returns>
     /// <response code="204">Responds with no content once the User was unlocked.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/unlock")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -329,11 +339,13 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the Sessions are revoked.</returns>
     /// <response code="204">Responds with no content once the Sessions were revoked.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted. Its Sessions were already revoked on deletion.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/revoke-sessions")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -360,6 +372,7 @@ public sealed class UsersController(
     /// <returns>204 No Content once the password is set.</returns>
     /// <response code="204">Responds with no content once the password was set.</response>
     /// <response code="400">Responds with validation problem details if the password is too short or too long.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
@@ -367,6 +380,7 @@ public sealed class UsersController(
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -419,11 +433,13 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the Role is assigned.</returns>
     /// <response code="204">Responds with no content once the Role was assigned.</response>
+    /// <response code="403">Responds with problem details if the Role is the administrator Role, or the Role or the User has Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User or no Role with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
@@ -450,11 +466,13 @@ public sealed class UsersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content once the Role is removed.</returns>
     /// <response code="204">Responds with no content once the Role was removed, or if the Role was not assigned.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
     /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
     /// <response code="409">Responds with problem details if the User is deleted, or the User is the last administrator.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpDelete("{id:guid}/roles/{roleId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]

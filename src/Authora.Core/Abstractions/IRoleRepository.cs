@@ -32,6 +32,16 @@ public interface IRoleRepository
     public Task<Role?> GetRoleById(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Get the Roles with the given Ids, including their Permissions. The Roles are not tracked.
+    /// </summary>
+    /// <param name="ids">Ids of the Roles.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The existing Roles among the Ids.</returns>
+    public Task<IReadOnlyList<Role>> GetRolesWithPermissionsByIds(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Get all Roles ordered by their Name, without their Permissions.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>

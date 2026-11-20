@@ -19,7 +19,7 @@ internal static class AdministratorGuard
     /// </summary>
     /// <remarks>
     ///     The Roles of the User must be loaded. The caller must hold the lock of
-    ///     <see cref="IUserRepository.BeginAdministratorChangeAsync"/> from before loading the User until the change
+    ///     <see cref="IUserRepository.BeginPrivilegeChangeAsync"/> from before loading the User until the change
     ///     is committed, otherwise concurrent requests can remove the last two administrators at the same time.
     /// </remarks>
     /// <param name="userRepository">The repository to count the other administrators.</param>
