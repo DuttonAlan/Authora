@@ -8,6 +8,10 @@ namespace Authora.Core.Application.Email;
 ///     Thrown when an email could not be handed to the mail server, e.g. because it is unreachable or rejected the
 ///     sender or recipient.
 /// </summary>
+/// <remarks>
+///     The message contains no addresses and can be logged. The <see cref="Exception.InnerException"/> can quote the
+///     server's reply, which may contain addresses, so it must not be logged.
+/// </remarks>
 public sealed class EmailDeliveryException : Exception
 {
     /// <summary>

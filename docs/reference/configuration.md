@@ -88,7 +88,7 @@ Authora sends email through an SMTP server, for links with one-time tokens such 
 | `Authora:Email:SenderAddress` | not set | required when `Host` is set; one address without display name | The `From` address, e.g. `no-reply@example.com`. Also gives the domain of the `Message-ID`. |
 | `Authora:Email:SenderName` | `Authora` | 1 to 100 characters, no line breaks | The display name of the sender. |
 | `Authora:Email:Timeout` | `00:00:30` | 1 second to 5 minutes | How long connecting, signing in and sending may take per email. |
-| `Authora:Email:TrustedCertificatePath` | not set | PEM or DER certificate file; requires `StartTls` or `Implicit` | A certificate trusted as the only root for the SMTP server's certificate, e.g. a private CA or a self-signed certificate. Without it, the system's trusted CAs apply. The host name is checked either way. Relative paths are resolved against the content root. Startup fails if the file cannot be loaded. |
+| `Authora:Email:TrustedCertificatePath` | not set | PEM or DER certificate file; requires `StartTls` or `Implicit` | A certificate trusted as the only root for the SMTP server's certificate, e.g. a private CA or a self-signed certificate. Without it, the system's trusted CAs apply. Either way, the host name is checked, and the server's certificate must be valid for server authentication (an Extended Key Usage that allows only e.g. client authentication is rejected). Relative paths are resolved against the content root. Startup fails if the file cannot be loaded. |
 
 The certificate of the SMTP server is always validated; there is no setting to turn that off. Every email has a plain-text and an HTML version.
 

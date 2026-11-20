@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Globalization;
+using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 
 using Authora.Core.Abstractions;
@@ -80,17 +82,29 @@ public sealed class SmtpEmailSender(
             }
 
             await client.SendAsync(mimeMessage, timeout.Token);
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Also a timeout, which cancels the linked token. Only the reason is logged and put into the message:
+            // the exception can contain the server's reply, which may quote the sender or recipient address.
+            var reason = DescribeFailure(exception);
+
+            logger.EmailFailed(messageId, host, port, reason);
+
+            throw new EmailDeliveryException($"The email could not be sent through {host}:{port}: {reason}.", exception);
+        }
+
+        // The server has accepted the email, so a failure from here on must not make the caller send it again.
+        logger.EmailSent(messageId);
+
+        try
+        {
             await client.DisconnectAsync(quit: true, timeout.Token);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
-            // Also a timeout, which cancels the linked token.
-            logger.EmailFailed(exception, messageId, host, port);
-
-            throw new EmailDeliveryException($"The email could not be sent through {host}:{port}: {exception.Message}", exception);
+            logger.EmailDisconnectFailed(messageId, DescribeFailure(exception));
         }
-
-        logger.EmailSent(messageId);
     }
 
     /// <inheritdoc/>
@@ -120,6 +134,25 @@ public sealed class SmtpEmailSender(
 
         return mimeMessage;
     }
+
+    /// <summary>
+    ///     Describes a failure without the text of the server's reply or of the exception, which may contain addresses.
+    /// </summary>
+    internal static string DescribeFailure(Exception exception) => exception switch
+    {
+        SmtpCommandException command => string.Create(
+            CultureInfo.InvariantCulture,
+            $"the server rejected the command ({command.ErrorCode}, status {(int)command.StatusCode})"),
+        AuthenticationException => "authentication at the server failed",
+        SslHandshakeException => "the TLS handshake failed, e.g. because the server's certificate is not trusted",
+        SmtpProtocolException => "the server violated the SMTP protocol",
+        NotSupportedException => "the server does not support the required TLS mode or authentication",
+        OperationCanceledException or TimeoutException => "the timeout passed",
+        SocketException socket => $"the connection failed ({socket.SocketErrorCode})",
+        IOException { InnerException: SocketException socket } => $"the connection failed ({socket.SocketErrorCode})",
+        IOException => "the connection was interrupted",
+        _ => $"unexpected {exception.GetType().Name}"
+    };
 
     private static SecureSocketOptions ToSocketOptions(SmtpTlsMode tlsMode) => tlsMode switch
     {

@@ -14,12 +14,16 @@ namespace Authora.Core.Abstractions;
 public interface IEmailTokenRepository
 {
     /// <summary>
-    ///     Create a new email token.
+    ///     Saves a new email token and marks the unused tokens of its User for its purpose as consumed, so only the
+    ///     new one can be used.
     /// </summary>
+    /// <remarks>
+    ///     Atomic and serialized per User and purpose: of concurrent calls, the token saved last is the only usable one.
+    /// </remarks>
     /// <param name="emailToken">The email token to create.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the email token is saved.</returns>
-    public Task CreateEmailToken(EmailToken emailToken, CancellationToken cancellationToken = default);
+    public Task ReplaceEmailTokens(EmailToken emailToken, CancellationToken cancellationToken = default);
 
     /// <summary>
     ///     Get an email token by the hash of its token. The email token is not tracked.

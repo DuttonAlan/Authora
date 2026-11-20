@@ -45,8 +45,7 @@ public sealed class EmailTokenIssuer(
         var token = secretGenerator.Generate();
         var emailToken = EmailToken.Create(secretHasher.Hash(token), user, purpose, now, lifetime);
 
-        await emailTokenRepository.RevokeEmailTokens(user.Id, purpose, now, cancellationToken);
-        await emailTokenRepository.CreateEmailToken(emailToken, cancellationToken);
+        await emailTokenRepository.ReplaceEmailTokens(emailToken, cancellationToken);
 
         logger.EmailTokenIssued(emailToken.Id, purpose, user.Id, emailToken.ExpiresAt);
 

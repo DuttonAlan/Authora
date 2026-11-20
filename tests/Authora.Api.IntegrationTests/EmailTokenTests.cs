@@ -136,6 +136,32 @@ public sealed class EmailTokenTests(AuthoraApiFactory factory) : IClassFixture<A
     }
 
     [Fact]
+    public async Task Issue_Concurrently_LeavesOnlyOneUsableToken()
+    {
+        var userId = await factory.CreateUserAsync();
+
+        var tokens = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => IssueAsync(userId, EmailTokenPurpose.PasswordReset)));
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+            Assert.Equal(8, await context.EmailTokens.CountAsync(token => token.UserId == userId, TestContext.Current.CancellationToken));
+            Assert.Equal(1, await context.EmailTokens.CountAsync(
+                token => token.UserId == userId && token.ConsumedAt == null, TestContext.Current.CancellationToken));
+        }
+
+        var redeemed = new List<User?>();
+
+        foreach (var token in tokens)
+        {
+            redeemed.Add(await RedeemAsync(token, EmailTokenPurpose.PasswordReset));
+        }
+
+        Assert.Single(redeemed, user => user is not null);
+    }
+
+    [Fact]
     public void Create_RejectsLifetimeAboveMaximum()
     {
         var user = User.Create($"{Guid.NewGuid():N}@example.com", "Test", "User", "hash");

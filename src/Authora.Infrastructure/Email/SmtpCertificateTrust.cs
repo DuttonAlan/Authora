@@ -17,6 +17,11 @@ namespace Authora.Infrastructure.Email;
 internal static class SmtpCertificateTrust
 {
     /// <summary>
+    ///     The Extended Key Usage <c>id-kp-serverAuth</c> (RFC 5280, Section 4.2.1.12).
+    /// </summary>
+    public const string ServerAuthenticationOid = "1.3.6.1.5.5.7.3.1";
+
+    /// <summary>
     ///     Loads the trusted certificate.
     /// </summary>
     /// <param name="path">The path from the settings.</param>
@@ -61,6 +66,10 @@ internal static class SmtpCertificateTrust
         customChain.ChainPolicy.CustomTrustStore.Add(trusted);
         // A private CA usually publishes no revocation lists.
         customChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+        // Only certificates for servers, like the default validation: a certificate whose Extended Key Usage allows
+        // only e.g. client authentication must not let its holder act as the SMTP server. A certificate without
+        // Extended Key Usage is valid for every purpose.
+        customChain.ChainPolicy.ApplicationPolicy.Add(new Oid(ServerAuthenticationOid));
 
         if (chain is not null)
         {
