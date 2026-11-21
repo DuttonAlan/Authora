@@ -133,6 +133,9 @@ export async function detail(context, id) {
         h('div', { class: 'grid' },
             panel('Account',
                 details([
+                    ['Email', user.emailVerified
+                        ? h('span', { class: 'badge-row' }, badge('Verified', 'ok'), formatDate(user.emailVerifiedAt))
+                        : badge('Not verified', 'warn')],
                     ['Last sign-in', relativeTime(user.lastLoginAt)],
                     ['Failed sign-ins', String(user.failedLoginCount)],
                     ['Locked out until', formatDate(user.lockoutEndAt)],
@@ -144,7 +147,8 @@ export async function detail(context, id) {
                 { name: 'email', label: 'Email', type: 'email', required: true, value: user.email, maxLength: 254 },
                 { name: 'firstName', label: 'First name', required: true, value: user.firstName, maxLength: 100 },
                 { name: 'lastName', label: 'Last name', required: true, value: user.lastName, maxLength: 100 }
-            ], 'Save', values => run(() => api('PUT', `/users/${id}`, values), 'The User was saved.', context))) : null),
+            ], 'Save', values => run(() => api('PUT', `/users/${id}`, values), 'The User was saved.', context)),
+            emailVerificationActions(context, user)) : null),
         rolesPanel(context, user, roles, allRoles, deleted),
         panel('Groups',
             hint('Memberships are managed on the page of the Group.'),
@@ -187,6 +191,33 @@ function passwordResetActions(user) {
                 run(() => api('POST', `/users/${user.id}/password-reset`), 'The reset link was sent.');
             }
         }))
+    ];
+}
+
+function emailVerificationActions(context, user) {
+    if (user.emailVerified) {
+        return null;
+    }
+
+    const actions = [];
+
+    if (user.state !== 'Deactivated') {
+        actions.push(button('Send verification link', async () => {
+            if (await confirmed('Send verification link', `Send a link to confirm ${user.email}? Earlier links stop working.`)) {
+                run(() => api('POST', `/users/${user.id}/email-verification`), 'The verification link was sent.');
+            }
+        }));
+    }
+
+    actions.push(button('Mark as verified', async () => {
+        if (await confirmed('Mark as verified', `Mark ${user.email} as verified? Applications may then trust that it belongs to this User. Only do this if you know it does.`)) {
+            run(() => api('POST', `/users/${user.id}/email-verified`), 'The email address was marked as verified.', context);
+        }
+    }));
+
+    return [
+        hint('The email address is not verified. Changing it resets the verification and sends a new link.'),
+        h('div', { class: 'button-row panel-actions' }, actions)
     ];
 }
 

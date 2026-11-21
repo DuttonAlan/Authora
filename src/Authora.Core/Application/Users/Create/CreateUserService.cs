@@ -16,14 +16,17 @@ namespace Authora.Core.Application.Users.Create;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to create a new User.</param>
 /// <param name="passwordHasher">The hasher for the initial password.</param>
+/// <param name="emailVerificationSender">Sends the new User a link to confirm their Email.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 public sealed class CreateUserService(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
+    EmailVerificationSender emailVerificationSender,
     IAuditLog auditLog)
 {
     /// <summary>
-    ///     Creates a new User with an initial password.
+    ///     Creates a new User with an initial password. The Email is not verified yet; a verification link is sent in
+    ///     the background if <see cref="EmailVerificationSender.ShouldSendAutomatically"/> allows it.
     /// </summary>
     /// <param name="request">The request to create the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -49,6 +52,14 @@ public sealed class CreateUserService(
         auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Created, user.Id));
 
         await userRepository.CreateUser(user, cancellationToken);
+
+        // After the User is saved, which the token refers to.
+        if (emailVerificationSender.ShouldSendAutomatically(user))
+        {
+            var message = await emailVerificationSender.PrepareAsync(user, cancellationToken);
+
+            await emailVerificationSender.QueueAsync(user, message, "the User was created", cancellationToken);
+        }
 
         return user.Id;
     }

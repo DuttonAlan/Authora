@@ -37,7 +37,7 @@ All URLs in the document are built from `Authora:OAuth:Issuer`, so they always m
 |---|---|
 | `openid` | `sub`: the User Id, the same for every Client |
 | `profile` | `name` (first and last name), `given_name`, `family_name` |
-| `email` | `email`, `email_verified` (always `false`; Authora does not verify Emails yet) |
+| `email` | `email`, `email_verified`: `true` once the User confirmed the address with a verification link or an administrator marked it as verified; `false` otherwise, and again after the Email changes to a different address (see [Email verification](oauth-endpoints.md#email-verification)) |
 
 `openid`, `profile` and `email` are System Scopes that Authora creates. Like every Scope, an administrator must allow them for a Client, and the User approves them on the consent screen (unless the Client is first-party or the User approved them before).
 

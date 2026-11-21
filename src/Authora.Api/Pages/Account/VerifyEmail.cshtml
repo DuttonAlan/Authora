@@ -1,0 +1,39 @@
+@page "/account/verify-email"
+@using Authora.Core.Application.Account
+@model Authora.Api.Pages.Account.VerifyEmailModel
+@{
+    ViewData["Title"] = "Confirm your email address";
+}
+
+@if (Model.Verified)
+{
+    <h1>Email address confirmed</h1>
+    <p class="success" role="status">@VerifyEmailModel.VerifiedMessage</p>
+    <p>Applications you sign in to can now rely on it.</p>
+}
+else
+{
+    <h1>Confirm your email address</h1>
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error" role="alert">@Model.ErrorMessage</p>
+        <p>Ask your administrator for a new link.</p>
+    }
+
+    @if (Model.IsValidLink)
+    {
+        @* Opening the link does not confirm the address, so a mail scanner that follows links does not use it up. *@
+        <form method="post" action="@EmailVerificationLink.PagePath" asp-antiforgery="true">
+            <input type="hidden" name="@EmailVerificationLink.TokenParameter" value="@Model.Token" />
+
+            <p>Confirm that you receive email at this address.</p>
+
+            <div class="actions">
+                <button type="submit" class="primary">Confirm email address</button>
+            </div>
+        </form>
+    }
+}
+
+<p class="muted"><a href="/account/login">Go to sign-in</a></p>

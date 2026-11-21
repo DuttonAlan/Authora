@@ -68,6 +68,18 @@ public sealed class User
     public string NormalizedEmail { get; private set; } = null!;
 
     /// <summary>
+    ///     Point in time (UTC) when the User proved to receive email at <see cref="Email"/>, or an administrator marked
+    ///     it as verified, or <see langword="null"/> if the address is not verified. Reset when the address changes.
+    ///     Set via <see cref="MarkEmailVerified(DateTime)"/>.
+    /// </summary>
+    public DateTime? EmailVerifiedAt { get; private set; }
+
+    /// <summary>
+    ///     Whether <see cref="Email"/> is verified, released as the <c>email_verified</c> claim.
+    /// </summary>
+    public bool IsEmailVerified => EmailVerifiedAt is not null;
+
+    /// <summary>
     ///     First Name of the User. Set via <see cref="SetFirstName(string)"/>.
     /// </summary>
     public string FirstName { get; private set; } = null!;
@@ -362,6 +374,7 @@ public sealed class User
 
         Email = $"deleted-{Id:N}@{DeletedEmailDomain}";
         NormalizedEmail = Email;
+        EmailVerifiedAt = null;
         FirstName = "Deleted";
         LastName = "User";
         PasswordHash = DeletedPasswordHash;
@@ -391,7 +404,23 @@ public sealed class User
     }
 
     /// <summary>
-    ///     Sets the <see cref="Email"/> and the <see cref="NormalizedEmail"/> of the User.
+    ///     Marks <see cref="Email"/> as verified, e.g. after the User opened a verification link. Does nothing if it is
+    ///     already verified, so the original point in time is kept.
+    /// </summary>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the User is deleted, which is final.</exception>
+    public void MarkEmailVerified(DateTime now)
+    {
+        UtcGuard.EnsureUtc(now);
+        EnsureNotDeleted();
+
+        EmailVerifiedAt ??= now;
+    }
+
+    /// <summary>
+    ///     Sets the <see cref="Email"/> and the <see cref="NormalizedEmail"/> of the User. A different address is no
+    ///     longer verified (<see cref="EmailVerifiedAt"/>); a change of case only keeps the verification.
     /// </summary>
     /// <param name="email">The new Email of the User.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="email"/> is empty, too long, not a valid Email or uses the <see cref="DeletedEmailDomain"/>.</exception>
@@ -418,8 +447,16 @@ public sealed class User
             throw new DomainValidationException($"Emails of the domain {DeletedEmailDomain} are reserved.", nameof(email));
         }
 
+        var normalized = Normalize(trimmed);
+
+        // The proof was for the old mailbox. Lookups ignore case, so only a different normalized address counts.
+        if (!string.Equals(normalized, NormalizedEmail, StringComparison.Ordinal))
+        {
+            EmailVerifiedAt = null;
+        }
+
         Email = trimmed;
-        NormalizedEmail = Normalize(trimmed);
+        NormalizedEmail = normalized;
     }
 
     /// <summary>

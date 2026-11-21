@@ -6,11 +6,11 @@ Authora writes structured logs through the standard .NET logging. Every message 
 
 | Range | Area |
 |---|---|
-| 1001 – 1009 | Users (1009: an administrator sent a password reset link) |
+| 1001 – 1013 | Users (1009: an administrator sent a password reset link; 1010 – 1013: email verification, see below) |
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
 | 4001 – 4020 | Clients |
-| 5001 – 5016 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below) |
+| 5001 – 5018 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below) |
 | 6001 – 6016 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016) |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8004 | Cleanup of expired data (including email tokens) and audit events |
@@ -38,7 +38,7 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 14012 | Information | Email token … for … of User … was used | |
 | 14013 | Warning | An unknown email token was presented for … | A mistyped or forged link. Many in a row suggest guessing. |
 | 14014 | Warning | Email token … of User … was rejected for …: … | Expired, already used or replaced, for another purpose, or the User's address or security stamp (e.g. after a password change) changed since it was sent. Also logged when a reset link is only opened, not used. |
-| 14021 | Error | The email queue is full (… emails). The email "…" is not sent | Emails sent in the background (notifications after a reset) wait in memory; the mail server is too slow or unreachable. |
+| 14021 | Error | The email queue is full (… emails). The email "…" is not sent | Emails sent in the background (notifications after a reset, verification links after a User was created or their Email changed) wait in memory; the mail server is too slow or unreachable. |
 | 14022 | Error | The queued email "…" could not be sent: … | A background email failed and is not retried. 14004 has the details. |
 | 14023 | Warning | … queued emails were not sent, because the server is stopping | Queued emails are kept only in memory. |
 | 14024 | Error | The queue of password reset requests is full (… requests). The request is dropped | Requests at `/account/forgot-password` wait in memory until the background handling looks up the address and sends the link. Nothing is stored or counted for a dropped request. |
@@ -55,6 +55,17 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 5015 | Information | User … set a new password with a reset link | All Sessions and tokens of the User were revoked, a lockout ended. |
 | 5016 | Warning | A password reset link was not accepted: … | 14013 or 14014 has the reason. |
 | 1009 | Information | A password reset link was sent to User … at the request of an administrator | `POST /api/users/{id}/password-reset`. |
+
+## Email verification
+
+| Event Id | Level | Message (shortened) | Meaning |
+|---|---|---|---|
+| 1010 | Information | An email verification link was sent to User … at the request of an administrator | `POST /api/users/{id}/email-verification`; logged once the mail server accepted the email. |
+| 1011 | Information | An email verification link for User … was queued | The User was created or their Email changed. A delivery failure is logged later as 14022. |
+| 1012 | Warning | No email verification link was sent to User …, because the email queue is full | 14021 has the details. An administrator can send the link again. |
+| 1013 | Information | The Email of User … was marked as verified by an administrator | `POST /api/users/{id}/email-verified`. |
+| 5017 | Information | User … confirmed their Email with a verification link | `email_verified` is `true` from now on. |
+| 5018 | Warning | An email verification link was not accepted: … | 14013 or 14014 has the reason. |
 
 ## Events worth alerting on
 

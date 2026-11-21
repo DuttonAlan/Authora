@@ -615,6 +615,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)");
 
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("integer");
 

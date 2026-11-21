@@ -11,6 +11,8 @@ namespace Authora.Core.Application.Users.Get;
 /// </summary>
 /// <param name="Id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
 /// <param name="Email" example="jane.doe@example.com">Email of the User.</param>
+/// <param name="EmailVerified" example="true">Whether the User confirmed the Email with a verification link, or an administrator marked it as verified. Released as the <c>email_verified</c> claim.</param>
+/// <param name="EmailVerifiedAt">Point in time (UTC) when the Email was verified, or null if it is not verified.</param>
 /// <param name="FirstName" example="Jane">First Name of the User.</param>
 /// <param name="LastName" example="Doe">Last Name of the User.</param>
 /// <param name="State" example="Active">State of the User.</param>
@@ -23,6 +25,8 @@ namespace Authora.Core.Application.Users.Get;
 public sealed record GetUserResponse(
     Guid Id,
     string Email,
+    bool EmailVerified,
+    DateTime? EmailVerifiedAt,
     string FirstName,
     string LastName,
     UserState State,

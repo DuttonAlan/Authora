@@ -26,8 +26,8 @@ internal static class RateLimitPolicies
     public const string Token = "token";
 
     /// <summary>
-    ///     Limits submissions of the "Forgot password?" and the reset form per client IP address. The number of links
-    ///     per address is limited by the request itself.
+    ///     Limits submissions of the "Forgot password?", the reset and the email verification form per client IP
+    ///     address. The number of links per address is limited by the request itself.
     /// </summary>
     public const string PasswordReset = "password-reset";
 
