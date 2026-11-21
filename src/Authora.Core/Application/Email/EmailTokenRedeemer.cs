@@ -35,7 +35,7 @@ public sealed class EmailTokenRedeemer(
     /// </summary>
     /// <remarks>
     ///     The token is accepted only if it exists, has the purpose, is unused and unexpired, and its User still exists
-    ///     with the address it was sent to. Whether that User may do what the token is for, e.g. while deactivated, is
+    ///     with the address and Security Stamp it was sent to. Whether that User may do what the token is for, e.g. while deactivated, is
     ///     up to the caller.
     /// </remarks>
     /// <param name="token">The plain-text token from the link.</param>
@@ -126,7 +126,7 @@ public sealed class EmailTokenRedeemer(
 
         if (user is null || user.State == UserState.Deleted || !stored.IsFor(user))
         {
-            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "the User no longer has the address it was sent to");
+            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "the User no longer has the address or Security Stamp it was sent to");
 
             return null;
         }

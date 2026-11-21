@@ -41,4 +41,13 @@ internal static partial class EmailLog
 
     [LoggerMessage(EventId = 14023, Level = LogLevel.Warning, Message = "{Count} queued emails were not sent, because the server is stopping.")]
     public static partial void QueuedEmailsDropped(this ILogger logger, int count);
+
+    [LoggerMessage(EventId = 14024, Level = LogLevel.Error, Message = "The queue of password reset requests is full ({Capacity} requests). The request is dropped.")]
+    public static partial void PasswordResetQueueFull(this ILogger logger, int capacity);
+
+    [LoggerMessage(EventId = 14025, Level = LogLevel.Error, Message = "A queued password reset request failed and is not retried.")]
+    public static partial void QueuedPasswordResetFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 14026, Level = LogLevel.Warning, Message = "{Count} queued password reset requests were not handled, because the server is stopping.")]
+    public static partial void QueuedPasswordResetsDropped(this ILogger logger, int count);
 }

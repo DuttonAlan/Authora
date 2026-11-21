@@ -98,7 +98,7 @@ public sealed partial class PasswordResetTests(AuthoraApiFactory factory) : ICla
         Assert.Equal(0, user.FailedLoginCount);
         Assert.Null(user.LockoutEndAt);
 
-        var requested = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId));
+        var requested = Assert.Single(await WaitForEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId));
         var reset = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.PasswordReset, userId));
 
         Assert.Equal(AuditOutcome.Succeeded, requested.Outcome);
@@ -148,11 +148,68 @@ public sealed partial class PasswordResetTests(AuthoraApiFactory factory) : ICla
 
         Assert.Equal(HttpStatusCode.OK, status);
         Assert.Contains(ForgotPasswordModel.SentMessage, html, StringComparison.Ordinal);
-        Assert.Equal(0, await CountTokensAsync(userId));
 
-        var failed = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId));
+        // Handled in the background: once the event is recorded, the request is done.
+        var failed = Assert.Single(await WaitForEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId));
 
         Assert.Equal(AuditOutcome.Failed, failed.Outcome);
+        Assert.Equal(0, await CountTokensAsync(userId));
+    }
+
+    [Fact]
+    public async Task OpenLink_StopsWorking_WhenThePasswordChanges()
+    {
+        var (userId, email) = await factory.CreateUserWithPasswordAsync(Password);
+
+        await RequestResetAsync(_client, email);
+
+        var token = ReadToken(Assert.Single(await factory.EmailSender.WaitForAsync(email)));
+
+        // E.g. the User changed the password at /account/password, or an administrator set one.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var user = await context.Users.SingleAsync(user => user.Id == userId, TestContext.Current.CancellationToken);
+
+            user.SetPasswordHash(passwordHasher.Hash("a-password-set-elsewhere"));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        Assert.Contains(ResetPasswordModel.InvalidLinkMessage, await GetResetPageAsync(token), StringComparison.Ordinal);
+
+        var (status, html) = await PostResetAsync(_client, token, NewPassword, NewPassword);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+        Assert.Contains(ResetPasswordModel.InvalidLinkMessage, html, StringComparison.Ordinal);
+        Assert.True(await HasPasswordAsync(userId, "a-password-set-elsewhere"));
+    }
+
+    [Fact]
+    public async Task Request_WhenDeliveryFails_IsRecordedAsFailed()
+    {
+        var (userId, email) = await factory.CreateUserWithPasswordAsync(Password);
+
+        factory.EmailSender.Fail = true;
+
+        try
+        {
+            var (status, html) = await RequestResetAsync(_client, email);
+
+            Assert.Equal(HttpStatusCode.OK, status);
+            Assert.Contains(ForgotPasswordModel.SentMessage, html, StringComparison.Ordinal);
+
+            var failed = Assert.Single(await WaitForEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId));
+
+            Assert.Equal(AuditOutcome.Failed, failed.Outcome);
+            Assert.Equal("The email could not be sent", failed.Details);
+        }
+        finally
+        {
+            factory.EmailSender.Fail = false;
+        }
+
+        Assert.Empty(factory.EmailSender.SentTo(email));
     }
 
     [Fact]
@@ -277,11 +334,11 @@ public sealed partial class PasswordResetTests(AuthoraApiFactory factory) : ICla
         Assert.Equal(HttpStatusCode.OK, first);
         Assert.Equal(HttpStatusCode.OK, second);
         Assert.Contains(ForgotPasswordModel.SentMessage, html, StringComparison.Ordinal);
-        Assert.Equal(1, await CountTokensAsync(userId));
 
-        var events = await GetEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId);
+        var events = await WaitForEventsAsync(AuditEventTypes.Account.PasswordResetRequested, userId, 2);
 
         Assert.Equal([AuditOutcome.Succeeded, AuditOutcome.Failed], events.OrderBy(auditEvent => auditEvent.OccurredAt).Select(auditEvent => auditEvent.Outcome));
+        Assert.Equal(1, await CountTokensAsync(userId));
     }
 
     [Fact]
@@ -623,6 +680,26 @@ public sealed partial class PasswordResetTests(AuthoraApiFactory factory) : ICla
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
 
         return await context.EmailTokens.CountAsync(token => token.UserId == userId, TestContext.Current.CancellationToken);
+    }
+
+    // For events recorded by the background processing of a request at /account/forgot-password.
+    private async Task<List<AuditEvent>> WaitForEventsAsync(string type, Guid userId, int count = 1)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        while (await GetEventsAsync(type, userId) is var events && events.Count < count)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new TimeoutException($"Expected {count} '{type}' events for User {userId}, got {events.Count}.");
+            }
+        }
+
+        return await GetEventsAsync(type, userId);
     }
 
     private async Task<List<AuditEvent>> GetEventsAsync(string type, Guid userId)

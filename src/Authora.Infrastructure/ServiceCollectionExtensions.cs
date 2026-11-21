@@ -74,6 +74,9 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<BackgroundEmailQueue>();
         serviceCollection.AddSingleton<IEmailQueue>(serviceProvider => serviceProvider.GetRequiredService<BackgroundEmailQueue>());
         serviceCollection.AddHostedService<BackgroundEmailDeliveryService>();
+        serviceCollection.AddSingleton<BackgroundPasswordResetQueue>();
+        serviceCollection.AddSingleton<IPasswordResetRequestQueue>(serviceProvider => serviceProvider.GetRequiredService<BackgroundPasswordResetQueue>());
+        serviceCollection.AddHostedService<BackgroundPasswordResetService>();
 
         // The actor comes from the host, e.g. the HTTP request, see IAuditActorAccessor.
         serviceCollection.AddScoped<IAuditLog, AuditLog>();

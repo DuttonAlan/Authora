@@ -74,11 +74,11 @@ public sealed class ForgotPasswordModel(
     }
 
     /// <summary>
-    ///     Sends a reset link if an account has the address, and shows the same confirmation either way.
+    ///     Queues the request, so a reset link is sent in the background if an account has the address, and shows the
+    ///     same confirmation either way.
     /// </summary>
-    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The page with the confirmation or an error, or 404 Not Found if the reset is not available.</returns>
-    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
+    public IActionResult OnPost()
     {
         if (!requestPasswordResetService.IsAvailable)
         {
@@ -92,7 +92,7 @@ public sealed class ForgotPasswordModel(
             return Page();
         }
 
-        await requestPasswordResetService.ExecuteAsync(new RequestPasswordResetRequest(Email), cancellationToken);
+        requestPasswordResetService.Execute(new RequestPasswordResetRequest(Email));
 
         Sent = true;
 

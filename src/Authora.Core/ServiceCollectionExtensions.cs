@@ -113,6 +113,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PasswordResetOptions>, PasswordResetOptionsValidator>());
         serviceCollection.AddTransient<ChangePasswordService>();
         serviceCollection.AddTransient<RequestPasswordResetService>();
+        serviceCollection.AddTransient<ProcessPasswordResetRequestService>();
         serviceCollection.AddTransient<ResetPasswordService>();
         serviceCollection.AddTransient<RevokeOwnConsentService>();
         serviceCollection.AddTransient<SignInService>();

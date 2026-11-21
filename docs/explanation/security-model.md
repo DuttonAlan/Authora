@@ -65,8 +65,8 @@ Every failed sign-in shows the same message, and unknown Emails still go through
 
 A reset link is only as safe as the User's mailbox: whoever can read it can set a new password. Authora limits what such a link is worth and what the "Forgot password?" form gives away:
 
-- The form answers every address the same way, and the email leaves in the background, so the response time does not depend on whether an email is sent. The address of an unknown account is neither logged nor recorded in the audit log.
-- The link carries a random 256-bit token, stored only as its hash. It works once, for 30 minutes by default, only for the newest link of the User and only while the User still has the address it was sent to. Opening it does not use it up, so mail scanners that follow links cannot break it.
+- The form answers every address the same way and only queues the request: looking up the address, issuing the link and sending the email happen in the background, so the response time does not depend on whether an account exists. The address of an unknown account is neither logged nor recorded in the audit log.
+- The link carries a random 256-bit token, stored only as its hash. It works once, for 30 minutes by default, only for the newest link of the User and only while the User still has the address it was sent to and has not changed the password since (any rotation of the security stamp, such as a password change, a password set by an administrator, deactivation or "sign out everywhere", ends all open links). Opening it does not use it up, so mail scanners that follow links cannot break it.
 - A reset revokes every Session and every token of the User, so someone who knew the old password is locked out at once, and the User gets an email about it. It also ends a lockout: proving control of the mailbox is a stronger check than waiting.
 - Abuse is bounded twice: per IP address (5 submissions per minute) and per address (3 links per hour), so the form cannot be used to flood a mailbox or probe many accounts quickly.
 - Administrators can send a link instead of setting a password, so they never learn it. Sending one needs `users.set-password` and follows the rule that nobody acts on a User with more rights than their own.
@@ -103,7 +103,7 @@ Every change is recorded in the same transaction as the change itself, and event
 ## Known gaps
 
 - No multi-factor authentication. Passwords are the only factor, so protect administrator accounts with long, unique passwords. With email delivery configured, the mailbox is a second way in through the password reset: protect it as well as the password, or turn the self-service reset off (`Authora:PasswordReset:SelfServiceEnabled`).
-- Emails sent in the background (reset links from the sign-in page) are kept in memory and lost if the server stops before they are sent; the User asks again.
+- Reset requests from the sign-in page and the emails sent in the background are kept in memory and lost if the server stops before they are handled; the User asks again.
 - `prompt=login` and `max_age` travel through the browser and can be stripped. Clients that need a recent sign-in must check `auth_time` themselves.
 - A script running on the admin interface could act as the signed-in administrator while the page is open, like on any web application. The Content Security Policy is what keeps such scripts out.
 - Someone with write access to the database can change audit events in the few seconds before they are sealed, or rebuild the whole chain. Only the checkpoints in a separate log system reveal a rebuilt chain.

@@ -45,7 +45,7 @@ internal static partial class AccountLog
     [LoggerMessage(EventId = 5011, Level = LogLevel.Warning, Message = "The notification about the password change of User {UserId} could not be sent: {Reason}")]
     public static partial void PasswordChangeNotificationFailed(this ILogger logger, Guid userId, string reason);
 
-    [LoggerMessage(EventId = 5012, Level = LogLevel.Information, Message = "A password reset link for User {UserId} was queued for delivery.")]
+    [LoggerMessage(EventId = 5012, Level = LogLevel.Information, Message = "A password reset link was sent to User {UserId}.")]
     public static partial void PasswordResetRequested(this ILogger logger, Guid userId);
 
     [LoggerMessage(EventId = 5013, Level = LogLevel.Warning, Message = "A password reset was requested for an unknown Email. No link was sent.")]
