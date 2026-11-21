@@ -59,7 +59,7 @@ All tabs share one cookie, and a Refresh Token used twice revokes the whole Gran
 
 ## Why no consent screen
 
-The admin interface is a *first-party* Client, so administrators are not asked for consent on every sign-in. See [Security model](security-model.md#first-party-clients) for why that is safe and what protects it.
+The admin interface is a *first-party* Client, so administrators are never asked for consent. See [Security model](security-model.md#first-party-clients) for why that is safe and what protects it.
 
 ## Hiding what you may not do
 

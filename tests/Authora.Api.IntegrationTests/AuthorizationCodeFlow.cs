@@ -93,6 +93,25 @@ internal static partial class AuthorizationCodeFlow
     }
 
     /// <summary>
+    ///     Sends the authorization request as a signed-in User who needs no consent screen, e.g. because the Consent is
+    ///     remembered, and returns the Authorization Code.
+    /// </summary>
+    /// <param name="http">A client that does not follow redirects.</param>
+    /// <param name="parameters">The parameters of the request.</param>
+    /// <param name="sessionToken">The Session token of the User.</param>
+    /// <returns>The Authorization Code.</returns>
+    public static async Task<string> GetCodeWithoutConsentAsync(HttpClient http, Dictionary<string, string?> parameters, string sessionToken)
+    {
+        using var response = await GetAsync(http, parameters, sessionToken);
+
+        Assert.Equal(HttpStatusCode.SeeOther, response.StatusCode);
+
+        var query = QueryHelpers.ParseQuery(response.Headers.Location!.Query);
+
+        return query["code"].Single()!;
+    }
+
+    /// <summary>
     ///     Opens the consent screen as a signed-in User and allows the request with the given form parameters, which
     ///     may differ from the shown request, e.g. to submit a consent screen as if it was shown with other parameters.
     /// </summary>

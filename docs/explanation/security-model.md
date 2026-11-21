@@ -63,7 +63,7 @@ Every failed sign-in shows the same message, and unknown Emails still go through
 
 ### First-party Clients
 
-Third-party Clients ask for consent on every sign-in. First-party Clients, applications of the same operator such as the admin interface, skip it. Asking administrators for consent to their own tools on every sign-in would only train them to click *Allow* without reading.
+Third-party Clients ask for consent the first time and for every Scope the User has not approved yet; the User can withdraw the Consent at any time, which also ends the Client's tokens. First-party Clients, applications of the same operator such as the admin interface, skip it and store no Consent. Asking administrators for consent to their own tools on every sign-in would only train them to click *Allow* without reading.
 
 Skipping consent is powerful: a first-party Client gets any allowed Scope for any signed-in User who opens a link. So:
 

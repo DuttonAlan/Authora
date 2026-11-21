@@ -19,7 +19,7 @@ public static class PermissionNames
     public static class Users
     {
         /// <summary>
-        ///     Read Users, their Roles, their Groups and their effective Permissions.
+        ///     Read Users, their Roles, their Groups, their effective Permissions and their Consents.
         /// </summary>
         public const string Read = "users.read";
 
@@ -39,7 +39,7 @@ public static class PermissionNames
         public const string Delete = "users.delete";
 
         /// <summary>
-        ///     Activate, deactivate and unlock Users, and revoke their Sessions.
+        ///     Activate, deactivate and unlock Users, and revoke their Sessions and Consents.
         /// </summary>
         public const string ManageAccess = "users.manage-access";
 

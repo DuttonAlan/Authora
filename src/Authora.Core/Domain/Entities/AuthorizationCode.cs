@@ -121,6 +121,13 @@ public sealed class AuthorizationCode
     public DateTime? ReusedAt { get; private set; }
 
     /// <summary>
+    ///     Id of the <see cref="Consent"/> under which the code was issued to a third-party Client, or
+    ///     <see langword="null"/> for a first-party Client. The code can only be exchanged while this very Consent
+    ///     exists: once it is revoked, a new approval creates another Consent, which does not revive the code.
+    /// </summary>
+    public Guid? ConsentId { get; private set; }
+
+    /// <summary>
     ///     The approved Scope Names.
     /// </summary>
     public IReadOnlyList<string> Scopes => ScopeList.Split(Scope);
@@ -183,6 +190,23 @@ public sealed class AuthorizationCode
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };
+    }
+
+    /// <summary>
+    ///     Binds the code to the Consent of the User for the Client, see <see cref="ConsentId"/>.
+    /// </summary>
+    /// <param name="consent">The Consent the request was approved under.</param>
+    /// <exception cref="ArgumentException">Thrown when the Consent belongs to another User or Client.</exception>
+    public void BindToConsent(Consent consent)
+    {
+        ArgumentNullException.ThrowIfNull(consent);
+
+        if (consent.UserId != UserId || consent.ClientId != ClientId)
+        {
+            throw new ArgumentException("The Consent belongs to another User or Client.", nameof(consent));
+        }
+
+        ConsentId = consent.Id;
     }
 
     /// <summary>

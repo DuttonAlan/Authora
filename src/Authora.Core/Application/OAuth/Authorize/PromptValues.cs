@@ -22,7 +22,8 @@ public static class PromptValues
     public const string Login = "login";
 
     /// <summary>
-    ///     Ask for consent, even if the Client is first-party. Authora asks every other Client anyway.
+    ///     Ask for consent, even if the Client is first-party or the User's Consent already contains the requested
+    ///     Scopes.
     /// </summary>
     public const string Consent = "consent";
 

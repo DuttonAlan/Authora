@@ -55,4 +55,7 @@ internal static partial class OAuthLog
 
     [LoggerMessage(EventId = 6015, Level = LogLevel.Information, Message = "Authorization Code {CodeId} was rejected, because its Session {SessionId} has ended.")]
     public static partial void AuthorizationCodeOfEndedSession(this ILogger logger, Guid codeId, Guid sessionId);
+
+    [LoggerMessage(EventId = 6016, Level = LogLevel.Information, Message = "Grant {GrantId} was revoked, because User {UserId} revoked the Consent for Client {ClientId} while it was created.")]
+    public static partial void GrantRevokedForRevokedConsent(this ILogger logger, Guid grantId, Guid clientId, Guid userId);
 }

@@ -163,6 +163,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<Guid?>("ConsentId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ConsumedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -280,6 +283,33 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClientId");
 
                     b.ToTable("client_secrets", "identity");
+                });
+
+            modelBuilder.Entity("Authora.Core.Domain.Entities.Consent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("UserId", "ClientId")
+                        .IsUnique();
+
+                    b.ToTable("consents", "auth");
                 });
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.EmailToken", b =>
@@ -664,6 +694,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.ToTable("client_served_scopes", "identity");
                 });
 
+            modelBuilder.Entity("ConsentScope", b =>
+                {
+                    b.Property<Guid>("ConsentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ConsentId", "ScopeId");
+
+                    b.HasIndex("ScopeId");
+
+                    b.ToTable("consent_scopes", "auth");
+                });
+
             modelBuilder.Entity("GroupMember", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -802,6 +847,23 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Authora.Core.Domain.Entities.Consent", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Authora.Core.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+                });
+
             modelBuilder.Entity("Authora.Core.Domain.Entities.EmailToken", b =>
                 {
                     b.HasOne("Authora.Core.Domain.Entities.User", null)
@@ -865,6 +927,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasOne("Authora.Core.Domain.Entities.Client", null)
                         .WithMany()
                         .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Authora.Core.Domain.Entities.Scope", null)
+                        .WithMany()
+                        .HasForeignKey("ScopeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ConsentScope", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.Consent", null)
+                        .WithMany()
+                        .HasForeignKey("ConsentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

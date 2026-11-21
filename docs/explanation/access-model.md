@@ -22,7 +22,9 @@ A *Client* is an application registered at Authora. It is either:
 
 A *Scope* names a kind of access, e.g. `orders.read`, or a set of identity claims, e.g. `profile`. An administrator decides which Scopes each Client may request (*allowed Scopes*). The user then approves the request on the consent screen.
 
-When the user approves, Authora creates a *Grant*: the record that this User allowed this Client these Scopes. All tokens the Client gets from that sign-in belong to the Grant, so they can be revoked together. See [Tokens, Grants and Sessions](tokens-and-sessions.md).
+Authora remembers the approval as the user's *Consent* for the Client: the Scopes this User allowed this Client. While a Client requests only Scopes the Consent contains, the user is not asked again; a request for a further Scope shows the consent screen, and approving it adds the Scope. A Consent lasts until the user withdraws it under *Connected applications* (`/account/consents`) or an administrator revokes it (`users.manage-access`). Deleting a Scope removes it from every Consent, so a new Scope that reuses the Name is asked for again.
+
+Each sign-in through the Client creates a *Grant*: the family of tokens the Client gets from that sign-in, so they can be revoked together. A Grant ends; the Consent stays. Revoking a Consent also revokes the Grants of that User for that Client, so the Client loses access right away instead of keeping it until its Refresh Token expires. See [Tokens, Grants and Sessions](tokens-and-sessions.md).
 
 An API (resource server) is also registered as a Confidential Client and *serves* the Scopes it protects. It can only introspect tokens that contain a Scope it serves.
 
@@ -68,4 +70,4 @@ Neither is enough on its own. A Client allowed `authora.admin` can do nothing fo
 
 ## First-party and third-party Clients
 
-By default, a Client is *third-party*: the user is asked for consent on every sign-in. An administrator can mark a Client as *first-party*, for applications run by the same organization as Authora, like the admin interface. First-party Clients skip the consent screen. Because that is powerful, it needs a Permission of its own and locks the Client's Redirect URIs and Scopes; see [Security model](security-model.md#first-party-clients).
+By default, a Client is *third-party*: the user is asked for consent the first time and whenever it requests a Scope the user has not approved yet. An administrator can mark a Client as *first-party*, for applications run by the same organization as Authora, like the admin interface. First-party Clients skip the consent screen. Because that is powerful, it needs a Permission of its own and locks the Client's Redirect URIs and Scopes; see [Security model](security-model.md#first-party-clients).

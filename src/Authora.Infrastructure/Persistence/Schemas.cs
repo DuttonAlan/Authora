@@ -17,8 +17,8 @@ internal static class Schemas
     public const string Identity = "identity";
 
     /// <summary>
-    ///     The OAuth runtime state: Sessions, Authorization Codes, Grants, Access Tokens and Refresh Tokens, and the
-    ///     one-time tokens of email links.
+    ///     The OAuth runtime state: Sessions, Authorization Codes, Consents, Grants, Access Tokens and Refresh Tokens,
+    ///     and the one-time tokens of email links.
     /// </summary>
     public const string Auth = "auth";
 

@@ -81,6 +81,7 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddTransient<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
         serviceCollection.AddTransient<IClientRepository, ClientRepository>();
+        serviceCollection.AddTransient<IConsentRepository, ConsentRepository>();
         serviceCollection.AddTransient<IEmailTokenRepository, EmailTokenRepository>();
         serviceCollection.AddTransient<IGroupRepository, GroupRepository>();
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();

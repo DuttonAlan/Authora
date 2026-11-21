@@ -89,6 +89,15 @@ public sealed class TokenRepository(AuthoraContext context) : ITokenRepository
         return await RevokeGrants(context.Grants.Where(grant => grant.ClientId == clientId), now, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<int> RevokeGrantsOfUserForClient(Guid userId, Guid clientId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        return await RevokeGrants(
+            context.Grants.Where(grant => grant.UserId == userId && grant.ClientId == clientId),
+            now,
+            cancellationToken);
+    }
+
     private static async Task<int> RevokeGrants(IQueryable<Grant> grants, DateTime now, CancellationToken cancellationToken)
     {
         return await grants

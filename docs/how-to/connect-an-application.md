@@ -115,7 +115,7 @@ Authora allows cross-origin calls to `/oauth/token`, `/oauth/revoke` and `/oauth
 
 ## 3. Test it
 
-Sign in through your application. The first time, Authora shows a consent screen that lists the requested Scopes; it asks on every sign-in of a third-party Client. In the admin interface, the **Audit log** shows the sign-in.
+Sign in through your application. The first time, Authora shows a consent screen that lists the requested Scopes. Afterwards it remembers the approval and asks again only for Scopes the user has not approved yet, or when your application sends `prompt=consent`. Users withdraw it under *Connected applications* (`/account/consents`). In the admin interface, the **Audit log** shows the sign-in.
 
 ## Troubleshooting
 

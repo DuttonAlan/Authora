@@ -23,6 +23,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="clientAuthenticator">The authenticator for the Client.</param>
 /// <param name="authorizationCodeRepository">An Instance of a IAuthorizationCodeRepository to load and consume codes.</param>
 /// <param name="clientRepository">An Instance of a IClientRepository to check whether the Client was disabled meanwhile.</param>
+/// <param name="consentRepository">An Instance of a IConsentRepository to check that the User has not revoked the Consent meanwhile.</param>
 /// <param name="tokenRepository">An Instance of a ITokenRepository to store, consume and revoke tokens.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to check the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to check that the Session of a code is still active.</param>
@@ -38,6 +39,7 @@ public sealed class IssueTokenService(
     ClientAuthenticator clientAuthenticator,
     IAuthorizationCodeRepository authorizationCodeRepository,
     IClientRepository clientRepository,
+    IConsentRepository consentRepository,
     ITokenRepository tokenRepository,
     IUserRepository userRepository,
     ISessionRepository sessionRepository,
@@ -316,6 +318,16 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidClient, "The Client is disabled.");
         }
 
+        // The User may have revoked the Consent after the code was issued. Checked after saving, like the status of
+        // the Client: a revocation committed before this check is seen here, one committed later revokes the Grant.
+        if (!client.IsFirstParty && !await HasConsentAsync(authorizationCode, scopes, cancellationToken))
+        {
+            await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
+            logger.GrantRevokedForRevokedConsent(grant.Id, client.Id, authorizationCode.UserId);
+
+            throw new OAuthException(OAuthErrors.InvalidGrant, "The User revoked the consent for the Client.");
+        }
+
         logger.GrantCreated(grant.Id, client.Id, authorizationCode.UserId, authorizationCode.Id);
 
         // OpenID Connect Core 1.0, Section 3.1.3.3: an ID Token only for requests with openid that the Client may
@@ -464,6 +476,25 @@ public sealed class IssueTokenService(
                 ClientId = client.Id
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    ///     Whether the Consent the code was issued under still exists and contains the Scopes of the new Grant. A Consent
+    ///     given again after a revocation is a new Consent and does not count, so the revocation cancels the code for good.
+    /// </summary>
+    private async Task<bool> HasConsentAsync(
+        AuthorizationCode authorizationCode,
+        IReadOnlyList<string> scopes,
+        CancellationToken cancellationToken)
+    {
+        if (authorizationCode.ConsentId is not { } consentId)
+        {
+            return false;
+        }
+
+        var consent = await consentRepository.GetConsent(authorizationCode.UserId, authorizationCode.ClientId, cancellationToken);
+
+        return consent is not null && consent.Id == consentId && consent.Covers(scopes);
     }
 
     /// <summary>

@@ -46,6 +46,26 @@ public static class AuditEventTypes
     }
 
     /// <summary>
+    ///     Consents of Users for third-party Clients. The Target is the User; the Details name the Client of the
+    ///     Consent. A granted Consent has that Client as the Client of the event; a revoked one has the Client the
+    ///     revocation came through (none for the account page, e.g. the admin interface for an administrator).
+    /// </summary>
+    public static class Consents
+    {
+        /// <summary>
+        ///     A User approved Scopes for a Client on the consent screen that their Consent did not contain yet: either
+        ///     the first approval, or a request for further Scopes. The Details list the added Scopes.
+        /// </summary>
+        public const string Granted = "consent.granted";
+
+        /// <summary>
+        ///     The Consent of a User for a Client was revoked, by the User on the account page or by an administrator,
+        ///     and the Grants of the User for the Client were revoked with it.
+        /// </summary>
+        public const string Revoked = "consent.revoked";
+    }
+
+    /// <summary>
     ///     Events of the OAuth endpoints that indicate an attack.
     /// </summary>
     public static class OAuth

@@ -74,6 +74,15 @@ public interface IUserRepository
     public Task<bool> EmailExists(string normalizedEmail, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Checks in the database whether a User is deleted or does not exist, ignoring tracked Users, e.g. because
+    ///     another request may have deleted the User meanwhile.
+    /// </summary>
+    /// <param name="id">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if the User is deleted or does not exist.</returns>
+    public Task<bool> IsUserDeleted(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Starts a transaction that holds the privilege lock until it is committed or disposed. Only one such
     ///     transaction runs at a time, so a check of the remaining administrators or of the Permissions of the caller
     ///     (see <see cref="Application.Authorization.PrivilegeGuard"/>) stays valid until the change is saved and

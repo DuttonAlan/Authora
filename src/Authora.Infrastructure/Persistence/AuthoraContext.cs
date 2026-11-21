@@ -69,6 +69,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     /// <summary>
+    ///     The Consents of Users for Clients in the <c>auth</c> schema. Their Scopes are loaded and saved with them.
+    /// </summary>
+    public DbSet<Consent> Consents => Set<Consent>();
+
+    /// <summary>
     ///     The one-time tokens of email links in the <c>auth</c> schema.
     /// </summary>
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();

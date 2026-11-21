@@ -4,6 +4,7 @@
 
 using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.ChangePassword;
+using Authora.Core.Application.Account.RevokeConsent;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
@@ -32,6 +33,11 @@ using Authora.Core.Application.Clients.SetPkceOptional;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
 using Authora.Core.Application.Clients.Update;
+using Authora.Core.Application.Consents;
+using Authora.Core.Application.Consents.Check;
+using Authora.Core.Application.Consents.GetAll;
+using Authora.Core.Application.Consents.Remember;
+using Authora.Core.Application.Consents.Revoke;
 using Authora.Core.Application.Email;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
@@ -102,6 +108,7 @@ public static class ServiceCollectionExtensions
     {
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<SignInOptions>, SignInOptionsValidator>());
         serviceCollection.AddTransient<ChangePasswordService>();
+        serviceCollection.AddTransient<RevokeOwnConsentService>();
         serviceCollection.AddTransient<SignInService>();
         serviceCollection.AddTransient<SignOutService>();
         serviceCollection.AddTransient<ValidateSessionService>();
@@ -155,6 +162,12 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<RemoveRedirectUriService>();
         serviceCollection.AddTransient<RevokeClientSecretService>();
         serviceCollection.AddTransient<UpdateClientService>();
+
+        serviceCollection.AddTransient<CheckConsentService>();
+        serviceCollection.AddTransient<ConsentRevoker>();
+        serviceCollection.AddTransient<GetUserConsentsService>();
+        serviceCollection.AddTransient<RememberConsentService>();
+        serviceCollection.AddTransient<RevokeConsentService>();
 
         serviceCollection.AddTransient<AddGroupMemberService>();
         serviceCollection.AddTransient<AssignGroupRoleService>();

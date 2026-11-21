@@ -15,6 +15,7 @@ namespace Authora.Core.Application.OAuth.Authorize;
 /// </summary>
 /// <param name="authorizationCodeRepository">An Instance of a IAuthorizationCodeRepository to store the code.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to load the User.</param>
+/// <param name="consentRepository">An Instance of a IConsentRepository to bind the code to the Consent of the User.</param>
 /// <param name="secretGenerator">The generator for the random code.</param>
 /// <param name="secretHasher">The hasher for the stored code.</param>
 /// <param name="timeProvider">The TimeProvider for the creation time and expiry.</param>
@@ -23,6 +24,7 @@ namespace Authora.Core.Application.OAuth.Authorize;
 public sealed class IssueAuthorizationCodeService(
     IAuthorizationCodeRepository authorizationCodeRepository,
     IUserRepository userRepository,
+    IConsentRepository consentRepository,
     ISecretGenerator secretGenerator,
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
@@ -70,6 +72,14 @@ public sealed class IssueAuthorizationCodeService(
             authenticatedAt,
             timeProvider.GetUtcNow().UtcDateTime,
             options.Value.AuthorizationCodeLifetime);
+
+        // A third-party Client gets the code only under a Consent, so the code is bound to it. Without one (revoked in
+        // the meantime), the code stays unbound and the token endpoint rejects it.
+        if (!request.Client.IsFirstParty
+            && await consentRepository.GetConsent(user.Id, request.Client.Id, cancellationToken) is { } consent)
+        {
+            authorizationCode.BindToConsent(consent);
+        }
 
         await authorizationCodeRepository.CreateAuthorizationCode(authorizationCode, cancellationToken);
 

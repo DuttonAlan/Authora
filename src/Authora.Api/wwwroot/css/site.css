@@ -160,3 +160,12 @@ a {
 .hint {
     margin-top: -12px;
 }
+
+.consents form {
+    margin-top: 8px;
+}
+
+.consents button {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+}

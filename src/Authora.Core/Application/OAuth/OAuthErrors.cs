@@ -57,8 +57,8 @@ public static class OAuthErrors
     public const string LoginRequired = "login_required";
 
     /// <summary>
-    ///     <c>prompt=none</c> was sent, but the User must consent first (OpenID Connect). Authora always asks for
-    ///     consent, so this is always the answer for a signed-in User.
+    ///     <c>prompt=none</c> was sent, but the User must consent first (OpenID Connect): the Client is third-party
+    ///     and the User's Consent does not contain every requested Scope.
     /// </summary>
     public const string ConsentRequired = "consent_required";
 

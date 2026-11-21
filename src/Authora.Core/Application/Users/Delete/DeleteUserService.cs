@@ -16,11 +16,13 @@ namespace Authora.Core.Application.Users.Delete;
 ///     The Service to delete a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to delete a User.</param>
+/// <param name="consentRepository">An Instance of a IConsentRepository to delete the Consents of the User.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteUserService(
     IUserRepository userRepository,
+    IConsentRepository consentRepository,
     PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<DeleteUserService> logger)
@@ -32,6 +34,7 @@ public sealed class DeleteUserService(
     ///     This is a soft delete: the User is set to <see cref="UserState.Deleted"/> and kept for history, with the
     ///     Email and Name anonymized, so the Email can be used by a new User.
     ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid.
+    ///     The Consents of the User are deleted.
     ///     Does nothing if the User does not exist or is already deleted.
     /// </remarks>
     /// <param name="id">Id of the User.</param>
@@ -57,11 +60,18 @@ public sealed class DeleteUserService(
         await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
+        // In the transaction of the guard, so the Consents are only deleted together with the User.
+        await consentRepository.DeleteConsentsOfUser(user.Id, cancellationToken);
+
         user.MarkDeleted();
         auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        // Again after the commit: an approval that was running in the meantime may have saved a Consent after the first
+        // deletion. One saved after this point is deleted by the approval itself, because it checks the User after saving.
+        await consentRepository.DeleteConsentsOfUser(user.Id, cancellationToken);
 
         logger.UserDeleted(user.Id);
     }

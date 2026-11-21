@@ -34,6 +34,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `DELETE /api/users/{id}/roles/{roleId}` | `users.assign-roles` | Remove a Role. |
 | `GET /api/users/{id}/permissions` | `users.read` | Effective Permissions and their source. |
 | `GET /api/users/{id}/groups` | `users.read` | Groups the User is a member of. |
+| `GET /api/users/{id}/consents` | `users.read` | Consents: the third-party Clients the User approved, with `clientId`, `clientName`, the approved `scopes` (`id`, `name`, `displayName`), `createdAt` and `modifiedAt` (Scopes last added). |
+| `DELETE /api/users/{id}/consents/{clientId}` | `users.manage-access` | Revoke the Consent for a Client and the User's Grants for it, so its tokens for the User stop working and the User is asked again. Idempotent. |
 
 ## Groups
 
@@ -136,7 +138,7 @@ A caller who is not an administrator (has no `admin` Role) can never give out mo
 | `PUT /api/roles/{id}/permissions/{permissionId}` | the caller holds the Permission. |
 | `PUT /api/groups/{id}/roles/{roleId}` | the caller holds every Permission of the Role. |
 | `PUT /api/groups/{id}/members/{userId}` | the caller holds every Permission of all Roles of the Group, and the rule below holds for the User. |
-| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
+| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/consents/{clientId}`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
 
 A caller may act on themselves and on Users with the same rights. An administrator is never restricted by this rule.
 

@@ -7,8 +7,10 @@ This page explains the objects Authora creates when someone signs in, how they r
 ```mermaid
 erDiagram
     accTitle: Objects created when someone signs in
-    accDescr: A User has Sessions. A User and a Client have Authorization Codes. An Authorization Code is issued in a Session. An Authorization Code is exchanged for at most one Grant, and a Grant has Access Tokens and Refresh Tokens.
+    accDescr: A User has Sessions and at most one Consent per Client. A User and a Client have Authorization Codes. An Authorization Code is issued in a Session. An Authorization Code is exchanged for at most one Grant, and a Grant has Access Tokens and Refresh Tokens.
     User ||--o{ Session : "signs in at Authora"
+    User ||--o{ Consent : "approves"
+    Client ||--o{ Consent : ""
     Client ||--o{ AuthorizationCode : ""
     User ||--o{ AuthorizationCode : ""
     Session ||--o{ AuthorizationCode : "approved in"
@@ -20,8 +22,9 @@ erDiagram
 | Object | What it is |
 |---|---|
 | **Session** | The User's sign-in at Authora itself, held in a browser cookie. It lets the User approve several applications without typing the password again (single sign-on). |
+| **Consent** | The User's remembered approval of a third-party Client: the Scopes the User allowed it. Without it, or for a Scope it lacks, the consent screen is shown. It does not expire; the User revokes it under *Connected applications* (`/account/consents`), an administrator through the admin API. Revoking it revokes the Grants of the User for the Client, and the code exchange rejects codes of a revoked Consent, because every code is bound to the Consent it was issued under; approving the Client again creates a new Consent. |
 | **Authorization Code** | A one-minute, single-use ticket that the browser carries from Authora back to the application. It is bound to the Client, the User, the Session, the Redirect URI, the Scopes and, if sent, the PKCE challenge. |
-| **Grant** | Created when the code is exchanged: the User's approval for this Client and these Scopes. It is the unit of revocation. A Client that obtains a token for itself (`client_credentials`) gets a Grant without a User, which holds just that Access Token. |
+| **Grant** | Created when the code is exchanged: the tokens of one sign-in of the User to this Client, with these Scopes. It is the unit of revocation. A Client that obtains a token for itself (`client_credentials`) gets a Grant without a User, which holds just that Access Token. |
 | **Access Token** | What the application presents to APIs. Short-lived (1 hour by default). |
 | **Refresh Token** | What the application uses to get new Access Tokens without the user. Longer-lived (1 day by default) and single-use. |
 
@@ -81,7 +84,7 @@ Reuse can only be detected while the used row still exists; the cleanup keeps ro
 | Session | 2 hours idle, 12 hours absolute | at most 24 hours idle, 7 days absolute |
 | ID Token | 5 minutes | at most 1 hour |
 
-The Grant's lifetime is absolute. Refreshing does not extend it, so a stolen Refresh Token cannot keep access alive forever. After it ends, the user approves the application again.
+The Grant's lifetime is absolute. Refreshing does not extend it, so a stolen Refresh Token cannot keep access alive forever. After it ends, the application has to send the user through Authora again; the consent screen only appears if the Consent was revoked or the application asks for more Scopes.
 
 ## Sessions
 

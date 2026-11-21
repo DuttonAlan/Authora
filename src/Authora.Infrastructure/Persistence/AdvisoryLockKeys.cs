@@ -31,4 +31,10 @@ internal static class AdvisoryLockKeys
     ///     serialize replacing the email tokens of one User and purpose. The second key is derived from both.
     /// </summary>
     public const int EmailTokens = 0x454D_4C54; // "EMLT"
+
+    /// <summary>
+    ///     First key of the two-key locks that serialize changes to the Consent of one User for one Client. The second
+    ///     key is derived from both Ids.
+    /// </summary>
+    public const int Consents = 0x434F_4E53; // "CONS"
 }

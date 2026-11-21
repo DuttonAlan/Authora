@@ -66,7 +66,7 @@ Authora deliberately keeps a small feature set. Not supported today:
 **Access model**
 
 - Roles, Groups and Permissions in tokens. They control access to Authora's own admin API only.
-- Remembered consent: third-party Clients ask on every sign-in.
+- Consent per Scope: the User allows or denies a request as a whole and cannot approve only some of its Scopes. Consents do not expire; they last until the User or an administrator revokes them.
 
 **Operations**
 
