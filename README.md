@@ -55,7 +55,7 @@ The [documentation](docs/README.md), also on the website at <https://authora.ala
 
 ## Supported standards
 
-OAuth 2.1 (Authorization Code with PKCE, Refresh Tokens), RFC 7636 (PKCE, `S256`), RFC 7009 (revocation), RFC 7662 (introspection), RFC 9207 (`iss` in the authorization response), OpenID Connect Core 1.0 and Discovery 1.0. Details: [Standards and limitations](docs/reference/standards.md).
+OAuth 2.1 (Authorization Code with PKCE, Refresh Tokens, Client Credentials), RFC 7636 (PKCE, `S256`), RFC 7009 (revocation), RFC 7662 (introspection), RFC 9207 (`iss` in the authorization response), OpenID Connect Core 1.0, Discovery 1.0 and RP-Initiated Logout 1.0. Details: [Standards and limitations](docs/reference/standards.md).
 
 The OpenID Foundation's conformance suite runs its **Basic OP** and **RP-Initiated Logout OP** test plans against every pull request; no test fails, and the documented warnings and skips are listed in [Conformance testing](docs/reference/standards.md#conformance-testing). Authora is not certified.
 
@@ -63,7 +63,7 @@ The OpenID Foundation's conformance suite runs its **Basic OP** and **RP-Initiat
 
 Planned releases, roughly in this order. Each release is a [milestone](https://github.com/DuttonAlan/Authora/milestones) with one issue per feature:
 
-- [**0.2 – Usable by real applications**](https://github.com/DuttonAlan/Authora/milestone/1): RP-initiated logout, client credentials grant, email delivery, self-service password change and reset, email verification, remembered consent, OpenID conformance tests in CI
+- [**0.2 – Usable by real applications**](https://github.com/DuttonAlan/Authora/milestone/1) (released, see the [changelog](CHANGELOG.md)): RP-initiated logout, client credentials grant, email delivery, self-service password change and reset, email verification, remembered consent, OpenID conformance tests in CI
 - [**0.3 – Stronger sign-in**](https://github.com/DuttonAlan/Authora/milestone/2): multi-factor authentication with TOTP and recovery codes, passkeys, `amr`/`acr` and MFA requirements
 - [**0.4 – Federation**](https://github.com/DuttonAlan/Authora/milestone/3): sign-in through external OpenID Connect providers (starting with Google), account linking, back-channel logout
 - [**0.5 – APIs and the access model**](https://github.com/DuttonAlan/Authora/milestone/4): audience-restricted Access Tokens (RFC 8707), optional JWT Access Tokens, Roles and Groups as claims, PAR and DPoP
