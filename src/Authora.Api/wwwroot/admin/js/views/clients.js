@@ -12,9 +12,14 @@ const grantTypes = [
     { value: 'client_credentials', label: 'Client Credentials – tokens for the Client itself, without a User (Confidential only)' }
 ];
 
-// Client Credentials is opt-in, and only Confidential Clients can use it.
+// Client Credentials is opt-in, and only Confidential Clients can use it. The server refuses to newly allow it for a
+// first-party Client, so it is only offered there when already allowed, to keep or remove it.
 const defaultGrantTypes = ['authorization_code', 'refresh_token'];
-const grantTypesFor = type => type === 'Confidential' ? grantTypes : grantTypes.filter(grantType => grantType.value !== 'client_credentials');
+const canHaveClientCredentials = client => client.type === 'Confidential'
+    && (!client.isFirstParty || client.grantTypes.includes('client_credentials'));
+const grantTypesFor = client => canHaveClientCredentials(client)
+    ? grantTypes
+    : grantTypes.filter(grantType => grantType.value !== 'client_credentials');
 
 // A Secret is shown only once, right after it was created. It is kept here only until the page is left.
 let issuedSecret = null;
@@ -161,7 +166,7 @@ export async function detail(context, id) {
                 clientActions(context, client)),
             canUpdate ? panel('Edit', form([
                 { name: 'name', label: 'Name', required: true, value: client.name, maxLength: 100 },
-                { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypesFor(client.type), value: client.grantTypes },
+                { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypesFor(client), value: client.grantTypes },
                 { name: 'accessTokenTTL', label: 'Access Token lifetime (seconds)', type: 'number', min: 1, max: 86400, value: client.accessTokenTTL },
                 { name: 'refreshTokenTTL', label: 'Refresh Token lifetime (seconds)', type: 'number', min: 1, max: 7776000, value: client.refreshTokenTTL }
             ], 'Save', values => run(() => api('PUT', `/clients/${id}`, values), 'The Client was saved.', context))) : null),
