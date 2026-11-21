@@ -596,6 +596,7 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("TokenHash")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");

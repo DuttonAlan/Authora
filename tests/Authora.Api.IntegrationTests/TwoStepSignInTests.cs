@@ -4,15 +4,19 @@
 
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using Authora.Api.Authentication;
 using Authora.Api.Authorization;
 using Authora.Api.Pages.Account;
+using Authora.Core.Abstractions;
 using Authora.Core.Application.Account;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Infrastructure.Cleanup;
@@ -317,6 +321,98 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
         Assert.Contains("Sign in again", html, StringComparison.Ordinal);
         Assert.Null(ReadCookie(response, SessionCookie.Name));
         Assert.Empty(await GetSessionsAsync(userId));
+    }
+
+    [Fact]
+    public async Task SecondFactor_ThatExpiresWhileVerifying_IsRejected()
+    {
+        var (userId, email) = await CreateEnrolledUserAsync();
+        var pendingToken = await StartSignInAsync(email);
+
+        // A slow verification: the pending sign-in expires after it was loaded, but before it is completed.
+        factory.SecondFactor.WhileVerifying(userId, async () =>
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+            await context.SignInChallenges
+                .Where(challenge => challenge.UserId == userId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(challenge => challenge.ExpiresAt, DateTime.UtcNow));
+        });
+
+        using var response = await SubmitCodeAsync(pendingToken, Code);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(ReadCookie(response, SessionCookie.Name));
+        Assert.Empty(await GetSessionsAsync(userId));
+        Assert.Null(Assert.Single(await GetChallengesAsync(userId)).ConsumedAt);
+    }
+
+    [Fact]
+    public async Task StepUp_OfASessionWithAnOutdatedToken_CannotBeSaved()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        await factory.CreateSessionAsync(userId);
+        var sessionId = Assert.Single(await GetSessionsAsync(userId)).Id;
+
+        await using var outdatedScope = factory.Services.CreateAsyncScope();
+        var outdatedRepository = outdatedScope.ServiceProvider.GetRequiredService<ISessionRepository>();
+        var secretHasher = outdatedScope.ServiceProvider.GetRequiredService<ISecretHasher>();
+        var outdated = (await outdatedRepository.GetSessionById(sessionId, cancellationToken))!;
+
+        // Another request steps the Session up after this one loaded it.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ISessionRepository>();
+            var session = (await repository.GetSessionById(sessionId, cancellationToken))!;
+
+            session.RecordStepUp(secretHasher.Hash("token-of-the-first-step-up"), FakeSecondFactor.MethodName, DateTime.UtcNow);
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+
+        outdated.RecordStepUp(secretHasher.Hash("token-of-the-second-step-up"), "hwk", DateTime.UtcNow);
+
+        await Assert.ThrowsAsync<ConflictException>(() => outdatedRepository.SaveChangesAsync(cancellationToken));
+
+        var stored = Assert.Single(await GetSessionsAsync(userId));
+        Assert.Equal("pwd otp", stored.AuthenticationMethod);
+        Assert.Equal(secretHasher.Hash("token-of-the-first-step-up"), stored.TokenHash);
+    }
+
+    [Fact]
+    public async Task SessionWithoutMethods_FromBeforeTheUpgrade_HasEnded_AlsoForItsCodes()
+    {
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        var sessionToken = await factory.CreateSessionAsync(userId);
+        var code = await AuthorizationCodeFlow.GetCodeAsync(_client, AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid"), sessionToken);
+
+        // What the migration leaves in Sessions that existed before it.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+            await context.Sessions
+                .Where(session => session.UserId == userId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(session => session.AuthenticationMethod, string.Empty), TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(HttpStatusCode.Redirect, await GetStatusAsync(SecurityModel.PagePath, sessionToken));
+
+        using var content = new FormUrlEncodedContent(
+        [
+            new("grant_type", "authorization_code"),
+            new("client_id", clientId.ToString()),
+            new("code", code),
+            new("redirect_uri", redirectUri),
+            new("code_verifier", AuthorizationCodeFlow.CodeVerifier)
+        ]);
+        using var exchange = await _client.PostAsync("/oauth/token", content, TestContext.Current.CancellationToken);
+        var error = await exchange.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, exchange.StatusCode);
+        Assert.Equal("invalid_grant", error.GetProperty("error").GetString());
     }
 
     [Fact]

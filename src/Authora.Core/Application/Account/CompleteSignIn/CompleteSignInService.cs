@@ -94,14 +94,21 @@ public sealed class CompleteSignInService(
             return CompleteSignInResult.Expired;
         }
 
-        if (string.IsNullOrEmpty(request.Response) || !await factor.VerifyAsync(user.Id, request.Response, cancellationToken))
+        var verified = !string.IsNullOrEmpty(request.Response)
+            && await factor.VerifyAsync(user.Id, request.Response, cancellationToken);
+
+        // Read again: verifying may take a while, e.g. for a passkey, and must not extend the pending sign-in beyond
+        // its expiry, nor date the authentication back.
+        now = timeProvider.GetUtcNow().UtcDateTime;
+
+        if (!verified)
         {
             return await RecordWrongResponseAsync(eventType, challenge, user.Id, factor.Method, now, cancellationToken);
         }
 
         if (!await challengeRepository.TryConsume(challenge.Id, now, cancellationToken))
         {
-            logger.PendingSignInRejected(challenge.Id, "another request completed it");
+            logger.PendingSignInRejected(challenge.Id, "another request completed it or it expired");
 
             return CompleteSignInResult.Expired;
         }
@@ -114,8 +121,9 @@ public sealed class CompleteSignInService(
         }
         catch (ConflictException)
         {
-            // The User was changed since it was loaded, e.g. by a password reset. The pending sign-in is used up.
-            logger.PendingSignInRejected(challenge.Id, "the User was changed by another request at the same time");
+            // The User was changed since it was loaded, e.g. by a password reset, or for a step-up the Session got a
+            // new token from another step-up. The pending sign-in is used up.
+            logger.PendingSignInRejected(challenge.Id, "the User or the Session was changed by another request at the same time");
 
             return CompleteSignInResult.Expired;
         }

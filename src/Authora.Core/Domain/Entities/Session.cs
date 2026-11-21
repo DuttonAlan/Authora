@@ -140,10 +140,17 @@ public sealed class Session
     }
 
     /// <summary>
-    ///     Checks whether the Session is neither revoked, expired nor idle for too long.
+    ///     Checks whether the Session is neither revoked, expired nor idle for too long, and records how the User
+    ///     authenticated.
     /// </summary>
     /// <remarks>
-    ///     Does not check the User. Callers must also compare <see cref="SecurityStamp"/> and check <see cref="User.CanSignIn"/>.
+    ///     <para>
+    ///         Sessions from before the authentication methods were recorded have none. They count as ended
+    ///         everywhere, also for exchanging an Authorization Code issued in them, so the User signs in again.
+    ///     </para>
+    ///     <para>
+    ///         Does not check the User. Callers must also compare <see cref="SecurityStamp"/> and check <see cref="User.CanSignIn"/>.
+    ///     </para>
     /// </remarks>
     /// <param name="now">The current point in time (UTC).</param>
     /// <param name="idleTimeout">How long a Session may be unused.</param>
@@ -153,7 +160,10 @@ public sealed class Session
     {
         UtcGuard.EnsureUtc(now);
 
-        return RevokedAt is null && ExpiresAt > now && LastActivityAt + idleTimeout > now;
+        return RevokedAt is null
+            && ExpiresAt > now
+            && LastActivityAt + idleTimeout > now
+            && !string.IsNullOrEmpty(AuthenticationMethod);
     }
 
     /// <summary>

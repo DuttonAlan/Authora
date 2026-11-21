@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.ValueObjects;
 
@@ -60,6 +61,19 @@ public sealed class SessionRepository(AuthoraContext context) : ISessionReposito
     /// <inheritdoc/>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            // Detach the outdated Sessions, so loading them again returns the current values from the database.
+            foreach (var entry in exception.Entries)
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            throw new ConflictException("The Session was changed by another request, e.g. it got a new token.", exception);
+        }
     }
 }

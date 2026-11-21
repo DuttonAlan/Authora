@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Upgrading
 
-- Stop all instances before applying the new migration `TwoStepSignIn`.
+- Stop all instances before applying the two new migrations `TwoStepSignIn` and `SessionTokenConcurrency`.
 - Sessions started before the upgrade end; Users sign in again.
 
 ### Added

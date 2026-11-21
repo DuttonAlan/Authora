@@ -29,7 +29,12 @@ public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
         builder.Property(x => x.TokenHash)
             .HasConversion(hash => hash.Value, value => SecretHash.FromHashedValue(value))
             .IsRequired()
-            .HasMaxLength(Schemas.HashMaxLength);
+            .HasMaxLength(Schemas.HashMaxLength)
+
+            // A step-up gives the Session a new token. Saving a Session whose token changed since it was loaded fails,
+            // so two concurrent step-ups cannot overwrite each other, and no request saves a Session it knows only by
+            // an outdated token.
+            .IsConcurrencyToken();
 
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();

@@ -20,6 +20,8 @@ public sealed class FakeSecondFactor : ISecondFactor
 
     private readonly ConcurrentDictionary<Guid, string> _codes = new();
 
+    private readonly ConcurrentDictionary<Guid, Func<Task>> _whileVerifying = new();
+
     /// <inheritdoc/>
     public string Method => MethodName;
 
@@ -36,6 +38,16 @@ public sealed class FakeSecondFactor : ISecondFactor
         _codes[userId] = code;
     }
 
+    /// <summary>
+    ///     Runs an action while the response of a User is verified, e.g. to let time pass in a slow verification.
+    /// </summary>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="action">The action, run once per verification.</param>
+    public void WhileVerifying(Guid userId, Func<Task> action)
+    {
+        _whileVerifying[userId] = action;
+    }
+
     /// <inheritdoc/>
     public Task<bool> IsEnrolledAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -43,8 +55,13 @@ public sealed class FakeSecondFactor : ISecondFactor
     }
 
     /// <inheritdoc/>
-    public Task<bool> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
+    public async Task<bool> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_codes.TryGetValue(userId, out var code) && code == response);
+        if (_whileVerifying.TryGetValue(userId, out var action))
+        {
+            await action();
+        }
+
+        return _codes.TryGetValue(userId, out var code) && code == response;
     }
 }

@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
+using Authora.Core.Domain.ValueObjects;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -45,13 +47,12 @@ public sealed class ValidateSessionService(
             return null;
         }
 
-        var session = await sessionRepository.GetSessionByTokenHash(secretHasher.Hash(sessionToken), cancellationToken);
+        var tokenHash = secretHasher.Hash(sessionToken);
+        var session = await sessionRepository.GetSessionByTokenHash(tokenHash, cancellationToken);
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var idleTimeout = options.Value.SessionIdleTimeout;
 
-        // Sessions from before the authentication methods were recorded have none. They end, and the User signs in
-        // again, so every Authorization Code knows how its User authenticated.
-        if (session is null || !session.IsActive(now, idleTimeout) || session.AuthenticationMethods.Count == 0)
+        if (session is null || !session.IsActive(now, idleTimeout))
         {
             return null;
         }
@@ -61,15 +62,18 @@ public sealed class ValidateSessionService(
         if (user is null || !user.CanSignIn)
         {
             session.Revoke(now);
-            await sessionRepository.SaveChangesAsync(cancellationToken);
 
-            logger.SessionInvalidated(session.Id, session.UserId);
+            // If the Session got a new token meanwhile, it is not revoked here, but again on its next use.
+            if (await TrySaveAsync(cancellationToken))
+            {
+                logger.SessionInvalidated(session.Id, session.UserId);
+            }
 
             return null;
         }
 
         if (user.SecurityStamp != session.SecurityStamp
-            && !await IsStillValidAsync(session, user.SecurityStamp, now, cancellationToken))
+            && !await IsStillValidAsync(session, tokenHash, user.SecurityStamp, now, cancellationToken))
         {
             return null;
         }
@@ -81,7 +85,12 @@ public sealed class ValidateSessionService(
         if (now - session.LastActivityAt >= activityUpdateInterval)
         {
             session.RecordActivity(now);
-            await sessionRepository.SaveChangesAsync(cancellationToken);
+
+            // Fails only if the Session got a new token since it was loaded, e.g. by a step-up: this token is outdated.
+            if (!await TrySaveAsync(cancellationToken))
+            {
+                return null;
+            }
         }
 
         return new AuthenticatedSession(
@@ -97,7 +106,13 @@ public sealed class ValidateSessionService(
     // The Session and the User are loaded one after the other. A password change in this Session that commits in
     // between renews the Session's stamp together with the User's, so the loaded Session only looks outdated. The
     // stamps are compared again in the database before revoking, and a renewed Session stays valid.
-    private async Task<bool> IsStillValidAsync(Session session, Guid userSecurityStamp, DateTime now, CancellationToken cancellationToken)
+    // After reloading, the token is compared too: a step-up that committed in between gave the Session a new one.
+    private async Task<bool> IsStillValidAsync(
+        Session session,
+        SecretHash tokenHash,
+        Guid userSecurityStamp,
+        DateTime now,
+        CancellationToken cancellationToken)
     {
         if (await sessionRepository.RevokeSessionIfSecurityStampChanged(session.Id, now, cancellationToken))
         {
@@ -108,6 +123,20 @@ public sealed class ValidateSessionService(
 
         await sessionRepository.ReloadSession(session, cancellationToken);
 
-        return session.RevokedAt is null && session.SecurityStamp == userSecurityStamp;
+        return session.RevokedAt is null && session.SecurityStamp == userSecurityStamp && session.TokenHash == tokenHash;
+    }
+
+    private async Task<bool> TrySaveAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await sessionRepository.SaveChangesAsync(cancellationToken);
+
+            return true;
+        }
+        catch (ConflictException)
+        {
+            return false;
+        }
     }
 }
