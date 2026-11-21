@@ -14,18 +14,28 @@ namespace Authora.Core.Application.Oidc;
 internal static class JsonWebToken
 {
     /// <summary>
+    ///     The <c>typ</c> header of ID Tokens. Every other kind of JWT signed with the same keys needs its own type,
+    ///     e.g. <c>at+jwt</c> for Access Tokens (RFC 9068) or <c>logout+jwt</c> for Logout Tokens, so that a token of
+    ///     one kind is never accepted as another (RFC 8725, Section 3.11).
+    /// </summary>
+    public const string IdTokenType = "JWT";
+
+    /// <summary>
     ///     Creates a JWT signed with <see cref="SigningKey.Algorithm"/>.
     /// </summary>
     /// <param name="claims">The claims of the payload, with string, number or boolean values.</param>
     /// <param name="key">The key that signs the token. Its <c>kid</c> is put into the header.</param>
+    /// <param name="type">The <c>typ</c> header that names the kind of token, e.g. <see cref="IdTokenType"/>.</param>
     /// <returns>The JWT: <c>header.payload.signature</c>, each Base64Url encoded.</returns>
-    public static string Create(IReadOnlyDictionary<string, object> claims, SigningKey key)
+    public static string Create(IReadOnlyDictionary<string, object> claims, SigningKey key, string type)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(type);
+
         var header = new Dictionary<string, string>
         {
             ["alg"] = SigningKey.Algorithm,
             ["kid"] = key.KeyId,
-            ["typ"] = "JWT"
+            ["typ"] = type
         };
 
         var signingInput = $"{Encode(header)}.{Encode(claims)}";
@@ -35,17 +45,27 @@ internal static class JsonWebToken
     }
 
     /// <summary>
-    ///     Reads the claims of a JWT that one of the given keys signed with <see cref="SigningKey.Algorithm"/>. Only
-    ///     checks the header and the signature, not the claims, e.g. not <c>exp</c>.
+    ///     Reads the claims of a JWT of the expected type that one of the given keys signed with
+    ///     <see cref="SigningKey.Algorithm"/>. Checks only the header and the signature, <b>not the claims</b>: the
+    ///     caller must check <c>iss</c>, <c>aud</c>, <c>exp</c> and whatever else its kind of token requires.
     /// </summary>
     /// <param name="token">The JWT in the JWS Compact Serialization.</param>
     /// <param name="keys">The keys that may have signed it, found by the <c>kid</c> of the header.</param>
+    /// <param name="expectedType">The <c>typ</c> header the token must have, e.g. <see cref="IdTokenType"/>.</param>
     /// <param name="claims">The claims of the payload, if the token is valid.</param>
-    /// <returns>True if the token is well-formed, uses <see cref="SigningKey.Algorithm"/> and its signature is valid.</returns>
-    public static bool TryReadSigned(string token, IReadOnlyList<SigningKey> keys, out JsonElement claims)
+    /// <returns>
+    ///     True if the token is well-formed, has the expected type, uses <see cref="SigningKey.Algorithm"/> and its
+    ///     signature is valid.
+    /// </returns>
+    public static bool TryVerifySignatureOnly(
+        string token,
+        IReadOnlyList<SigningKey> keys,
+        string expectedType,
+        out JsonElement claims)
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(keys);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedType);
 
         claims = default;
 
@@ -66,7 +86,10 @@ internal static class JsonWebToken
                 || alg.ValueKind != JsonValueKind.String
                 || alg.GetString() != SigningKey.Algorithm
                 || !header.RootElement.TryGetProperty("kid", out var kid)
-                || kid.ValueKind != JsonValueKind.String)
+                || kid.ValueKind != JsonValueKind.String
+                || !header.RootElement.TryGetProperty("typ", out var typ)
+                || typ.ValueKind != JsonValueKind.String
+                || typ.GetString() != expectedType)
             {
                 return false;
             }

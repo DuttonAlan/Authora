@@ -109,10 +109,13 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
+    [InlineData("Testing")]
     public void DeployedEnvironment_WithInsecureSettings_DoesNotStart(string environmentName)
     {
-        // appsettings.json allows every host.
-        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment(environmentName));
+        // Like appsettings.json, which allows every host.
+        using var production = factory.WithWebHostBuilder(builder => builder
+            .UseEnvironment(environmentName)
+            .UseSetting("AllowedHosts", "*"));
 
         var exception = Assert.ThrowsAny<Exception>(() => production.Server);
 
@@ -186,11 +189,11 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
 
     [Theory]
     [InlineData("Development", false)]
-    [InlineData("Testing", false)]
+    [InlineData("Testing", true)]
     [InlineData("Production", true)]
     [InlineData("Staging", true)]
     [InlineData("Prod", true)]
-    public void ProductionCheck_AppliesToEveryEnvironmentExceptDevelopmentAndTesting(string environmentName, bool expected)
+    public void ProductionCheck_AppliesToEveryEnvironmentExceptDevelopment(string environmentName, bool expected)
     {
         var environment = new HostingEnvironment { EnvironmentName = environmentName };
 

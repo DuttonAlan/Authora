@@ -114,7 +114,7 @@ Responses carry `Cache-Control: no-store`.
 
 | Parameter | Rule |
 |---|---|
-| `id_token_hint` | Recommended. An ID Token Authora issued to the Client: signed with a published key, `iss` is Authora. **Expired tokens are accepted**, as the specification asks, because Clients usually sign out long after the ID Token expired. |
+| `id_token_hint` | Recommended. An ID Token Authora issued to the Client: signed with a published key, header `typ: JWT`, `iss` is Authora. **Expired tokens are accepted**, as the specification asks, because Clients usually sign out long after the ID Token expired. |
 | `client_id` | Optional. Must name an existing Client, and the `aud` of `id_token_hint` if both are sent. |
 | `post_logout_redirect_uri` | Optional. Needs `client_id` or `id_token_hint`. Must exactly match a Post-logout Redirect URI registered for that Client, which must be enabled. |
 | `state` | Optional. Returned unchanged with the redirect. |

@@ -274,6 +274,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Database", _database.GetConnectionString());
         builder.UseSetting("Authora:OAuth:Issuer", Issuer);
+
+        // The production checks apply to Testing too, and appsettings.json allows every host.
+        builder.UseSetting("AllowedHosts", BaseAddress.Host);
         builder.UseSetting("Authora:Oidc:SigningKeyPath", SigningKeyPath);
         builder.UseSetting("Authora:Oidc:AdditionalKeyPaths:0", PreviousKeyPath);
 
