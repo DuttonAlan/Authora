@@ -43,6 +43,20 @@ public static class AuditEventTypes
         ///     (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the Details).
         /// </summary>
         public const string PasswordChanged = "account.password-changed";
+
+        /// <summary>
+        ///     Someone asked for a password reset link on the sign-in page. Succeeded: a link was sent to the User.
+        ///     Failed: no link was sent, with the reason in the Details, e.g. an unknown address (then without a
+        ///     Target; the address is not recorded) or too many links for the address.
+        /// </summary>
+        public const string PasswordResetRequested = "account.password-reset-requested";
+
+        /// <summary>
+        ///     A User set a new password with a reset link (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>; all
+        ///     Sessions and tokens of the User were revoked and a lockout ended), or the link was not accepted
+        ///     (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the Details).
+        /// </summary>
+        public const string PasswordReset = "account.password-reset";
     }
 
     /// <summary>
@@ -109,6 +123,12 @@ public static class AuditEventTypes
 
         /// <summary>The password of a User was set by an administrator.</summary>
         public const string PasswordSet = "user.password-set";
+
+        /// <summary>
+        ///     An administrator sent a User a password reset link (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>
+        ///     once the mail server accepted it), or the email could not be sent (<see cref="Domain.Enums.AuditOutcome.Failed"/>).
+        /// </summary>
+        public const string PasswordResetSent = "user.password-reset-sent";
 
         /// <summary>A Role was assigned to a User.</summary>
         public const string RoleAssigned = "user.role-assigned";

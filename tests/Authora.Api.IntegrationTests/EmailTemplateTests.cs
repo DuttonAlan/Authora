@@ -45,12 +45,17 @@ public sealed class EmailTemplateTests
         Assert.Contains("1 hour", message.TextBody, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void PasswordChanged_NamesTheTime_AndHasNoLink()
+    [Theory]
+    [InlineData(nameof(EmailTemplates.PasswordChanged))]
+    [InlineData(nameof(EmailTemplates.PasswordWasReset))]
+    public void PasswordNotification_NamesTheTime_AndHasNoLink(string template)
     {
         var user = User.Create("ada@example.com", "<b>Ada</b>", "Lovelace", "hash");
+        var at = new DateTime(2026, 11, 20, 14, 5, 0, DateTimeKind.Utc);
 
-        var message = EmailTemplates.PasswordChanged(user, new DateTime(2026, 11, 20, 14, 5, 0, DateTimeKind.Utc));
+        var message = template == nameof(EmailTemplates.PasswordChanged)
+            ? EmailTemplates.PasswordChanged(user, at)
+            : EmailTemplates.PasswordWasReset(user, at);
 
         Assert.Equal("ada@example.com", message.ToAddress);
         Assert.Contains("2026-11-20 14:05 UTC", message.TextBody, StringComparison.Ordinal);

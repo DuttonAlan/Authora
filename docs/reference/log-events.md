@@ -6,11 +6,11 @@ Authora writes structured logs through the standard .NET logging. Every message 
 
 | Range | Area |
 |---|---|
-| 1001 – 1008 | Users |
+| 1001 – 1009 | Users (1009: an administrator sent a password reset link) |
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
 | 4001 – 4020 | Clients |
-| 5001 – 5011 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent) |
+| 5001 – 5016 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below) |
 | 6001 – 6016 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016) |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8004 | Cleanup of expired data (including email tokens) and audit events |
@@ -19,7 +19,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 11001 – 11011 | Hash chain of the audit log |
 | 12001 – 12002 | Admin interface sign-in and refresh |
 | 13001 | Admin API changes denied because they exceed the caller's rights |
-| 14001 – 14006, 14011 – 14014 | Email delivery; one-time tokens of email links |
+| 14001 – 14006, 14011 – 14014, 14021 – 14026 | Email delivery; one-time tokens of email links; background delivery and background handling of reset requests |
 | 15001 – 15002 | Consents granted on the consent screen and revoked by the User or an administrator |
 
 ## Email
@@ -37,7 +37,24 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 14011 | Information | Issued email token … for … to User … | A link was created; older unused links of the User for the same purpose stop working. |
 | 14012 | Information | Email token … for … of User … was used | |
 | 14013 | Warning | An unknown email token was presented for … | A mistyped or forged link. Many in a row suggest guessing. |
-| 14014 | Warning | Email token … of User … was rejected for …: … | Expired, already used or replaced, for another purpose, or the User's address changed since it was sent. |
+| 14014 | Warning | Email token … of User … was rejected for …: … | Expired, already used or replaced, for another purpose, or the User's address or security stamp (e.g. after a password change) changed since it was sent. Also logged when a reset link is only opened, not used. |
+| 14021 | Error | The email queue is full (… emails). The email "…" is not sent | Emails sent in the background (notifications after a reset) wait in memory; the mail server is too slow or unreachable. |
+| 14022 | Error | The queued email "…" could not be sent: … | A background email failed and is not retried. 14004 has the details. |
+| 14023 | Warning | … queued emails were not sent, because the server is stopping | Queued emails are kept only in memory. |
+| 14024 | Error | The queue of password reset requests is full (… requests). The request is dropped | Requests at `/account/forgot-password` wait in memory until the background handling looks up the address and sends the link. Nothing is stored or counted for a dropped request. |
+| 14025 | Error | A queued password reset request failed and is not retried | E.g. the database was unavailable. The exception has the details. |
+| 14026 | Warning | … queued password reset requests were not handled, because the server is stopping | Queued requests are kept only in memory. |
+
+## Password reset
+
+| Event Id | Level | Message (shortened) | Meaning |
+|---|---|---|---|
+| 5012 | Information | A password reset link was sent to User … | Requested at `/account/forgot-password`; logged by the background handling once the mail server accepted the email. |
+| 5013 | Warning | A password reset was requested for an unknown Email | Nothing was sent. Many in a row suggest probing for accounts. |
+| 5014 | Warning | No password reset link was sent to User …: … | The User cannot sign in, the address got `Authora:PasswordReset:MaxEmailsPerHour` links in the last hour, or the email could not be sent (14004 has the reason). |
+| 5015 | Information | User … set a new password with a reset link | All Sessions and tokens of the User were revoked, a lockout ended. |
+| 5016 | Warning | A password reset link was not accepted: … | 14013 or 14014 has the reason. |
+| 1009 | Information | A password reset link was sent to User … at the request of an administrator | `POST /api/users/{id}/password-reset`. |
 
 ## Events worth alerting on
 
@@ -55,6 +72,9 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 9003 | Error | The changed key files could not be loaded | The previous keys stay in use; health check `signing-keys` is `Degraded`. |
 | 9004 | Warning | The signing key file … can be read or written by other users | Restrict the file to the user that runs Authora. |
 | 14004 | Error | Email … could not be sent through … | The email did not reach the User. Check the SMTP settings and the server. |
+| 14021 | Error | The email queue is full | Notifications are dropped until the mail server catches up. |
+| 14024 | Error | The queue of password reset requests is full | Requests at `/account/forgot-password` are dropped until the background handling catches up. |
+| 14025 | Error | A queued password reset request failed | E.g. the database was unavailable; the User asks again. |
 | 13001 | Warning | User … was denied a change of … | A User tried to give out or act on more rights than they hold, see [Admin API](admin-api.md#nobody-grants-more-than-they-hold). Possibly a compromised account. |
 | 11002 | Error | Sealing the audit events failed | Retried with the next run. |
 | 11011 | Critical | The audit chain is broken at Sequence … | The audit log was changed in the database. |

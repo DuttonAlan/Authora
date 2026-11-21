@@ -41,7 +41,7 @@ public sealed class AuditLog(
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        var actor = actorAccessor.Current;
+        var actor = entry.Actor ?? actorAccessor.Current;
 
         return AuditEvent.Create(
             entry.Type,

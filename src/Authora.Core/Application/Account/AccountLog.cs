@@ -44,4 +44,19 @@ internal static partial class AccountLog
     // Only the message: the inner SMTP error can quote addresses, see SmtpEmailSender.
     [LoggerMessage(EventId = 5011, Level = LogLevel.Warning, Message = "The notification about the password change of User {UserId} could not be sent: {Reason}")]
     public static partial void PasswordChangeNotificationFailed(this ILogger logger, Guid userId, string reason);
+
+    [LoggerMessage(EventId = 5012, Level = LogLevel.Information, Message = "A password reset link was sent to User {UserId}.")]
+    public static partial void PasswordResetRequested(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 5013, Level = LogLevel.Warning, Message = "A password reset was requested for an unknown Email. No link was sent.")]
+    public static partial void PasswordResetRequestedForUnknownUser(this ILogger logger);
+
+    [LoggerMessage(EventId = 5014, Level = LogLevel.Warning, Message = "No password reset link was sent to User {UserId}: {Reason}.")]
+    public static partial void PasswordResetNotSent(this ILogger logger, Guid userId, string reason);
+
+    [LoggerMessage(EventId = 5015, Level = LogLevel.Information, Message = "User {UserId} set a new password with a reset link. All Sessions and tokens of the User were revoked.")]
+    public static partial void PasswordReset(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 5016, Level = LogLevel.Warning, Message = "A password reset link was not accepted: {Reason}.")]
+    public static partial void PasswordResetRejected(this ILogger logger, string reason);
 }

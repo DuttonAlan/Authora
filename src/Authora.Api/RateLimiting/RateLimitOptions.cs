@@ -36,4 +36,11 @@ public sealed class RateLimitOptions
     ///     request should cache the result or get a higher limit.
     /// </summary>
     public int TokenPermitsPerMinute { get; set; } = 300;
+
+    /// <summary>
+    ///     Submissions of the "Forgot password?" form and the reset form together per minute and IP address, against
+    ///     probing addresses, flooding mailboxes and guessing reset links. Defaults to 5. Each address also gets at
+    ///     most <c>Authora:PasswordReset:MaxEmailsPerHour</c> links.
+    /// </summary>
+    public int PasswordResetPermitsPerMinute { get; set; } = 5;
 }

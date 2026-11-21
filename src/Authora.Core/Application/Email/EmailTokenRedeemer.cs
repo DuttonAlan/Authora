@@ -35,7 +35,7 @@ public sealed class EmailTokenRedeemer(
     /// </summary>
     /// <remarks>
     ///     The token is accepted only if it exists, has the purpose, is unused and unexpired, and its User still exists
-    ///     with the address it was sent to. Whether that User may do what the token is for, e.g. while deactivated, is
+    ///     with the address and Security Stamp it was sent to. Whether that User may do what the token is for, e.g. while deactivated, is
     ///     up to the caller.
     /// </remarks>
     /// <param name="token">The plain-text token from the link.</param>
@@ -43,6 +43,49 @@ public sealed class EmailTokenRedeemer(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The tracked User of the token, or null if the token is not accepted.</returns>
     public async Task<User?> RedeemAsync(string? token, EmailTokenPurpose purpose, CancellationToken cancellationToken = default)
+    {
+        if (await FindAsync(token, purpose, cancellationToken) is not { } accepted)
+        {
+            return null;
+        }
+
+        var (stored, user) = accepted;
+
+        var purposeName = purpose.LogName();
+
+        // Atomic, so of concurrent requests with the same token only one gets the User.
+        if (!await emailTokenRepository.TryConsume(stored.Id, timeProvider.GetUtcNow().UtcDateTime, cancellationToken))
+        {
+            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "already used or replaced");
+
+            return null;
+        }
+
+        logger.EmailTokenUsed(stored.Id, purposeName, user.Id);
+
+        return user;
+    }
+
+    /// <summary>
+    ///     Checks a token without using it up, e.g. to show a form only for a link that still works.
+    /// </summary>
+    /// <remarks>
+    ///     Applies the same checks as <see cref="RedeemAsync"/>. A token that passes can still be used up by another
+    ///     request before it is redeemed.
+    /// </remarks>
+    /// <param name="token">The plain-text token from the link.</param>
+    /// <param name="purpose">What the token is used for.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The tracked User of the token, or null if the token would not be accepted.</returns>
+    public async Task<User?> CheckAsync(string? token, EmailTokenPurpose purpose, CancellationToken cancellationToken = default)
+    {
+        return (await FindAsync(token, purpose, cancellationToken))?.User;
+    }
+
+    private async Task<(EmailToken Token, User User)?> FindAsync(
+        string? token,
+        EmailTokenPurpose purpose,
+        CancellationToken cancellationToken)
     {
         var purposeName = purpose.LogName();
 
@@ -83,21 +126,11 @@ public sealed class EmailTokenRedeemer(
 
         if (user is null || user.State == UserState.Deleted || !stored.IsFor(user))
         {
-            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "the User no longer has the address it was sent to");
+            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "the User no longer has the address or Security Stamp it was sent to");
 
             return null;
         }
 
-        // Atomic, so of concurrent requests with the same token only one gets the User.
-        if (!await emailTokenRepository.TryConsume(stored.Id, now, cancellationToken))
-        {
-            logger.EmailTokenRejected(stored.Id, stored.UserId, purposeName, "already used or replaced");
-
-            return null;
-        }
-
-        logger.EmailTokenUsed(stored.Id, purposeName, user.Id);
-
-        return user;
+        return (stored, user);
     }
 }

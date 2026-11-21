@@ -13,7 +13,8 @@ namespace Authora.Core.Domain.Entities;
 /// <remarks>
 ///     The token itself is a random value without any readable content, and only its hash is stored. It expires,
 ///     can only be used once, only for its <see cref="Purpose"/>, and only while the User still has the address it
-///     was sent to.
+///     was sent to and the same <see cref="User.SecurityStamp"/>, so a password change, deactivation or "sign out
+///     everywhere" ends all open links.
 /// </remarks>
 public sealed class EmailToken
 {
@@ -54,6 +55,12 @@ public sealed class EmailToken
     ///     another address.
     /// </summary>
     public string NormalizedEmail { get; private set; } = null!;
+
+    /// <summary>
+    ///     <see cref="User.SecurityStamp"/> of the User when the token was issued. The token is no longer accepted once
+    ///     the stamp changes, e.g. because the password was changed or set by an administrator.
+    /// </summary>
+    public Guid SecurityStamp { get; private set; }
 
     /// <summary>
     ///     Point in time (UTC) when the token was issued.
@@ -99,6 +106,7 @@ public sealed class EmailToken
             UserId = user.Id,
             Purpose = purpose,
             NormalizedEmail = user.NormalizedEmail,
+            SecurityStamp = user.SecurityStamp,
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };
@@ -118,14 +126,17 @@ public sealed class EmailToken
     }
 
     /// <summary>
-    ///     Checks whether the token belongs to a User who still has the address it was sent to.
+    ///     Checks whether the token belongs to a User who still has the address it was sent to and whose
+    ///     <see cref="User.SecurityStamp"/> did not change since.
     /// </summary>
     /// <param name="user">The User.</param>
-    /// <returns><see langword="true"/> if the token was sent to this User at their current address.</returns>
+    /// <returns><see langword="true"/> if the token was sent to this User at their current address and stamp.</returns>
     public bool IsFor(User user)
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        return UserId == user.Id && string.Equals(NormalizedEmail, user.NormalizedEmail, StringComparison.Ordinal);
+        return UserId == user.Id
+            && SecurityStamp == user.SecurityStamp
+            && string.Equals(NormalizedEmail, user.NormalizedEmail, StringComparison.Ordinal);
     }
 }

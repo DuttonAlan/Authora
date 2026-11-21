@@ -26,6 +26,12 @@ internal static class RateLimitPolicies
     public const string Token = "token";
 
     /// <summary>
+    ///     Limits submissions of the "Forgot password?" and the reset form per client IP address. The number of links
+    ///     per address is limited by the request itself.
+    /// </summary>
+    public const string PasswordReset = "password-reset";
+
+    /// <summary>
     ///     Registers the policies.
     /// </summary>
     /// <param name="options">The rate limiter options.</param>
@@ -45,6 +51,11 @@ internal static class RateLimitPolicies
             : RateLimitPartition.GetNoLimiter(string.Empty));
 
         options.AddPolicy(Token, context => PerIpAddress(context, Token, GetOptions(context).TokenPermitsPerMinute));
+
+        // Like sign-in, only POST is limited: opening a link or the form sends nothing.
+        options.AddPolicy(PasswordReset, context => HttpMethods.IsPost(context.Request.Method)
+            ? PerIpAddress(context, PasswordReset, GetOptions(context).PasswordResetPermitsPerMinute)
+            : RateLimitPartition.GetNoLimiter(string.Empty));
     }
 
     private static RateLimitOptions GetOptions(HttpContext context)

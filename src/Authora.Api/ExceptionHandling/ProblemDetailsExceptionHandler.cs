@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Email;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Exceptions;
 
@@ -48,6 +49,10 @@ public sealed class ProblemDetailsExceptionHandler(IProblemDetailsService proble
             // ArgumentException is deliberately not mapped for the same reason as InvalidOperationException.
             // Domain and services throw DomainValidationException for invalid input.
             DomainValidationException => (StatusCodes.Status400BadRequest, exception.Message),
+
+            // Without the message: it names the SMTP server and can quote its reply. The server log has the reason.
+            EmailDeliveryException
+                => (StatusCodes.Status502BadGateway, "The email could not be sent. The server log has the reason."),
             _ => (0, null)
         };
 

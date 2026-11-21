@@ -334,6 +334,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<int>("Purpose")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SecurityStamp")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(64)

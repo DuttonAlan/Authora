@@ -31,4 +31,23 @@ internal static partial class EmailLog
 
     [LoggerMessage(EventId = 14005, Level = LogLevel.Warning, Message = "Email delivery is unencrypted (TLS mode None). Links and SMTP credentials travel in plain text.")]
     public static partial void EmailUnencrypted(this ILogger logger);
+
+    [LoggerMessage(EventId = 14021, Level = LogLevel.Error, Message = "The email queue is full ({Capacity} emails). The email \"{Subject}\" is not sent.")]
+    public static partial void EmailQueueFull(this ILogger logger, int capacity, string subject);
+
+    // Only the message: the inner SMTP error can quote addresses, see SmtpEmailSender.
+    [LoggerMessage(EventId = 14022, Level = LogLevel.Error, Message = "The queued email \"{Subject}\" could not be sent: {Reason}")]
+    public static partial void QueuedEmailFailed(this ILogger logger, string subject, string reason);
+
+    [LoggerMessage(EventId = 14023, Level = LogLevel.Warning, Message = "{Count} queued emails were not sent, because the server is stopping.")]
+    public static partial void QueuedEmailsDropped(this ILogger logger, int count);
+
+    [LoggerMessage(EventId = 14024, Level = LogLevel.Error, Message = "The queue of password reset requests is full ({Capacity} requests). The request is dropped.")]
+    public static partial void PasswordResetQueueFull(this ILogger logger, int capacity);
+
+    [LoggerMessage(EventId = 14025, Level = LogLevel.Error, Message = "A queued password reset request failed and is not retried.")]
+    public static partial void QueuedPasswordResetFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 14026, Level = LogLevel.Warning, Message = "{Count} queued password reset requests were not handled, because the server is stopping.")]
+    public static partial void QueuedPasswordResetsDropped(this ILogger logger, int count);
 }

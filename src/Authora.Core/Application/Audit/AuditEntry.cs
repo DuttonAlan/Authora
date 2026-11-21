@@ -32,6 +32,12 @@ public sealed record AuditEntry(
     public Guid? ClientId { get; init; }
 
     /// <summary>
+    ///     The actor, if the event is recorded outside the request that caused it, e.g. by a background service that
+    ///     handles the request later. Otherwise the actor of the current request is used.
+    /// </summary>
+    public AuditActor? Actor { get; init; }
+
+    /// <summary>
     ///     Creates an entry about a User.
     /// </summary>
     /// <param name="type">What happened.</param>

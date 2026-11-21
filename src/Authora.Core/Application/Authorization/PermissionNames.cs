@@ -44,7 +44,7 @@ public static class PermissionNames
         public const string ManageAccess = "users.manage-access";
 
         /// <summary>
-        ///     Set the password of Users.
+        ///     Set the password of Users, or send them a password reset link.
         /// </summary>
         public const string SetPassword = "users.set-password";
 

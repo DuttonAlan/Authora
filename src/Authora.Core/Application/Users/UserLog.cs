@@ -34,4 +34,7 @@ internal static partial class UserLog
 
     [LoggerMessage(EventId = 1008, Level = LogLevel.Information, Message = "The password of User {UserId} was set. All Sessions and tokens of the User were revoked.")]
     public static partial void PasswordSet(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1009, Level = LogLevel.Information, Message = "A password reset link was sent to User {UserId} at the request of an administrator.")]
+    public static partial void PasswordResetSent(this ILogger logger, Guid userId);
 }

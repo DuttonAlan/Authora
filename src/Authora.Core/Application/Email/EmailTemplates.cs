@@ -79,6 +79,25 @@ public static class EmailTemplates
     }
 
     /// <summary>
+    ///     The email that tells a User that their password was reset with a link, so they notice if someone else did it.
+    /// </summary>
+    /// <param name="user">The User whose password was reset.</param>
+    /// <param name="resetAt">When the password was reset (UTC).</param>
+    /// <returns>The email to send to the User.</returns>
+    public static EmailMessage PasswordWasReset(User user, DateTime resetAt)
+    {
+        return Build(
+            user,
+            link: null,
+            subject: "Your password was reset",
+            intro: $"the password of your account {user?.Email} was reset with a link sent to this address on "
+                + $"{resetAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC. You were signed out "
+                + "everywhere, and applications will ask you to sign in again.",
+            buttonText: null,
+            outro: "If you did not reset your password, contact your administrator right away.");
+    }
+
+    /// <summary>
     ///     Formats a duration for an email, e.g. <c>30 minutes</c> or <c>24 hours</c>.
     /// </summary>
     /// <param name="duration">The duration, at least one minute.</param>

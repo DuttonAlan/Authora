@@ -46,6 +46,20 @@ public interface IEmailTokenRepository
     public Task<bool> TryConsume(Guid id, DateTime now, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Counts the email tokens of a User for a purpose that were issued since a point in time, used or not.
+    /// </summary>
+    /// <remarks>
+    ///     Limits how many emails are sent to one address. Tokens the cleanup already deleted are not counted, so the
+    ///     period must be shorter than the lifetime of the tokens plus the retention of the cleanup.
+    /// </remarks>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="purpose">The purpose of the tokens.</param>
+    /// <param name="since">The start of the period (UTC).</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The number of tokens issued since <paramref name="since"/>.</returns>
+    public Task<int> CountEmailTokensIssuedSince(Guid userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Marks all unused email tokens of a User for a purpose as consumed, e.g. before a new one is sent.
     /// </summary>
     /// <param name="userId">Id of the User.</param>

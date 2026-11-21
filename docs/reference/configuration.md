@@ -51,6 +51,7 @@ Per client IP address. Behind a reverse proxy, configure `Authora:ForwardedHeade
 |---|---|---|---|
 | `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts and password changes at `/account/password` per minute, together. |
 | `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/admin/callback` and `/admin/session/refresh` per minute, together. A resource server that introspects tokens for every request should cache the results or get a higher limit. |
+| `Authora:RateLimiting:PasswordResetPermitsPerMinute` | `5` | 1 to 100000 | Submissions of `/account/forgot-password` and `/account/reset-password` per minute, together. Opening the pages is not limited. Each address also gets at most `Authora:PasswordReset:MaxEmailsPerHour` links. |
 
 Requests over the limit get `429 Too Many Requests`.
 
@@ -91,6 +92,16 @@ Authora sends email through an SMTP server, for links with one-time tokens such 
 | `Authora:Email:TrustedCertificatePath` | not set | PEM or DER certificate file; requires `StartTls` or `Implicit` | A certificate trusted as the only root for the SMTP server's certificate, e.g. a private CA or a self-signed certificate. Without it, the system's trusted CAs apply. Either way, the host name is checked, and the server's certificate must be valid for server authentication (an Extended Key Usage that allows only e.g. client authentication is rejected). Relative paths are resolved against the content root. Startup fails if the file cannot be loaded. |
 
 The certificate of the SMTP server is always validated; there is no setting to turn that off. Every email has a plain-text and an HTML version.
+
+## Password reset
+
+Users who forgot their password ask for a reset link on the sign-in page, and administrators can send one from the admin API. Both need email delivery (`Authora:Email:Host`). The link points to `{Issuer}/account/reset-password` and works once.
+
+| Setting | Default | Limits | Description |
+|---|---|---|---|
+| `Authora:PasswordReset:SelfServiceEnabled` | `true` | | Whether the sign-in page offers "Forgot password?". With `false`, `/account/forgot-password` returns `404`; links sent by an administrator still work. |
+| `Authora:PasswordReset:LinkLifetime` | `00:30:00` | 1 minute to 24 hours | How long a reset link works. A newer link of the same User replaces an older one right away. |
+| `Authora:PasswordReset:MaxEmailsPerHour` | `3` | 1 to 100 | Reset links the sign-in page sends to one address per hour. Further requests get the same answer but send nothing, so a mailbox cannot be flooded. Links sent by an administrator are not limited but count towards it. |
 
 ## Bootstrap
 

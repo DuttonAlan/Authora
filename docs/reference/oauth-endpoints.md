@@ -12,6 +12,8 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
 | `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
+| `GET/POST /account/forgot-password` | Browser | A User who forgot their password asks for a reset link by email. See [Password reset](#password-reset). |
+| `GET/POST /account/reset-password` | Browser | The page of a reset link, where the User chooses a new password. See [Password reset](#password-reset). |
 | `GET/POST /account/consents` | Browser | *Connected applications*: a signed-in User sees and withdraws their Consents. See [Consent](#consent). |
 | `GET/POST /oauth/logout` | Browser | End-session endpoint: a Client signs the User out (RP-initiated logout). See [Logout](openid-connect.md#logout). |
 
@@ -180,6 +182,18 @@ A token is active only if:
 - The new password rotates the User's security stamp: every other Session and every Grant of the User, with its Access and Refresh Tokens, ends at once. The Session the password was changed in stays valid.
 - If email delivery is configured, the User gets an email about the change. A failed delivery does not undo the change (log event 5011).
 - Recorded as audit event `account.password-changed`.
+
+## Password reset
+
+A User who forgot their password follows **Forgot password?** on the sign-in page to `/account/forgot-password` and enters their Email. The link in the email opens `/account/reset-password?token=…`, where they choose a new password. Administrators can send the same link with `POST /api/users/{id}/password-reset`, see [Admin API](admin-api.md#users). Settings: [Password reset](configuration.md#password-reset).
+
+- Offered only with email delivery configured and `Authora:PasswordReset:SelfServiceEnabled` (default `true`); otherwise **Forgot password?** is hidden and `/account/forgot-password` returns `404`.
+- Every address gets the same answer, whether or not an account has it. The page only queues the request; the address is looked up and the email sent in the background, so neither the page nor the response time reveals whether an account exists. Deactivated Users get no link. While the queue is full (1,000 requests), requests are dropped without counting towards the limit per address (log event 14024).
+- At most `Authora:PasswordReset:MaxEmailsPerHour` (3) links per address and hour. Submissions of both pages share a rate limit per IP address (`Authora:RateLimiting:PasswordResetPermitsPerMinute`, 5).
+- The link works for `Authora:PasswordReset:LinkLifetime` (30 minutes) and only once. A newer link replaces older ones, and a link stops working if the User's Email or security stamp changes (password changed or set by an administrator, deactivation, "sign out everywhere"). Opening the link does not use it up, so mail scanners that follow links do not break it; setting the password does. An invalid new password does not use it up either.
+- The new password follows the usual policy (12 to 128 characters). It rotates the User's security stamp: every Session and every Grant of the User, with its Access and Refresh Tokens, ends. A lockout ends too. The User then signs in with the new password.
+- The User gets an email that the password was reset.
+- Recorded as audit events `account.password-reset-requested` and `account.password-reset` (and `user.password-reset-sent` for links sent by an administrator).
 
 ## Events that invalidate tokens
 

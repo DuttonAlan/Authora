@@ -23,6 +23,7 @@ using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.SendPasswordReset;
 using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
@@ -50,6 +51,7 @@ namespace Authora.Api.Controllers;
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
 /// <param name="revokeConsentService">The Service to revoke a Consent of the User.</param>
 /// <param name="revokeUserSessionsService">The Service to revoke all Sessions of the User.</param>
+/// <param name="sendPasswordResetService">The Service to send the User a password reset link.</param>
 /// <param name="setPasswordService">The Service to set the password of the User.</param>
 /// <param name="unlockUserService">The Service to unlock the User.</param>
 /// <param name="updateUserService">The Service to update the User.</param>
@@ -72,6 +74,7 @@ public sealed class UsersController(
     RemoveRoleService removeRoleService,
     RevokeConsentService revokeConsentService,
     RevokeUserSessionsService revokeUserSessionsService,
+    SendPasswordResetService sendPasswordResetService,
     SetPasswordService setPasswordService,
     UnlockUserService unlockUserService,
     UpdateUserService updateUserService) : ControllerBase
@@ -398,6 +401,41 @@ public sealed class UsersController(
         CancellationToken cancellationToken)
     {
         await setPasswordService.ExecuteAsync(id, request, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Sends the User a link to choose a new password.
+    /// </summary>
+    /// <remarks>
+    ///     The email goes to the User's current address, and the link works for <c>Authora:PasswordReset:LinkLifetime</c>
+    ///     (30 minutes by default). Earlier reset links of the User stop working. The current password keeps working until
+    ///     the User sets a new one with the link; that signs the User out everywhere and ends a lockout.
+    ///     Needs email delivery (<c>Authora:Email:Host</c>).
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the mail server accepted the email.</returns>
+    /// <response code="204">Responds with no content once the mail server accepted the email.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if email delivery is not configured, or the User is deleted or deactivated.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    /// <response code="502">Responds with problem details if the mail server could not be reached or rejected the email.</response>
+    [HttpPost("{id:guid}/password-reset")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway, "application/problem+json")]
+    [Authorize(PermissionNames.Users.SetPassword)]
+    public async Task<IActionResult> SendPasswordReset(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await sendPasswordResetService.ExecuteAsync(id, cancellationToken);
 
         return NoContent();
     }
