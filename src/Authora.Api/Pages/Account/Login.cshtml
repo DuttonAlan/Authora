@@ -38,4 +38,9 @@ else
             <button type="submit" class="primary">Sign in</button>
         </div>
     </form>
+
+    @if (Model.CanResetPassword)
+    {
+        <p class="muted"><a href="/account/forgot-password">Forgot password?</a></p>
+    }
 }

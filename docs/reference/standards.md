@@ -45,7 +45,7 @@ Authora deliberately keeps a small feature set. Not supported today:
 
 **Users**
 
-- Self-registration, and changing or resetting one's own password. Administrators create Users and set passwords.
+- Self-registration. Administrators create Users; Users change their own password at `/account/password` and reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)).
 - Email verification; `email_verified` is always `false`.
 - Multi-factor authentication and passkeys.
 - Sign-in through external identity providers (e.g. Google).

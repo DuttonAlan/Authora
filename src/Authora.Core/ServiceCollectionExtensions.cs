@@ -4,6 +4,8 @@
 
 using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.ChangePassword;
+using Authora.Core.Application.Account.RequestPasswordReset;
+using Authora.Core.Application.Account.ResetPassword;
 using Authora.Core.Application.Account.RevokeConsent;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
@@ -84,6 +86,7 @@ using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.SendPasswordReset;
 using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Application.Users.Unlock;
 using Authora.Core.Application.Users.Update;
@@ -107,7 +110,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplication(this IServiceCollection serviceCollection)
     {
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<SignInOptions>, SignInOptionsValidator>());
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PasswordResetOptions>, PasswordResetOptionsValidator>());
         serviceCollection.AddTransient<ChangePasswordService>();
+        serviceCollection.AddTransient<RequestPasswordResetService>();
+        serviceCollection.AddTransient<ResetPasswordService>();
         serviceCollection.AddTransient<RevokeOwnConsentService>();
         serviceCollection.AddTransient<SignInService>();
         serviceCollection.AddTransient<SignOutService>();
@@ -209,6 +215,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<GetAllUsersService>();
         serviceCollection.AddTransient<RemoveRoleService>();
         serviceCollection.AddTransient<RevokeUserSessionsService>();
+        serviceCollection.AddTransient<SendPasswordResetService>();
         serviceCollection.AddTransient<SetPasswordService>();
         serviceCollection.AddTransient<UnlockUserService>();
         serviceCollection.AddTransient<UpdateUserService>();

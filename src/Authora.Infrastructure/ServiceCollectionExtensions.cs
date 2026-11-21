@@ -71,6 +71,9 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IEmailSender, SmtpEmailSender>();
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<EmailOptions>, EmailCertificateValidator>());
         serviceCollection.AddHostedService<EmailStatusService>();
+        serviceCollection.AddSingleton<BackgroundEmailQueue>();
+        serviceCollection.AddSingleton<IEmailQueue>(serviceProvider => serviceProvider.GetRequiredService<BackgroundEmailQueue>());
+        serviceCollection.AddHostedService<BackgroundEmailDeliveryService>();
 
         // The actor comes from the host, e.g. the HTTP request, see IAuditActorAccessor.
         serviceCollection.AddScoped<IAuditLog, AuditLog>();

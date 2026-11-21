@@ -280,6 +280,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         // Clients created by a test must be allowed for CORS right away.
         builder.UseSetting("Authora:OAuth:CorsOriginsCacheDuration", "00:00:00");
 
+        // All test requests share one IP address; the tests of the limit lower it again.
+        builder.UseSetting("Authora:RateLimiting:PasswordResetPermitsPerMinute", "10000");
+
         // No SMTP server: the emails are kept by the fake.
         builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<IEmailSender>(EmailSender)));
     }

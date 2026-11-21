@@ -172,7 +172,22 @@ export async function detail(context, id) {
             if (await run(() => api('PUT', `/users/${id}/password`, values), 'The password was set.') !== undefined) {
                 element.reset();
             }
-        })) : null);
+        }), passwordResetActions(user)) : null);
+}
+
+function passwordResetActions(user) {
+    if (user.state === 'Deactivated') {
+        return null;
+    }
+
+    return [
+        hint('Or let the User choose a new password themselves: a link goes to their email address. Their current password keeps working until they use it.'),
+        h('div', { class: 'button-row panel-actions' }, button('Send reset link', async () => {
+            if (await confirmed('Send reset link', `Send a password reset link to ${user.email}? Earlier links stop working.`)) {
+                run(() => api('POST', `/users/${user.id}/password-reset`), 'The reset link was sent.');
+            }
+        }))
+    ];
 }
 
 function accessActions(context, user) {

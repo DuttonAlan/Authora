@@ -29,6 +29,7 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `POST /api/users/{id}/unlock` | `users.manage-access` | End a lockout after failed sign-ins. |
 | `POST /api/users/{id}/revoke-sessions` | `users.manage-access` | Sign out everywhere: end all Sessions and tokens. |
 | `PUT /api/users/{id}/password` | `users.set-password` | Set a new password; ends all Sessions and tokens. |
+| `POST /api/users/{id}/password-reset` | `users.set-password` | Email the User a link to choose a new password themselves (see [Password reset](configuration.md#password-reset)). The current password keeps working until the link is used, and earlier links stop working. `204` once the mail server accepted the email; `409` if email delivery is not configured or the User is deactivated or deleted; `502` if the mail server could not be reached or rejected the email (the server log has the reason). |
 | `GET /api/users/{id}/roles` | `users.read` | Directly assigned Roles and Roles from Groups. |
 | `PUT /api/users/{id}/roles/{roleId}` | `users.assign-roles` | Assign a Role. |
 | `DELETE /api/users/{id}/roles/{roleId}` | `users.assign-roles` | Remove a Role. |
@@ -138,7 +139,7 @@ A caller who is not an administrator (has no `admin` Role) can never give out mo
 | `PUT /api/roles/{id}/permissions/{permissionId}` | the caller holds the Permission. |
 | `PUT /api/groups/{id}/roles/{roleId}` | the caller holds every Permission of the Role. |
 | `PUT /api/groups/{id}/members/{userId}` | the caller holds every Permission of all Roles of the Group, and the rule below holds for the User. |
-| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/consents/{clientId}`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
+| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `/password-reset`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/consents/{clientId}`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
 
 A caller may act on themselves and on Users with the same rights. An administrator is never restricted by this rule.
 

@@ -62,6 +62,13 @@ public sealed class EmailTokenRepository(AuthoraContext context) : IEmailTokenRe
     }
 
     /// <inheritdoc/>
+    public async Task<int> CountEmailTokensIssuedSince(Guid userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default)
+    {
+        return await context.EmailTokens
+            .CountAsync(token => token.UserId == userId && token.Purpose == purpose && token.CreatedAt >= since, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<int> RevokeEmailTokens(Guid userId, EmailTokenPurpose purpose, DateTime now, CancellationToken cancellationToken = default)
     {
         return await context.EmailTokens

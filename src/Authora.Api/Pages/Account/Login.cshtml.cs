@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 
 using Authora.Api.Authentication;
 using Authora.Api.RateLimiting;
+using Authora.Core.Application.Account.RequestPasswordReset;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
 using Authora.Core.Application.Users.SetPassword;
@@ -23,9 +24,19 @@ namespace Authora.Api.Pages.Account;
 /// </summary>
 /// <param name="signInService">The Service to check the credentials and start a Session.</param>
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
+/// <param name="requestPasswordResetService">Tells whether the page offers "Forgot password?".</param>
 [EnableRateLimiting(RateLimitPolicies.SignIn)]
-public sealed class LoginModel(SignInService signInService, SignOutService signOutService) : PageModel
+public sealed class LoginModel(
+    SignInService signInService,
+    SignOutService signOutService,
+    RequestPasswordResetService requestPasswordResetService) : PageModel
 {
+    /// <summary>
+    ///     Whether the page links to the "Forgot password?" page: email delivery is configured and the self-service reset
+    ///     is enabled.
+    /// </summary>
+    public bool CanResetPassword => requestPasswordResetService.IsAvailable;
+
     /// <summary>
     ///     The same message for every failure, so the page does not reveal whether an Email exists.
     /// </summary>

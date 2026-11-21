@@ -17,7 +17,7 @@ This guide shows how to run Authora for real users: with its own database users,
 - [ ] Health checks are wired to the orchestrator, and the logs are shipped to a separate log system.
 - [ ] With several instances, or without a persistent home directory: Data Protection keys are persisted and encrypted ([Persist Data Protection keys](persist-data-protection-keys.md)).
 - [ ] Database backups run and a restore was tested ([Back up and restore](back-up-and-restore.md)).
-- [ ] If Authora sends email: the SMTP server is reached over TLS (`StartTls` or `Implicit`), its password comes from a secret store, and the sender domain has SPF and DKIM records, so the emails are not marked as spam.
+- [ ] If Authora sends email: the SMTP server is reached over TLS (`StartTls` or `Implicit`), its password comes from a secret store, and the sender domain has SPF and DKIM records, so the emails are not marked as spam. With email, the sign-in page offers a password reset by email; set `Authora__PasswordReset__SelfServiceEnabled=false` if Users' mailboxes are less protected than their passwords.
 
 ## 1. Get the images
 

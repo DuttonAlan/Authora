@@ -119,6 +119,9 @@ builder.Services.AddOptions<OidcOptions>()
 builder.Services.AddOptions<SignInOptions>()
     .Bind(builder.Configuration.GetSection(SignInOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<PasswordResetOptions>()
+    .Bind(builder.Configuration.GetSection(PasswordResetOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.AddOptions<BootstrapOptions>()
     .Bind(builder.Configuration.GetSection(BootstrapOptions.SectionName))
     .ValidateOnStart();

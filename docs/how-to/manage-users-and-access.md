@@ -12,7 +12,12 @@ This guide covers the everyday tasks in the admin interface: adding users, givin
 
 Users change their own password at `/account/password` on Authora (e.g. `https://auth.example.com/account/password`), after entering the current one; the admin interface links there from the lock icon next to **Sign out**. They stay signed in in that browser and are signed out everywhere else, and if email is configured, they get a notification. A wrong current password counts towards the lockout like a failed sign-in. Share the link with your users; no Permission is needed.
 
-Users cannot reset a forgotten password yet. To set a new one for them: open the User → **Set password** (`users.set-password`). This signs the User out everywhere, including the browser they use.
+Users who forgot their password follow **Forgot password?** on the sign-in page and get a link by email that works for 30 minutes. The link is offered only when [email delivery](../reference/configuration.md#email) is configured; turn it off with `Authora:PasswordReset:SelfServiceEnabled=false`, see [Password reset](../reference/configuration.md#password-reset). Setting a new password with the link signs the User out everywhere and ends a lockout.
+
+To help a User yourself, open the User (`users.set-password`) and either:
+
+- **Send reset link**: the User gets the same email and chooses the password themselves, so you never learn it. Their current password keeps working until they use the link. Needs email delivery; if the mail server cannot be reached, the admin interface shows an error.
+- **Set password**: you choose the new password and give it to the User through a secure channel. This signs the User out everywhere, including the browser they use.
 
 ## Give someone administrative rights
 
@@ -45,7 +50,7 @@ Changes take effect with the next request: the admin API loads the User's Permis
 | End all sessions | **Sign out everywhere** (`users.manage-access`) | Ends all Sessions and revokes all tokens of the User, in every application. |
 | Cut off one application | **Revoke** in the **Consents** panel (`users.manage-access`) | Revokes the User's Consent for the Client and its tokens for the User. The User is asked again on the next sign-in to it. |
 | Remove for good | **Delete** (`users.delete`) | Deletes the User and all their Sessions, tokens and Consents. Their Email can be used again. |
-| Undo a lockout | **Unlock** (`users.manage-access`) | After 5 failed sign-ins in a row, a User is locked out for 15 minutes; this ends it early. |
+| Undo a lockout | **Unlock** (`users.manage-access`) | After 5 failed sign-ins in a row, a User is locked out for 15 minutes; this ends it early. A password reset by email ends it too. |
 
 ## Find out what happened
 
