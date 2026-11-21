@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Application.OAuth;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.ValueObjects;
 
@@ -50,7 +51,12 @@ public sealed class AuthorizationCodeConfiguration : IEntityTypeConfiguration<Au
         builder.Property(x => x.Nonce)
             .HasMaxLength(AuthorizationCode.NonceMaxLength);
 
+        builder.Property(x => x.AuthenticationMethod)
+            .IsRequired()
+            .HasMaxLength(AuthenticationMethods.MaxLength);
+
         builder.Ignore(x => x.Scopes);
+        builder.Ignore(x => x.AuthenticationMethods);
 
         builder.HasOne<Client>()
             .WithMany()

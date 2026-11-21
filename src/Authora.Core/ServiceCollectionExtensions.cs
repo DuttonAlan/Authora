@@ -4,12 +4,17 @@
 
 using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.ChangePassword;
+using Authora.Core.Application.Account.CompleteSignIn;
+using Authora.Core.Application.Account.PendingSignIn;
 using Authora.Core.Application.Account.RequestPasswordReset;
 using Authora.Core.Application.Account.ResetPassword;
 using Authora.Core.Application.Account.RevokeConsent;
+using Authora.Core.Application.Account.SecondFactors;
+using Authora.Core.Application.Account.Security;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
+using Authora.Core.Application.Account.StepUp;
 using Authora.Core.Application.Account.VerifyEmail;
 using Authora.Core.Application.AdminUi.GetSettings;
 using Authora.Core.Application.Audit.Chain;
@@ -117,14 +122,22 @@ public static class ServiceCollectionExtensions
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PasswordResetOptions>, PasswordResetOptionsValidator>());
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<EmailVerificationOptions>, EmailVerificationOptionsValidator>());
         serviceCollection.AddTransient<ChangePasswordService>();
+        serviceCollection.AddTransient<CompleteSignInService>();
+        serviceCollection.AddTransient<GetAccountSecurityService>();
+        serviceCollection.AddTransient<GetPendingSignInService>();
+        serviceCollection.AddTransient<PendingSignInReader>();
         serviceCollection.AddTransient<RequestPasswordResetService>();
         serviceCollection.AddTransient<ProcessPasswordResetRequestService>();
         serviceCollection.AddTransient<ResetPasswordService>();
         serviceCollection.AddTransient<RevokeOwnConsentService>();
         serviceCollection.AddTransient<SignInService>();
         serviceCollection.AddTransient<SignOutService>();
+        serviceCollection.AddTransient<StartStepUpService>();
         serviceCollection.AddTransient<ValidateSessionService>();
         serviceCollection.AddTransient<VerifyEmailService>();
+
+        // Second factors register themselves as ISecondFactor; without any, signing in needs the password only.
+        serviceCollection.AddScoped<SecondFactorRegistry>();
 
         serviceCollection.AddTransient<PermissionEvaluator>();
         serviceCollection.AddTransient<PrivilegeGuard>();

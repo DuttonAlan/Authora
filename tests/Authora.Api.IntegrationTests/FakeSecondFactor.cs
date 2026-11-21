@@ -1,0 +1,67 @@
+// Copyright(c) Alan Dutton.
+// Licensed under the MIT License.
+// See the LICENSE file in the project root for license information.
+
+using System.Collections.Concurrent;
+
+using Authora.Core.Application.Account.SecondFactors;
+
+namespace Authora.Api.IntegrationTests;
+
+/// <summary>
+///     A second factor for the tests: a User is enrolled with a fixed code, until the real factors exist.
+/// </summary>
+public sealed class FakeSecondFactor : ISecondFactor
+{
+    /// <summary>
+    ///     The method the fake records, the one of one-time codes (RFC 8176).
+    /// </summary>
+    public const string MethodName = "otp";
+
+    private readonly ConcurrentDictionary<Guid, string> _codes = new();
+
+    private readonly ConcurrentDictionary<Guid, Func<Task>> _whileVerifying = new();
+
+    /// <inheritdoc/>
+    public string Method => MethodName;
+
+    /// <inheritdoc/>
+    public string DisplayName => "Test authenticator";
+
+    /// <summary>
+    ///     Enrolls a User, who then must enter the code after the password.
+    /// </summary>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="code">The code the factor accepts for the User.</param>
+    public void Enroll(Guid userId, string code)
+    {
+        _codes[userId] = code;
+    }
+
+    /// <summary>
+    ///     Runs an action while the response of a User is verified, e.g. to let time pass in a slow verification.
+    /// </summary>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="action">The action, run once per verification.</param>
+    public void WhileVerifying(Guid userId, Func<Task> action)
+    {
+        _whileVerifying[userId] = action;
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> IsEnrolledAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_codes.ContainsKey(userId));
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
+    {
+        if (_whileVerifying.TryGetValue(userId, out var action))
+        {
+            await action();
+        }
+
+        return _codes.TryGetValue(userId, out var code) && code == response;
+    }
+}

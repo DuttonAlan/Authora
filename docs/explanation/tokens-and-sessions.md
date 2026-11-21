@@ -82,6 +82,7 @@ Reuse can only be detected while the used row still exists; the cleanup keeps ro
 | Refresh Token | 1 day, per Client | at most 90 days, and the Grant |
 | Grant | 90 days | at most 365 days |
 | Session | 2 hours idle, 12 hours absolute | at most 24 hours idle, 7 days absolute |
+| Pending sign-in (between password and second factor) | 5 minutes | at most 15 minutes |
 | ID Token | 5 minutes | at most 1 hour |
 
 The Grant's lifetime is absolute. Refreshing does not extend it, so a stolen Refresh Token cannot keep access alive forever. After it ends, the application has to send the user through Authora again; the consent screen only appears if the Consent was revoked or the application asks for more Scopes.
@@ -91,3 +92,32 @@ The Grant's lifetime is absolute. Refreshing does not extend it, so a stolen Ref
 The Session cookie holds a random token; the database holds its hash. Authora checks the idle timeout, the absolute lifetime and the User's security stamp on every request, so ending a Session on the server takes effect immediately, even though the cookie itself has no expiry. Every sign-in creates a new Session and ends the previous one in that browser, which prevents session fixation.
 
 An Authorization Code remembers the Session in which the User approved the request, and can only be exchanged while that Session is still active (not signed out, not expired, not idle for too long). Otherwise a code issued just before the User signed out, e.g. on a shared computer, could still be redeemed until it expires and start a new Grant for a User who has left. Such a code gets `invalid_grant` and is logged as event 6015. The Grant created from a code does not depend on the Session afterwards.
+
+### How a User signs in
+
+Signing in can take two steps. The password is always the first. A User who has enrolled a second factor gets **no Session** for the password alone, only a *pending sign-in*:
+
+```mermaid
+flowchart LR
+    accTitle: Two-step sign-in
+    accDescr: The password leads directly to a Session for a User without a second factor. For a User with a second factor it leads to a pending sign-in, and only the second factor turns it into a Session.
+    P[Password correct] -->|no second factor| S[New Session, amr pwd]
+    P -->|second factor enrolled| C[Pending sign-in, 5 minutes, single use]
+    C -->|factor correct| S2[New Session, amr pwd + factor]
+    C -->|expired, used, security stamp changed| R[Sign in again]
+```
+
+- The pending sign-in is a database row in the `auth` schema; the browser holds its random token in a cookie of its own (`__Host-authora_pending_sign_in`, `SameSite=Strict`), never in the Session cookie. Until the second factor is done, the browser is not signed in, and an existing Session of the browser stays as it was.
+- It lasts 5 minutes (`Authora:SignIn:PendingSignInLifetime`), can be completed only once (an atomic update decides between concurrent requests), and only while the User has the security stamp it started with: a password reset, a deactivation or "sign out everywhere" in between ends it. The cleanup deletes it once it has expired.
+- A wrong second factor counts towards the same lockout as a wrong password. A correct password does not reset the failed attempts while a second factor is pending, so knowing the password does not allow guessing the second factor endlessly; only a complete sign-in resets them.
+- A password reset by email sets the password and nothing else: it never signs in and never skips the second factor.
+
+No second factor exists yet, so today every User signs in with the password alone, exactly as before; the authenticator app and passkeys build on this step.
+
+### What a Session knows about the sign-in
+
+Each Session records **how** the User authenticated, as Authentication Method Reference values of RFC 8176 (`pwd` for the password, e.g. `otp` for a one-time code), and **when** the User last authenticated in it. Both are copied into every Authorization Code issued in the Session, so the ID Token's `auth_time` is the latest authentication, and the methods can later become its `amr` claim.
+
+A *step-up* adds a factor to an existing Session, e.g. when an application asks for a stronger sign-in: the User completes the factor at `/account/step-up`, and the Session records the additional method and the new authentication time. Like every sign-in, it then gets a **new Session token**, so a token that was copied before the step-up does not gain its strength. The absolute lifetime of the Session does not change.
+
+Sensitive account changes, such as enrolling or removing a factor, require a *recent* authentication: one within `Authora:SignIn:RecentAuthenticationWindow` (10 minutes by default). Otherwise the User is asked to sign in again, which starts a new Session with a new authentication time.

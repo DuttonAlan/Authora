@@ -83,7 +83,8 @@ label {
 }
 
 input[type="email"],
-input[type="password"] {
+input[type="password"],
+input[type="text"] {
     width: 100%;
     margin-bottom: 16px;
     padding: 10px 12px;
@@ -159,6 +160,24 @@ a {
 
 .hint {
     margin-top: -12px;
+}
+
+.choices {
+    margin: 0 0 16px;
+    padding: 0;
+    border: 0;
+}
+
+.choices legend {
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.choices label {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-weight: 400;
 }
 
 .consents form {

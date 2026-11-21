@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.ValueObjects;
 
@@ -28,10 +29,21 @@ public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
         builder.Property(x => x.TokenHash)
             .HasConversion(hash => hash.Value, value => SecretHash.FromHashedValue(value))
             .IsRequired()
-            .HasMaxLength(Schemas.HashMaxLength);
+            .HasMaxLength(Schemas.HashMaxLength)
+
+            // A step-up gives the Session a new token. Saving a Session whose token changed since it was loaded fails,
+            // so two concurrent step-ups cannot overwrite each other, and no request saves a Session it knows only by
+            // an outdated token.
+            .IsConcurrencyToken();
 
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
+
+        builder.Property(x => x.AuthenticationMethod)
+            .IsRequired()
+            .HasMaxLength(AuthenticationMethods.MaxLength);
+
+        builder.Ignore(x => x.AuthenticationMethods);
 
         // Used by the cleanup of expired rows, see ExpiredDataCleaner.
         builder.HasIndex(x => x.ExpiresAt);

@@ -10,10 +10,10 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
 | 4001 – 4020 | Clients |
-| 5001 – 5018 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below) |
+| 5001 – 5023 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below), second factor and step-up (5019 – 5023, see below) |
 | 6001 – 6016 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016) |
 | 7001 – 7009 | Seeding at startup |
-| 8001 – 8004 | Cleanup of expired data (including email tokens) and audit events |
+| 8001 – 8005 | Cleanup of expired data (including email tokens and, as 8005, pending sign-ins) and audit events |
 | 9001 – 9005 | Signing keys |
 | 10001 – 10007 | Groups |
 | 11001 – 11011 | Hash chain of the audit log |
@@ -67,11 +67,23 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 5017 | Information | User … confirmed their Email with a verification link | `email_verified` is `true` from now on. |
 | 5018 | Warning | An email verification link was not accepted: … | 14013 or 14014 has the reason. |
 
+## Second factor and step-up
+
+| Event Id | Level | Message (shortened) | Meaning |
+|---|---|---|---|
+| 5019 | Information | User … entered the correct password; sign-in … waits for a second factor | A pending sign-in started; no Session yet. |
+| 5020 | Warning | Second factor … of User … was wrong in sign-in … | Counts towards the lockout like a wrong password. Many in a row suggest that someone knows the password. |
+| 5021 | Information | Pending sign-in … was not completed: … | It was already completed, expired, its User cannot sign in or has a new security stamp, no factor is left, or the Session of a step-up ended. The User signs in again. |
+| 5022 | Information | User … started a step-up … of Session … | At `/account/step-up`. |
+| 5023 | Information | User … completed … for Session …, which got a new token | The step-up is complete. |
+| 8005 | Information | Deleted … pending sign-ins that expired before … | Written by the cleanup, without the retention. |
+
 ## Events worth alerting on
 
 | Event Id | Level | Message (shortened) | Meaning |
 |---|---|---|---|
 | 5004 | Warning | User … was locked out … | Possible password guessing. |
+| 5020 | Warning | Second factor … of User … was wrong … | The password was correct; someone may know it. |
 | 6004 | Warning | Authorization Code … was used more than once | Possible code theft; the Grant was revoked. |
 | 6005 | Warning | Refresh Token … was used more than once | Possible token theft; the Grant was revoked. |
 | 6006 | Warning | Client … presented a code or token that was issued to Client … | A Client used another Client's token. |

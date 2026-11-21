@@ -18,6 +18,7 @@ using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients.Get;
 using Authora.Core.Application.Oidc;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Infrastructure.Persistence;
 
@@ -429,7 +430,7 @@ public sealed class EndSessionTests(AuthoraApiFactory factory) : IClassFixture<A
         var user = await context.Users.SingleAsync(user => user.Id == userId, TestContext.Current.CancellationToken);
         var client = await context.Clients.SingleAsync(client => client.Id == clientId, TestContext.Current.CancellationToken);
         var code = AuthorizationCode.Create(
-            secretHasher.Hash("unused"), client, user, Guid.NewGuid(), null, ["openid"], null, null, authenticatedAt, issuedAt, TimeSpan.FromMinutes(1));
+            secretHasher.Hash("unused"), client, user, Guid.NewGuid(), null, ["openid"], null, null, authenticatedAt, [AuthenticationMethods.Password], issuedAt, TimeSpan.FromMinutes(1));
 
         return issuer.Issue(user, code, ["openid"], "unused-access-token", issuedAt);
     }

@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Authora.Api.Authorization;
 
 /// <summary>
-///     Authorization policies of the admin API.
+///     Authorization policies of the admin API and the account pages.
 /// </summary>
 /// <remarks>
 ///     Every admin controller requires <see cref="AdminApi"/>, and every action additionally the policy of its
@@ -25,6 +25,13 @@ internal static class AuthorizationPolicies
     public const string AdminApi = "admin-api";
 
     /// <summary>
+    ///     For the account pages: requires a Session in which the User authenticated recently, see
+    ///     <see cref="RecentAuthenticationRequirement"/>. Other Users are asked to sign in again. Use it for sensitive
+    ///     changes, e.g. enrolling or removing a second factor or regenerating recovery codes.
+    /// </summary>
+    public const string RecentAuthentication = "recent-authentication";
+
+    /// <summary>
     ///     Registers the policies.
     /// </summary>
     /// <param name="options">The authorization options.</param>
@@ -36,6 +43,11 @@ internal static class AuthorizationPolicies
             .AddAuthenticationSchemes(AccessTokenAuthenticationHandler.SchemeName)
             .RequireAuthenticatedUser()
             .RequireClaim(AccessTokenClaimTypes.Scope, AdminApiScope.Name));
+
+        options.AddPolicy(RecentAuthentication, policy => policy
+            .AddAuthenticationSchemes(SessionAuthenticationHandler.SchemeName)
+            .RequireAuthenticatedUser()
+            .AddRequirements(new RecentAuthenticationRequirement()));
 
         foreach (var permissionName in PermissionNames.All)
         {

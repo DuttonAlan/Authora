@@ -229,7 +229,14 @@ public sealed class AuthorizeModel(
     private async Task<StatusCodeResult> IssueCodeAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
     {
         var sessionId = Guid.Parse(User.FindFirst(SessionClaimTypes.SessionId)!.Value);
-        var code = await issueAuthorizationCodeService.ExecuteAsync(validated, GetUserId(), sessionId, GetAuthenticatedAt(), cancellationToken);
+        var authenticationMethods = User.FindAll(SessionClaimTypes.AuthenticationMethod).Select(claim => claim.Value).ToList();
+        var code = await issueAuthorizationCodeService.ExecuteAsync(
+            validated,
+            GetUserId(),
+            sessionId,
+            GetAuthenticatedAt(),
+            authenticationMethods,
+            cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
         {
@@ -281,7 +288,7 @@ public sealed class AuthorizeModel(
     }
 
     /// <summary>
-    ///     When the signed-in User signed in, from the Session.
+    ///     When the signed-in User last authenticated in the Session (sign-in or step-up), from the Session.
     /// </summary>
     private DateTime GetAuthenticatedAt()
     {

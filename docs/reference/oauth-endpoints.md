@@ -10,6 +10,9 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `POST /oauth/revoke` | Client | Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)). |
 | `POST /oauth/introspect` | Resource server | Introspection ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)). |
 | `GET/POST /account/login` | Browser | Sign-in page. |
+| `GET/POST /account/second-factor` | Browser | Second step of the sign-in for Users with a second factor, and of a step-up. See [Sign-in](#sign-in). |
+| `GET /account/step-up` | Browser | A signed-in User completes an additional factor for the current Session. See [Sign-in](#sign-in). |
+| `GET /account/security` | Browser | *Account and security*: overview of a signed-in User, with how they signed in and links to the password change, the connected applications and the second factors. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
 | `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
 | `GET/POST /account/forgot-password` | Browser | A User who forgot their password asks for a reset link by email. See [Password reset](#password-reset). |
@@ -168,7 +171,20 @@ A token is active only if:
 - Every failure shows the same message. Unknown Emails still verify a password, so the response time does not reveal whether an account exists.
 - After `Authora:SignIn:MaxFailedAttempts` (5) failures in a row, the User is locked out for `Authora:SignIn:LockoutDuration` (15 minutes).
 - Sign-in attempts are rate-limited per IP address (10 per minute).
-- Every sign-in starts a new Session and ends the previous Session of the browser.
+- Every sign-in starts a new Session and ends the previous Session of the browser. The Session records its authentication methods (RFC 8176, `pwd` for the password) and when the User last authenticated, which every Authorization Code issued in it carries on (`auth_time` in the ID Token).
+
+A User who has enrolled a second factor gets no Session for the password alone. The correct password starts a pending sign-in in the cookie `__Host-authora_pending_sign_in` and redirects to `/account/second-factor`, with the same `returnUrl`:
+
+- The pending sign-in lasts `Authora:SignIn:PendingSignInLifetime` (5 minutes), can be completed only once, and only while the User's security stamp is unchanged. Otherwise the page asks the User to sign in again.
+- A wrong second factor counts towards the same lockout as a wrong password; the failed attempts are only reset once the sign-in is complete. Submissions share the sign-in rate limit.
+- Once the factor is correct, the Session starts with both methods, e.g. `pwd otp`, and the browser returns to `returnUrl`.
+- A password reset by email never signs in and never skips the second factor.
+
+`/account/step-up` starts the same second step for a signed-in User whose Session lacks one of their enrolled factors, and returns to a local `returnUrl` afterwards. Completing it adds the method to the Session, sets its authentication time to now and gives it a new Session token; the old token stops working. Without a missing factor, the page says there is nothing to confirm.
+
+Account changes that need a recent authentication (enrolling or removing a factor) send a User who authenticated longer than `Authora:SignIn:RecentAuthenticationWindow` (10 minutes) ago to the sign-in page and back.
+
+No second factor can be enrolled yet, so all Users currently sign in with the password alone.
 
 `/account/logout` revokes the Session on the server and deletes the cookie. Applications sign Users out through the end-session endpoint `/oauth/logout` instead, see [Logout](openid-connect.md#logout).
 

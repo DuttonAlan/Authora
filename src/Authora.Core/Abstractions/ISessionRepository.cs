@@ -63,5 +63,9 @@ public interface ISessionRepository
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the changes are saved.</returns>
+    /// <exception cref="Application.Exceptions.ConflictException">
+    ///     Thrown when a Session got a new token since it was loaded, e.g. by a step-up. The outdated Session is no
+    ///     longer tracked, so loading it again returns the current values.
+    /// </exception>
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

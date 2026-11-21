@@ -1,0 +1,9 @@
+@page "/account/step-up"
+@model Authora.Api.Pages.Account.StepUpModel
+@{
+    ViewData["Title"] = "Two-step verification";
+}
+
+<h1>Nothing to confirm</h1>
+<p>Your session already includes every factor you have set up.</p>
+<p><a href="@Model.SafeReturnUrl">Continue</a></p>

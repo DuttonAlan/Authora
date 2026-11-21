@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Logging;
@@ -75,7 +76,9 @@ public sealed class SignOutService(
             return;
         }
 
-        session.Revoke(timeProvider.GetUtcNow().UtcDateTime);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        session.Revoke(now);
 
         var sessionDetails = details is null ? $"Session {session.Id}" : $"Session {session.Id}, {details}";
         auditLog.Record(AuditEntry.ForUser(
@@ -83,7 +86,24 @@ public sealed class SignOutService(
             session.UserId,
             sessionDetails));
 
-        await sessionRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await sessionRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            // A step-up gave the Session a new token meanwhile. The User still signs out of it: it is revoked by its
+            // Id, together with the staged audit event.
+            var current = await sessionRepository.GetSessionById(session.Id, cancellationToken);
+
+            if (current is null)
+            {
+                return;
+            }
+
+            current.Revoke(now);
+            await sessionRepository.SaveChangesAsync(cancellationToken);
+        }
 
         if (client is null)
         {

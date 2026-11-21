@@ -156,6 +156,7 @@ builder.Services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
     .AddScheme<AuthenticationSchemeOptions, AccessTokenAuthenticationHandler>(AccessTokenAuthenticationHandler.SchemeName, configureOptions: null);
 builder.Services.AddAuthorization(options => options.AddAuthoraPolicies());
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, RecentAuthenticationHandler>();
 builder.Services.AddRateLimiter(options => options.AddAuthoraPolicies());
 
 // CORS only for the endpoints Clients call from a browser, see OAuthCorsPolicyProvider. Replaces the default provider,

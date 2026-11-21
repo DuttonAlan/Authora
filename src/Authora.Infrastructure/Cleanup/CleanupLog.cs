@@ -22,6 +22,9 @@ internal static partial class CleanupLog
         int linkTokens,
         DateTime cutoff);
 
+    [LoggerMessage(EventId = 8005, Level = LogLevel.Information, Message = "Deleted {PendingSignIns} pending sign-ins that expired before {Now:O}.")]
+    public static partial void PendingSignInsDeleted(this ILogger logger, int pendingSignIns, DateTime now);
+
     [LoggerMessage(EventId = 8003, Level = LogLevel.Information, Message = "Deleted {AuditEvents} audit events that occurred before {Cutoff:O}.")]
     public static partial void AuditEventsDeleted(this ILogger logger, int auditEvents, DateTime cutoff);
 

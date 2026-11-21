@@ -93,9 +93,16 @@ public sealed class AuthorizationCode
     public string? Nonce { get; private set; }
 
     /// <summary>
-    ///     Point in time (UTC) when the User signed in, returned as <c>auth_time</c> in the ID Token.
+    ///     Point in time (UTC) when the User last authenticated in the Session, returned as <c>auth_time</c> in the ID
+    ///     Token.
     /// </summary>
     public DateTime AuthenticatedAt { get; private set; }
+
+    /// <summary>
+    ///     The authentication methods the User completed in the Session (<see cref="Domain.AuthenticationMethods"/>),
+    ///     space-delimited, e.g. <c>pwd</c>.
+    /// </summary>
+    public string AuthenticationMethod { get; private set; } = null!;
 
     /// <summary>
     ///     Point in time (UTC) when the code was issued.
@@ -133,6 +140,11 @@ public sealed class AuthorizationCode
     public IReadOnlyList<string> Scopes => ScopeList.Split(Scope);
 
     /// <summary>
+    ///     The authentication methods the User completed in the Session.
+    /// </summary>
+    public IReadOnlyList<string> AuthenticationMethods => Domain.AuthenticationMethods.Split(AuthenticationMethod);
+
+    /// <summary>
     ///     Creates a new Authorization Code.
     /// </summary>
     /// <param name="codeHash">The hash of the code.</param>
@@ -143,7 +155,8 @@ public sealed class AuthorizationCode
     /// <param name="scopes">The approved Scope Names.</param>
     /// <param name="codeChallenge">The PKCE code challenge (method <c>S256</c>), or null if the request had none.</param>
     /// <param name="nonce">The OpenID Connect <c>nonce</c>, or null if it was not sent.</param>
-    /// <param name="authenticatedAt">When the User signed in (UTC).</param>
+    /// <param name="authenticatedAt">When the User last authenticated in the Session (UTC).</param>
+    /// <param name="authenticationMethods">The methods the User completed in the Session, e.g. <c>pwd</c>.</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <param name="lifetime">The lifetime of the code, at most <see cref="MaxLifetime"/>.</param>
     /// <returns>The created Authorization Code.</returns>
@@ -158,6 +171,7 @@ public sealed class AuthorizationCode
         string? codeChallenge,
         string? nonce,
         DateTime authenticatedAt,
+        IEnumerable<string> authenticationMethods,
         DateTime now,
         TimeSpan lifetime)
     {
@@ -187,6 +201,7 @@ public sealed class AuthorizationCode
             CodeChallenge = codeChallenge,
             Nonce = nonce,
             AuthenticatedAt = authenticatedAt,
+            AuthenticationMethod = Domain.AuthenticationMethods.Format(authenticationMethods),
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };

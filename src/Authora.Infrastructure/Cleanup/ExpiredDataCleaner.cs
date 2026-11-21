@@ -17,8 +17,8 @@ namespace Authora.Infrastructure.Cleanup;
 
 /// <summary>
 ///     Deletes Authorization Codes, Grants, Access and Refresh Tokens, Sessions and email tokens that expired or were revoked more
-///     than <see cref="CleanupOptions.Retention"/> ago, and audit events older than
-///     <see cref="CleanupOptions.AuditRetention"/> with their links of the hash chain.
+///     than <see cref="CleanupOptions.Retention"/> ago, pending sign-ins as soon as they expired, and audit events older
+///     than <see cref="CleanupOptions.AuditRetention"/> with their links of the hash chain.
 /// </summary>
 /// <remarks>
 ///     Rows are deleted in batches of <see cref="CleanupOptions.BatchSize"/>, each in its own statement, so a large
@@ -95,6 +95,15 @@ public sealed class ExpiredDataCleaner(
         var linkTokens = await DeleteExpiredLinkTokensAsync(cutoff, cancellationToken);
 
         logger.ExpiredDataDeleted(authorizationCodes, accessTokens, refreshTokens, grants, sessions, linkTokens, cutoff);
+
+        // Without the retention: an expired or completed pending sign-in can never be used again, and the audit log
+        // records how it ended.
+        var pendingSignIns = await DeleteInBatchesAsync(
+            context.SignInChallenges.Where(challenge => challenge.ExpiresAt < now).Select(challenge => challenge.Id),
+            ids => context.SignInChallenges.Where(challenge => ids.Contains(challenge.Id)),
+            cancellationToken);
+
+        logger.PendingSignInsDeleted(pendingSignIns, now);
 
         var auditCutoff = now - options.Value.AuditRetention;
         var auditEvents = await DeleteAuditEventsAsync(auditCutoff, cancellationToken);

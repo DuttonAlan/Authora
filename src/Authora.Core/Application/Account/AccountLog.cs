@@ -65,4 +65,19 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5018, Level = LogLevel.Warning, Message = "An email verification link was not accepted: {Reason}.")]
     public static partial void EmailVerificationRejected(this ILogger logger, string reason);
+
+    [LoggerMessage(EventId = 5019, Level = LogLevel.Information, Message = "User {UserId} entered the correct password; sign-in {ChallengeId} waits for a second factor.")]
+    public static partial void SignInPending(this ILogger logger, Guid userId, Guid challengeId);
+
+    [LoggerMessage(EventId = 5020, Level = LogLevel.Warning, Message = "Second factor {Method} of User {UserId} was wrong in sign-in {ChallengeId}.")]
+    public static partial void SecondFactorFailed(this ILogger logger, Guid userId, Guid challengeId, string method);
+
+    [LoggerMessage(EventId = 5021, Level = LogLevel.Information, Message = "Pending sign-in {ChallengeId} was not completed: {Reason}.")]
+    public static partial void PendingSignInRejected(this ILogger logger, Guid challengeId, string reason);
+
+    [LoggerMessage(EventId = 5022, Level = LogLevel.Information, Message = "User {UserId} started a step-up {ChallengeId} of Session {SessionId}.")]
+    public static partial void StepUpStarted(this ILogger logger, Guid userId, Guid challengeId, Guid sessionId);
+
+    [LoggerMessage(EventId = 5023, Level = LogLevel.Information, Message = "User {UserId} completed {Method} for Session {SessionId}, which got a new token.")]
+    public static partial void SteppedUp(this ILogger logger, Guid userId, Guid sessionId, string method);
 }
