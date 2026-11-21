@@ -100,6 +100,13 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
+    public async Task<bool> IsUserDeleted(Guid id, CancellationToken cancellationToken = default)
+    {
+        return !await context.Users
+            .AnyAsync(user => user.Id == id && user.State != UserState.Deleted, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> EmailExists(string normalizedEmail, CancellationToken cancellationToken = default)
     {
         return await context.Users

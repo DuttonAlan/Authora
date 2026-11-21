@@ -163,6 +163,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<Guid?>("ConsentId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ConsumedAt")
                         .HasColumnType("timestamp with time zone");
 

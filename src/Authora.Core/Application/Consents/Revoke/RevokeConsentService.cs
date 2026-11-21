@@ -45,7 +45,7 @@ public sealed class RevokeConsentService(
 
             await privilegeGuard.EnsureCanActOnUserAsync(
                 user.Id,
-                AuditEntry.ForUser(AuditEventTypes.Consents.Revoked, user.Id, $"Client {clientId}") with { ClientId = clientId },
+                AuditEntry.ForUser(AuditEventTypes.Consents.Revoked, user.Id, $"Client {clientId}"),
                 cancellationToken);
 
             // Joins the transaction of the guard and holds the lock of the Consent until it is committed.

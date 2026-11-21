@@ -320,7 +320,7 @@ public sealed class IssueTokenService(
 
         // The User may have revoked the Consent after the code was issued. Checked after saving, like the status of
         // the Client: a revocation committed before this check is seen here, one committed later revokes the Grant.
-        if (!client.IsFirstParty && !await HasConsentAsync(authorizationCode.UserId, client.Id, scopes, cancellationToken))
+        if (!client.IsFirstParty && !await HasConsentAsync(authorizationCode, scopes, cancellationToken))
         {
             await tokenRepository.RevokeGrant(grant.Id, now, cancellationToken);
             logger.GrantRevokedForRevokedConsent(grant.Id, client.Id, authorizationCode.UserId);
@@ -479,17 +479,22 @@ public sealed class IssueTokenService(
     }
 
     /// <summary>
-    ///     Whether the User still has a Consent for the Client that contains the Scopes of the new Grant.
+    ///     Whether the Consent the code was issued under still exists and contains the Scopes of the new Grant. A Consent
+    ///     given again after a revocation is a new Consent and does not count, so the revocation cancels the code for good.
     /// </summary>
     private async Task<bool> HasConsentAsync(
-        Guid userId,
-        Guid clientId,
+        AuthorizationCode authorizationCode,
         IReadOnlyList<string> scopes,
         CancellationToken cancellationToken)
     {
-        var consent = await consentRepository.GetConsent(userId, clientId, cancellationToken);
+        if (authorizationCode.ConsentId is not { } consentId)
+        {
+            return false;
+        }
 
-        return consent is not null && consent.Covers(scopes);
+        var consent = await consentRepository.GetConsent(authorizationCode.UserId, authorizationCode.ClientId, cancellationToken);
+
+        return consent is not null && consent.Id == consentId && consent.Covers(scopes);
     }
 
     /// <summary>

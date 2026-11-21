@@ -57,10 +57,9 @@ public sealed class ConsentRevoker(
 
         consentRepository.RemoveConsent(consent);
 
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Consents.Revoked, userId, GetDetails(consent, revokedGrants)) with
-        {
-            ClientId = clientId
-        });
+        // The Client of the Consent is named in the Details; the Client of the event stays the one that acted, e.g. the
+        // admin interface.
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Consents.Revoked, userId, GetDetails(consent, revokedGrants)));
 
         await consentRepository.SaveChangesAsync(cancellationToken);
 

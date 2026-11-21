@@ -197,7 +197,7 @@ public sealed class AuthorizeModel(
             return SignIn(request);
         }
 
-        // Remembered before the code is issued, so the code exchange finds the Consent.
+        // Remembered before the code is issued, so the code of a third-party Client is bound to the Consent.
         await rememberConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken);
 
         return await IssueCodeAsync(validated, cancellationToken);

@@ -69,6 +69,10 @@ public sealed class DeleteUserService(
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
+        // Again after the commit: an approval that was running in the meantime may have saved a Consent after the first
+        // deletion. One saved after this point is deleted by the approval itself, because it checks the User after saving.
+        await consentRepository.DeleteConsentsOfUser(user.Id, cancellationToken);
+
         logger.UserDeleted(user.Id);
     }
 }

@@ -134,6 +134,44 @@ public sealed class ConsentTests(AuthoraApiFactory factory) : IClassFixture<Auth
     }
 
     [Fact]
+    public async Task FirstPartyClient_WithPromptConsent_StoresNoConsent()
+    {
+        var userId = await factory.CreateUserAsync();
+        var sessionToken = await factory.CreateSessionAsync(userId);
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        await SetFirstPartyAsync(clientId);
+        var parameters = AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid");
+        parameters["prompt"] = "consent";
+
+        // Approving still works, but nothing is stored that the User could "remove" without effect.
+        var code = await AuthorizationCodeFlow.GetCodeAsync(_client, parameters, sessionToken);
+        await AuthorizationCodeFlow.ExchangeAsync(_client, clientId, redirectUri, code);
+
+        Assert.Equal(0, (await GetConsentsAsync(userId, await AdminTokenAsync())).GetArrayLength());
+        Assert.Empty(await GetAuditEventsAsync(userId, AuditEventTypes.Consents.Granted));
+    }
+
+    [Fact]
+    public async Task CodeIssuedBeforeRevocation_StaysInvalidAfterNewApproval()
+    {
+        var userId = await factory.CreateUserAsync();
+        var sessionToken = await factory.CreateSessionAsync(userId);
+        var (clientId, redirectUri) = await factory.CreatePublicClientAsync("openid");
+        var parameters = AuthorizationCodeFlow.Parameters(clientId, redirectUri, "openid");
+
+        await AuthorizationCodeFlow.GetCodeAsync(_client, parameters, sessionToken);
+        var pendingCode = await AuthorizationCodeFlow.GetCodeWithoutConsentAsync(_client, parameters, sessionToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, await SendAsync(HttpMethod.Delete, $"/api/users/{userId}/consents/{clientId}", await AdminTokenAsync()));
+
+        // The User approves again before the old code expires: the new Consent must not revive the old code.
+        var newCode = await AuthorizationCodeFlow.GetCodeAsync(_client, parameters, sessionToken);
+
+        Assert.Equal("invalid_grant", await ExchangeErrorAsync(clientId, redirectUri, pendingCode));
+        await AuthorizationCodeFlow.ExchangeAsync(_client, clientId, redirectUri, newCode);
+    }
+
+    [Fact]
     public async Task FirstPartyClient_StoresNoConsent()
     {
         var userId = await factory.CreateUserAsync();
@@ -187,8 +225,9 @@ public sealed class ConsentTests(AuthoraApiFactory factory) : IClassFixture<Auth
 
         var revokedEvent = Assert.Single(await GetAuditEventsAsync(userId, AuditEventTypes.Consents.Revoked));
         Assert.Equal(userId, revokedEvent.UserId);
-        Assert.Equal(clientId, revokedEvent.ClientId);
-        Assert.Contains("1 Grant(s) revoked", revokedEvent.Details, StringComparison.Ordinal);
+        // The account page acts through no Client; the revoked one is named in the Details.
+        Assert.Null(revokedEvent.ClientId);
+        Assert.Contains($"Client {clientId}, 1 Grant(s) revoked", revokedEvent.Details, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -270,6 +309,8 @@ public sealed class ConsentTests(AuthoraApiFactory factory) : IClassFixture<Auth
 
         var revokedEvent = Assert.Single(await GetAuditEventsAsync(userId, AuditEventTypes.Consents.Revoked));
         Assert.Equal(adminId, revokedEvent.UserId);
+        Assert.NotEqual(clientId, revokedEvent.ClientId);
+        Assert.Contains($"Client {clientId}", revokedEvent.Details, StringComparison.Ordinal);
 
         using var response = await AuthorizationCodeFlow.GetAsync(_client, parameters, sessionToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
