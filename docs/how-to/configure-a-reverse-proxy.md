@@ -37,6 +37,20 @@ auth.example.com {
 }
 ```
 
+### Keep one-time links out of access logs
+
+The links in password reset and email verification emails carry a one-time token in the query string (`/account/reset-password?token=…`, `/account/verify-email?token=…`). A link works only once and only for a short time, but until it is used, anyone who can read the proxy's access log can use it, e.g. to set the password of the account. Log only the path, not the query string.
+
+nginx logs the query string by default (`$request` in the `combined` format). Use a format with `$uri` instead:
+
+```nginx
+log_format authora '$remote_addr - $remote_user [$time_local] "$request_method $uri $server_protocol" '
+                   '$status $body_bytes_sent "$http_referer" "$http_user_agent"';
+access_log /var/log/nginx/access.log authora;
+```
+
+Caddy writes no access log unless the site has a `log` directive. If it has one, delete the `token` parameter from `request>uri` with the `query` filter of the [`filter` log format](https://caddyserver.com/docs/caddyfile/directives/log#filter).
+
 ## 2. Tell Authora which proxies to trust
 
 Authora only reads the forwarded headers from the addresses you list, so nobody else can fake their IP address. Set the proxy's address, or the network it runs in:

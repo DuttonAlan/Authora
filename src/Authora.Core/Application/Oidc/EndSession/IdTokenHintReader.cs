@@ -45,7 +45,10 @@ public sealed class IdTokenHintReader(ISigningKeyProvider signingKeyProvider, IO
 
         hint = null;
 
-        if (token.Length > MaxLength || !JsonWebToken.TryReadSigned(token, signingKeyProvider.PublishedKeys, out var claims))
+        // Only the signature and the type are checked there; the claims are checked below. Not exp: an expired ID
+        // Token is still a valid hint (OpenID Connect RP-Initiated Logout 1.0, Section 2).
+        if (token.Length > MaxLength
+            || !JsonWebToken.TryVerifySignatureOnly(token, signingKeyProvider.PublishedKeys, JsonWebToken.IdTokenType, out var claims))
         {
             return false;
         }

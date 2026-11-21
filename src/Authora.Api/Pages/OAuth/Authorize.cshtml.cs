@@ -114,7 +114,8 @@ public sealed class AuthorizeModel(
             || validated.RequiresSignIn(GetAuthenticatedAt(), timeProvider.GetUtcNow().UtcDateTime);
 
         // Without a sign-in the User is unknown, so the Consent is only checked once the User is back from signing in.
-        var mustConsent = !mustSignIn && await checkConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken);
+        var mustConsent = !mustSignIn
+            && await checkConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken) == ConsentCheckResult.Required;
 
         if (validated.Prompts.Contains(PromptValues.None))
         {

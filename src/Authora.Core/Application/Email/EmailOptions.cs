@@ -40,7 +40,7 @@ public sealed class EmailOptions
 
     /// <summary>
     ///     How the connection is encrypted. Defaults to <see cref="SmtpTlsMode.StartTls"/>.
-    ///     <see cref="SmtpTlsMode.None"/> is refused outside Development and Testing.
+    ///     <see cref="SmtpTlsMode.None"/> is refused outside Development.
     /// </summary>
     public SmtpTlsMode TlsMode { get; set; } = SmtpTlsMode.StartTls;
 

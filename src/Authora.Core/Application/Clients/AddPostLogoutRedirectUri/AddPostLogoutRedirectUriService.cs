@@ -14,8 +14,9 @@ namespace Authora.Core.Application.Clients.AddPostLogoutRedirectUri;
 ///     The Service to register a Post-logout Redirect URI for a Client.
 /// </summary>
 /// <remarks>
-///     Unlike Redirect URIs, Post-logout Redirect URIs can also be added to first-party Clients: the browser is only
-///     sent there after signing out, without a code or token.
+///     Like Redirect URIs, no Post-logout Redirect URI can be added to a first-party Client. No code or token is sent
+///     there, but the Client Id of the admin interface is public: a URI of one's own would turn its logout into an
+///     open redirect on Authora's origin.
 /// </remarks>
 /// <param name="clientRepository">An Instance of a IClientRepository to change the Client.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
@@ -34,6 +35,7 @@ public sealed class AddPostLogoutRedirectUriService(
     /// <returns>A Task that completes once the Post-logout Redirect URI is registered.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
     /// <exception cref="ArgumentException">Thrown when the URI is not a valid Redirect URI.</exception>
+    /// <exception cref="ConflictException">Thrown when the Client is first-party.</exception>
     public async Task ExecuteAsync(
         Guid id,
         AddPostLogoutRedirectUriRequest request,
@@ -47,6 +49,13 @@ public sealed class AddPostLogoutRedirectUriService(
         if (client.IsPostLogoutRedirectUriAllowed(request.Uri))
         {
             return;
+        }
+
+        // Changing a first-party Client needs the Permission to manage first-party Clients, see AddRedirectUriService.
+        if (client.IsFirstParty)
+        {
+            throw new ConflictException(
+                $"Client '{id}' is first-party, so no Post-logout Redirect URI can be added. Mark it as third-party first.");
         }
 
         client.AddPostLogoutRedirectUri(request.Uri);

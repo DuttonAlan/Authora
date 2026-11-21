@@ -11,9 +11,9 @@ Authora reads its settings from `appsettings.json`, `appsettings.{Environment}.j
 | Setting | Description |
 |---|---|
 | `ConnectionStrings:Database` | PostgreSQL connection string, e.g. `Host=db;Database=authora;Username=authora_app;Password=…`. |
-| `Authora:OAuth:Issuer` | The public URL of Authora, e.g. `https://auth.example.com`. HTTPS; HTTP only for loopback hosts in `Development` and `Testing`. No query, no fragment, no trailing `/`. All endpoint URLs and the `iss` claim are built from it. Use a dedicated host without a path: Authora serves its endpoints at the root, so a path prefix is not supported. |
+| `Authora:OAuth:Issuer` | The public URL of Authora, e.g. `https://auth.example.com`. HTTPS; HTTP only for loopback hosts in `Development`. No query, no fragment, no trailing `/`. All endpoint URLs and the `iss` claim are built from it. Use a dedicated host without a path: Authora serves its endpoints at the root, so a path prefix is not supported. |
 | `Authora:Oidc:SigningKeyPath` | PEM file with the RSA private key (at least 2048 bits, unencrypted) that signs ID Tokens. Relative paths are resolved against the content root. |
-| `AllowedHosts` | Host names Authora answers to, separated by `;`, e.g. `auth.example.com`. Outside `Development` and `Testing`, it must be set and must not contain `*`. |
+| `AllowedHosts` | Host names Authora answers to, separated by `;`, e.g. `auth.example.com`. Outside `Development`, it must be set and must not contain `*`. |
 
 ## OAuth
 
@@ -83,7 +83,7 @@ Authora sends email through an SMTP server, for links with one-time tokens such 
 |---|---|---|---|
 | `Authora:Email:Host` | not set | host name or IP address, without scheme or port | The SMTP server, e.g. `smtp.example.com`. Setting it turns email delivery on. |
 | `Authora:Email:Port` | by `TlsMode`: `587`, `465` or `25` | 1 to 65535 | Port of the SMTP server. |
-| `Authora:Email:TlsMode` | `StartTls` | `StartTls`, `Implicit`, `None` | `StartTls` connects in plain text and requires the server to upgrade with STARTTLS (submission, port 587). `Implicit` uses TLS from the start (port 465). `None` sends links and credentials unencrypted and is refused outside `Development` and `Testing`. |
+| `Authora:Email:TlsMode` | `StartTls` | `StartTls`, `Implicit`, `None` | `StartTls` connects in plain text and requires the server to upgrade with STARTTLS (submission, port 587). `Implicit` uses TLS from the start (port 465). `None` sends links and credentials unencrypted and is refused outside `Development`. |
 | `Authora:Email:Username` | not set | set together with `Password` | User name for SMTP authentication. Without it, Authora sends without authentication. |
 | `Authora:Email:Password` | not set | set together with `Username` | Password for SMTP authentication. Keep it in a secret store. |
 | `Authora:Email:SenderAddress` | not set | required when `Host` is set; one address without display name | The `From` address, e.g. `no-reply@example.com`. Also gives the domain of the `Message-ID`. |
@@ -101,7 +101,7 @@ Users who forgot their password ask for a reset link on the sign-in page, and ad
 |---|---|---|---|
 | `Authora:PasswordReset:SelfServiceEnabled` | `true` | | Whether the sign-in page offers "Forgot password?". With `false`, `/account/forgot-password` returns `404`; links sent by an administrator still work. |
 | `Authora:PasswordReset:LinkLifetime` | `00:30:00` | 1 minute to 24 hours | How long a reset link works. A newer link of the same User replaces an older one right away. |
-| `Authora:PasswordReset:MaxEmailsPerHour` | `3` | 1 to 100 | Reset links the sign-in page sends to one address per hour. Further requests get the same answer but send nothing, so a mailbox cannot be flooded. Links sent by an administrator are not limited but count towards it. |
+| `Authora:PasswordReset:MaxEmailsPerHour` | `3` | 1 to 100 | Reset links the sign-in page sends to one address per hour. Further requests get the same answer but send nothing, so a mailbox cannot be flooded. Links sent by an administrator are not limited but count towards it. The limit is per address, so anyone who knows the address can use it up and delay the User's own reset by up to an hour; an administrator can still send a link. |
 
 ## Email verification
 

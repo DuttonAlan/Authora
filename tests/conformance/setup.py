@@ -101,9 +101,10 @@ def register_client(http, name, scope_ids):
     }, expected=201)
 
     client_id = created["id"]
-    # Redirect URIs and Scopes cannot be added any more once a Client is first-party, so this comes last.
-    admin_api(http, "PUT", f"/clients/{client_id}/first-party", expected=204)
+    # Redirect URIs, Post-logout Redirect URIs and Scopes cannot be added and PKCE cannot be made optional any more
+    # once a Client is first-party, so this comes last.
     admin_api(http, "PUT", f"/clients/{client_id}/pkce-optional", expected=204)
+    admin_api(http, "PUT", f"/clients/{client_id}/first-party", expected=204)
 
     return {"client_id": client_id, "client_secret": created["secret"]["secret"]}
 

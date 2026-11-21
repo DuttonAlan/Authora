@@ -85,17 +85,17 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `GET /api/clients` | `clients.read` | List. |
 | `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty` and `isPkceOptional`. |
 | `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes` (`authorization_code`, `refresh_token`, `client_credentials`; default the first two, see below), `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `postLogoutRedirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
-| `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. |
+| `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. `client_credentials` cannot be newly allowed while first-party (`409`); keeping or removing it can. |
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
 | `POST /api/clients/{id}/enable` | `clients.update` | Enable. |
 | `POST /api/clients/{id}/disable` | `clients.update` | Disable; revokes all its Grants. |
 | `PUT /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as first-party: no consent screen. **Equivalent to administrator**, see [Permissions](#permissions). |
 | `DELETE /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as third-party again. |
-| `PUT /api/clients/{id}/pkce-optional` | `clients.update` | Let a Confidential Client send authorization requests without PKCE; `400` for a Public Client. See [PKCE](oauth-endpoints.md#pkce). |
+| `PUT /api/clients/{id}/pkce-optional` | `clients.update` | Let a Confidential Client send authorization requests without PKCE; `400` for a Public Client, `409` while first-party. See [PKCE](oauth-endpoints.md#pkce). |
 | `DELETE /api/clients/{id}/pkce-optional` | `clients.update` | Require PKCE again. |
 | `POST /api/clients/{id}/redirect-uris` | `clients.update` | Add a Redirect URI (not while first-party). |
 | `DELETE /api/clients/{id}/redirect-uris` | `clients.update` | Remove a Redirect URI. |
-| `POST /api/clients/{id}/post-logout-redirect-uris` | `clients.update` | Add a Post-logout Redirect URI, body `{"uri": "…"}`; same rules as Redirect URIs, also while first-party. See [Logout](openid-connect.md#logout). |
+| `POST /api/clients/{id}/post-logout-redirect-uris` | `clients.update` | Add a Post-logout Redirect URI, body `{"uri": "…"}`; same rules as Redirect URIs, also not while first-party. See [Logout](openid-connect.md#logout). |
 | `DELETE /api/clients/{id}/post-logout-redirect-uris?uri=…` | `clients.update` | Remove a Post-logout Redirect URI. |
 | `PUT /api/clients/{id}/scopes/{scopeId}` | `clients.update` | Allow a Scope (not while first-party). |
 | `DELETE /api/clients/{id}/scopes/{scopeId}` | `clients.update` | Disallow a Scope. |

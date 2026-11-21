@@ -31,6 +31,7 @@ public sealed class UpdateClientService(
     /// <returns>A Task that completes once the Client is updated.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
     /// <exception cref="ArgumentException">Thrown when a value is invalid.</exception>
+    /// <exception cref="ConflictException">Thrown when client_credentials should be allowed for a first-party Client.</exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateClientRequest request,
@@ -46,7 +47,20 @@ public sealed class UpdateClientService(
 
         if (request.GrantTypes is not null)
         {
-            client.SetAllowedGrantTypes(GrantTypeNames.Parse(request.GrantTypes));
+            var grantTypes = GrantTypeNames.Parse(request.GrantTypes);
+
+            // With a Secret, client_credentials would give tokens for the Scopes of a first-party Client without any
+            // User, so allowing it needs the Permission to manage first-party Clients, see AddRedirectUriService.
+            // Keeping or removing it is always allowed.
+            if (client.IsFirstParty
+                && grantTypes.HasFlag(GrantTypes.ClientCredentials)
+                && !client.IsGrantTypeAllowed(GrantTypes.ClientCredentials))
+            {
+                throw new ConflictException(
+                    $"Client '{id}' is first-party, so client_credentials cannot be allowed. Mark it as third-party first.");
+            }
+
+            client.SetAllowedGrantTypes(grantTypes);
         }
 
         // Both lifetimes are validated together, because the Refresh Token TTL must exceed the Access Token TTL.

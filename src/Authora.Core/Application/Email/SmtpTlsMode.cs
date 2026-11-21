@@ -20,7 +20,7 @@ public enum SmtpTlsMode
     Implicit = 1,
 
     /// <summary>
-    ///     Unencrypted. Credentials and links travel in plain text, so only allowed in Development and Testing.
+    ///     Unencrypted. Credentials and links travel in plain text, so only allowed in Development.
     /// </summary>
     None = 2
 }

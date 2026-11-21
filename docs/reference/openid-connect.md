@@ -114,7 +114,7 @@ Responses carry `Cache-Control: no-store`.
 
 | Parameter | Rule |
 |---|---|
-| `id_token_hint` | Recommended. An ID Token Authora issued to the Client: signed with a published key, `iss` is Authora. **Expired tokens are accepted**, as the specification asks, because Clients usually sign out long after the ID Token expired. |
+| `id_token_hint` | Recommended. An ID Token Authora issued to the Client: signed with a published key, header `typ: JWT`, `iss` is Authora. **Expired tokens are accepted**, as the specification asks, because Clients usually sign out long after the ID Token expired. |
 | `client_id` | Optional. Must name an existing Client, and the `aud` of `id_token_hint` if both are sent. |
 | `post_logout_redirect_uri` | Optional. Needs `client_id` or `id_token_hint`. Must exactly match a Post-logout Redirect URI registered for that Client, which must be enabled. |
 | `state` | Optional. Returned unchanged with the redirect. |
@@ -131,4 +131,4 @@ After the decision, the browser is sent (`303`) to `post_logout_redirect_uri` wi
 
 Signing out ends the Session at Authora, so every application asks the User to sign in again. It does not revoke tokens: Access and Refresh Tokens the Client already has stay valid. A Client that signs a User out should also [revoke](oauth-endpoints.md#revocation) its Refresh Token. Signing out is recorded as the audit event `account.signed-out-by-client`.
 
-Post-logout Redirect URIs are registered per Client in the admin interface or with `POST /api/clients/{id}/post-logout-redirect-uris`, with the same rules as Redirect URIs (absolute, no fragment, HTTPS or a loopback IP). Unlike Redirect URIs, they can be added to first-party Clients, because no code or token is sent there.
+Post-logout Redirect URIs are registered per Client in the admin interface or with `POST /api/clients/{id}/post-logout-redirect-uris`, with the same rules as Redirect URIs (absolute, no fragment, HTTPS or a loopback IP). Like Redirect URIs, none can be added while a Client is first-party (`409 Conflict`): no code or token is sent there, but the Client Id of the admin interface is public, so a URI of one's own would turn its logout into an open redirect on Authora's origin.

@@ -32,7 +32,7 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 14002 | Information | Email delivery is disabled, because `Authora:Email:Host` is not set | Logged at startup. Features that send email are off. |
 | 14003 | Information | The SMTP server accepted email … | The server took the email; delivery to the mailbox is up to it. |
 | 14004 | Error | Email … could not be sent through …: … | The server was unreachable, its certificate was not trusted, authentication failed, it rejected the email (with the SMTP status code), or the timeout passed; the reason says which. The server's reply is not logged, because it can quote addresses. |
-| 14005 | Warning | Email delivery is unencrypted (TLS mode None) | Only possible in `Development` and `Testing`. |
+| 14005 | Warning | Email delivery is unencrypted (TLS mode None) | Only possible in `Development`. |
 | 14006 | Warning | Closing the connection after email … failed | The server had already accepted the email, so it counts as sent. |
 | 14011 | Information | Issued email token … for … to User … | A link was created; older unused links of the User for the same purpose stop working. |
 | 14012 | Information | Email token … for … of User … was used | |

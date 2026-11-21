@@ -68,7 +68,7 @@ public sealed class IdTokenIssuer(
             claims["nonce"] = authorizationCode.Nonce;
         }
 
-        return JsonWebToken.Create(claims, signingKeyProvider.SigningKey);
+        return JsonWebToken.Create(claims, signingKeyProvider.SigningKey, JsonWebToken.IdTokenType);
     }
 
     // OpenID Connect Core 1.0, Section 3.1.3.6: the left half of the SHA-256 hash (for RS256) of the ASCII Access Token.

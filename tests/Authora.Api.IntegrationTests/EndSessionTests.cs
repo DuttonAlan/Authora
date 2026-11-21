@@ -2,10 +2,14 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Buffers.Text;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using Authora.Api.Authentication;
@@ -242,6 +246,43 @@ public sealed class EndSessionTests(AuthoraApiFactory factory) : IClassFixture<A
         Assert.False(await IsSessionRevokedAsync(userId));
     }
 
+    [Theory]
+    [InlineData("at+jwt")]
+    [InlineData("logout+jwt")]
+    [InlineData(null)]
+    public async Task HintOfAnotherTokenType_IsShownAsError(string? type)
+    {
+        // Validly signed with the claims of the Session's ID Token, but another kind of token (RFC 8725, Section 3.11).
+        var (userId, sessionToken, signedInAt) = await SignInAsync();
+        var (clientId, _) = await CreateClientAsync();
+        var idToken = await IssueIdTokenAsync(userId, clientId, signedInAt, DateTime.UtcNow);
+
+        using var response = await LogoutAsync(sessionToken, new()
+        {
+            ["id_token_hint"] = await ResignAsync(idToken, type)
+        });
+
+        await AssertErrorAsync(response, "id_token_hint");
+        Assert.False(await IsSessionRevokedAsync(userId));
+    }
+
+    [Fact]
+    public async Task ResignedHintOfTheIdTokenType_IsAccepted()
+    {
+        // Makes sure HintOfAnotherTokenType_IsShownAsError fails because of the type, not because of the re-signing.
+        var (userId, sessionToken, signedInAt) = await SignInAsync();
+        var (clientId, _) = await CreateClientAsync();
+        var idToken = await IssueIdTokenAsync(userId, clientId, signedInAt, DateTime.UtcNow);
+
+        using var response = await LogoutAsync(sessionToken, new()
+        {
+            ["id_token_hint"] = await ResignAsync(idToken, "JWT")
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(await IsSessionRevokedAsync(userId));
+    }
+
     [Fact]
     public async Task DisabledClient_IsShownAsError()
     {
@@ -391,6 +432,32 @@ public sealed class EndSessionTests(AuthoraApiFactory factory) : IClassFixture<A
             secretHasher.Hash("unused"), client, user, Guid.NewGuid(), null, ["openid"], null, null, authenticatedAt, issuedAt, TimeSpan.FromMinutes(1));
 
         return issuer.Issue(user, code, ["openid"], "unused-access-token", issuedAt);
+    }
+
+    /// <summary>
+    ///     Signs the claims of <paramref name="token"/> again with the current signing key, with the
+    ///     <c>typ</c> header <paramref name="type"/>, or without one if it is <see langword="null"/>.
+    /// </summary>
+    private async Task<string> ResignAsync(string token, string? type)
+    {
+        var parts = token.Split('.');
+        var header = JsonNode.Parse(Base64Url.DecodeFromChars(parts[0]))!.AsObject();
+
+        header.Remove("typ");
+
+        if (type is not null)
+        {
+            header["typ"] = type;
+        }
+
+        var signingInput = $"{Base64Url.EncodeToString(Encoding.UTF8.GetBytes(header.ToJsonString()))}.{parts[1]}";
+
+        using var rsa = RSA.Create();
+        rsa.ImportFromPem(await File.ReadAllTextAsync(factory.SigningKeyPath, TestContext.Current.CancellationToken));
+
+        var signature = rsa.SignData(Encoding.ASCII.GetBytes(signingInput), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+
+        return $"{signingInput}.{Base64Url.EncodeToString(signature)}";
     }
 
     private async Task<HttpResponseMessage> LogoutAsync(string? sessionToken, Dictionary<string, string> parameters)

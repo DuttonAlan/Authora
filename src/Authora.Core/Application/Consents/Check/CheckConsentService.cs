@@ -19,8 +19,8 @@ public sealed class CheckConsentService(IConsentRepository consentRepository)
     /// <param name="request">The validated request.</param>
     /// <param name="userId">Id of the signed-in User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns>True if the consent screen must be shown.</returns>
-    public async Task<bool> ExecuteAsync(
+    /// <returns>Whether the consent screen must be shown.</returns>
+    public async Task<ConsentCheckResult> ExecuteAsync(
         ValidatedAuthorizationRequest request,
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -30,11 +30,16 @@ public sealed class CheckConsentService(IConsentRepository consentRepository)
         // A first-party Client never needs a stored Consent; only prompt=consent shows the screen.
         if (request.Client.IsFirstParty)
         {
-            return request.RequiresConsent(consent: null);
+            return ToResult(request.RequiresConsent(consent: null));
         }
 
         var consent = await consentRepository.GetConsent(userId, request.Client.Id, cancellationToken);
 
-        return request.RequiresConsent(consent);
+        return ToResult(request.RequiresConsent(consent));
+    }
+
+    private static ConsentCheckResult ToResult(bool requiresConsent)
+    {
+        return requiresConsent ? ConsentCheckResult.Required : ConsentCheckResult.NotRequired;
     }
 }

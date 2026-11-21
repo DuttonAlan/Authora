@@ -124,7 +124,7 @@ Authora logs event 14001 at startup when email is on, 14002 when it is off, and 
 
 ### What Authora checks before it starts
 
-Authora refuses to start when a setting is invalid, with a message that names the setting. In every environment except `Development` and `Testing` (so also in e.g. `Staging`) it also requires:
+Authora refuses to start when a setting is invalid, with a message that names the setting. In every environment except `Development` (so also in e.g. `Staging` or `Testing`) it also requires:
 
 | Setting | Requirement |
 |---|---|

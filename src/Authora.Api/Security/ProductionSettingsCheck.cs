@@ -18,14 +18,10 @@ namespace Authora.Api.Security;
 internal static class ProductionSettingsCheck
 {
     /// <summary>
-    ///     The environment of the integration tests, which run with a loopback Issuer like Development.
-    /// </summary>
-    public const string TestingEnvironment = "Testing";
-
-    /// <summary>
-    ///     Whether the check applies to an environment: to every environment except Development and Testing. Listing
-    ///     the exceptions instead of Production means an environment named e.g. <c>Staging</c> or <c>Prod</c> is
-    ///     checked too, instead of silently starting with insecure settings.
+    ///     Whether the check applies to an environment: to every environment except Development. Naming the one
+    ///     exception instead of Production means an environment named e.g. <c>Staging</c>, <c>Testing</c> or
+    ///     <c>Prod</c> is checked too, instead of silently starting with insecure settings. The integration tests
+    ///     run with secure settings, so they need no exception either.
     /// </summary>
     /// <param name="environment">The environment of the host.</param>
     /// <returns><see langword="true"/> if <see cref="Validate"/> must run.</returns>
@@ -33,7 +29,7 @@ internal static class ProductionSettingsCheck
     {
         ArgumentNullException.ThrowIfNull(environment);
 
-        return !environment.IsDevelopment() && !environment.IsEnvironment(TestingEnvironment);
+        return !environment.IsDevelopment();
     }
 
     /// <summary>
