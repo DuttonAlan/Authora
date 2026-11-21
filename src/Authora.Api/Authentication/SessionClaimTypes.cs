@@ -30,7 +30,12 @@ internal static class SessionClaimTypes
     public const string Name = "name";
 
     /// <summary>
-    ///     When the User signed in, in seconds since the Unix epoch.
+    ///     When the User last authenticated in the Session, in seconds since the Unix epoch.
     /// </summary>
     public const string AuthenticationTime = "auth_time";
+
+    /// <summary>
+    ///     An authentication method the User completed in the Session (RFC 8176), e.g. <c>pwd</c>. One claim per method.
+    /// </summary>
+    public const string AuthenticationMethod = "amr";
 }

@@ -49,6 +49,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<Session> Sessions => Set<Session>();
 
     /// <summary>
+    ///     The pending sign-ins that wait for a second factor, in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<SignInChallenge> SignInChallenges => Set<SignInChallenge>();
+
+    /// <summary>
     ///     The Authorization Codes Table in the <c>auth</c> schema.
     /// </summary>
     public DbSet<AuthorizationCode> AuthorizationCodes => Set<AuthorizationCode>();

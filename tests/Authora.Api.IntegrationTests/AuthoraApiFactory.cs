@@ -5,6 +5,8 @@
 using System.Security.Cryptography;
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.SecondFactors;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Infrastructure.Persistence;
@@ -61,6 +63,11 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     ///     Receives the emails the Api sends instead of an SMTP server.
     /// </summary>
     public FakeEmailSender EmailSender { get; } = new();
+
+    /// <summary>
+    ///     The only second factor of the Api. Users the tests enroll in it must complete it after the password.
+    /// </summary>
+    public FakeSecondFactor SecondFactor { get; } = new();
 
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
@@ -199,7 +206,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             : await context.Clients.SingleAsync(client => client.Id == clientId);
 
         var authorizationCode = AuthorizationCode.Create(
-            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, "test-challenge", null, now, now, TimeSpan.FromMinutes(1));
+            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, "test-challenge", null, now, [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
         var grant = Grant.Create(authorizationCode, now, TimeSpan.FromDays(1));
 
         var token = secretGenerator.Generate();
@@ -233,7 +240,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         var user = await context.Users.SingleAsync(user => user.Id == userId);
 
         var token = secretGenerator.Generate();
-        context.Sessions.Add(Session.Create(user, secretHasher.Hash(token), signedInAt ?? DateTime.UtcNow, TimeSpan.FromHours(1)));
+        context.Sessions.Add(Session.Create(user, secretHasher.Hash(token), [AuthenticationMethods.Password], signedInAt ?? DateTime.UtcNow, TimeSpan.FromHours(1)));
         await context.SaveChangesAsync();
 
         return token;
@@ -285,9 +292,16 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         // All test requests share one IP address; the tests of the limit lower it again.
         builder.UseSetting("Authora:RateLimiting:PasswordResetPermitsPerMinute", "10000");
+        builder.UseSetting("Authora:RateLimiting:SignInPermitsPerMinute", "10000");
 
-        // No SMTP server: the emails are kept by the fake.
-        builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<IEmailSender>(EmailSender)));
+        builder.ConfigureTestServices(services =>
+        {
+            // No SMTP server: the emails are kept by the fake.
+            services.Replace(ServiceDescriptor.Singleton<IEmailSender>(EmailSender));
+
+            // Only Users enrolled in the fake need a second factor; all others sign in with the password only.
+            services.AddSingleton<ISecondFactor>(SecondFactor);
+        });
     }
 
     private static User CreateUser(string passwordHash = "not-a-password-hash")

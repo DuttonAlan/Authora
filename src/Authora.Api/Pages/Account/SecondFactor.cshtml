@@ -1,0 +1,59 @@
+@page "/account/second-factor"
+@model Authora.Api.Pages.Account.SecondFactorModel
+@{
+    ViewData["Title"] = "Two-step verification";
+}
+
+@if (Model.Pending is null)
+{
+    <h1>Sign in again</h1>
+    <p class="error" role="alert">@(Model.ErrorMessage ?? Authora.Api.Pages.Account.SecondFactorModel.ExpiredMessage)</p>
+    <p><a href="@Model.SignInUrl">Sign in</a></p>
+}
+else
+{
+    <h1>Two-step verification</h1>
+
+    @if (Model.Pending.IsStepUp)
+    {
+        <p>Confirm it is you with another factor. You are signed in as <strong>@Model.Pending.Email</strong>.</p>
+    }
+    else
+    {
+        <p>Your password was correct. Complete the second step to sign in as <strong>@Model.Pending.Email</strong>.</p>
+    }
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error" role="alert">@Model.ErrorMessage</p>
+    }
+
+    <form method="post">
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        @if (Model.Pending.Factors.Count == 1)
+        {
+            <input type="hidden" asp-for="Method" />
+            <p>Enter the code of your <strong>@Model.Pending.Factors[0].DisplayName</strong>.</p>
+        }
+        else
+        {
+            <fieldset class="choices">
+                <legend>Verify with</legend>
+                @foreach (var factor in Model.Pending.Factors)
+                {
+                    <label><input type="radio" name="Method" value="@factor.Method" checked="@(factor.Method == Model.Method)" /> @factor.DisplayName</label>
+                }
+            </fieldset>
+        }
+
+        <label asp-for="Code">Code</label>
+        <input asp-for="Code" type="text" inputmode="numeric" autocomplete="one-time-code" required autofocus />
+
+        <div class="actions">
+            <button type="submit" class="primary">Verify</button>
+        </div>
+    </form>
+
+    <p class="muted"><a href="@Model.CancelUrl">Cancel</a></p>
+}

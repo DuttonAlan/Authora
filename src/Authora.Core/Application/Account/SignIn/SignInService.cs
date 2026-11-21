@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.SecondFactors;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 
@@ -14,18 +16,27 @@ using Microsoft.Extensions.Options;
 namespace Authora.Core.Application.Account.SignIn;
 
 /// <summary>
-///     The Service to sign a User in with Email and password and start a new Session.
+///     The Service to sign a User in with Email and password and start a new Session, or a pending sign-in if the User
+///     enrolled a second factor.
 /// </summary>
 /// <remarks>
-///     Every failure returns the same result, whether the Email is unknown, the password is wrong, the User has no
-///     password, cannot sign in or is locked out. For unknown Users, a password is still verified, so the
-///     response time does not reveal whether the Email exists.
+///     <para>
+///         Every failure returns the same result, whether the Email is unknown, the password is wrong, the User has no
+///         password, cannot sign in or is locked out. For unknown Users, a password is still verified, so the
+///         response time does not reveal whether the Email exists.
+///     </para>
+///     <para>
+///         A User with a second factor gets no Session for the password alone, only a short-lived pending sign-in,
+///         which <see cref="CompleteSignIn.CompleteSignInService"/> turns into a Session.
+///     </para>
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to load the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to create the Session.</param>
+/// <param name="challengeRepository">An Instance of a ISignInChallengeRepository to create a pending sign-in.</param>
+/// <param name="secondFactors">The second factors, to check whether the User must complete one.</param>
 /// <param name="passwordHasher">The hasher to verify the password.</param>
-/// <param name="secretGenerator">The generator for the Session token.</param>
-/// <param name="secretHasher">The hasher for the stored Session token.</param>
+/// <param name="secretGenerator">The generator for the Session token and the token of a pending sign-in.</param>
+/// <param name="secretHasher">The hasher for the stored tokens.</param>
 /// <param name="timeProvider">The TimeProvider for the lockout and the Session lifetime.</param>
 /// <param name="options">The sign-in settings.</param>
 /// <param name="auditLog">The audit log to record sign-ins and lockouts.</param>
@@ -33,6 +44,8 @@ namespace Authora.Core.Application.Account.SignIn;
 public sealed class SignInService(
     IUserRepository userRepository,
     ISessionRepository sessionRepository,
+    ISignInChallengeRepository challengeRepository,
+    SecondFactorRegistry secondFactors,
     IPasswordHasher passwordHasher,
     ISecretGenerator secretGenerator,
     ISecretHasher secretHasher,
@@ -48,12 +61,12 @@ public sealed class SignInService(
     private static string? dummyPasswordHash;
 
     /// <summary>
-    ///     Checks the credentials and starts a new Session.
+    ///     Checks the credentials and starts a new Session or a pending sign-in.
     /// </summary>
     /// <param name="email">The Email the User entered.</param>
     /// <param name="password">The password the User entered.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns>The plain-text token of the new Session, or null if the sign-in failed.</returns>
+    /// <returns>The token of the new Session or of the pending sign-in, or <see cref="SignInResult.Failed"/>.</returns>
     public async Task<SignInResult> ExecuteAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(email);
@@ -146,22 +159,52 @@ public sealed class SignInService(
             user.RehashPassword(passwordHasher.Hash(password));
         }
 
+        if ((await secondFactors.GetEnrolledAsync(user.Id, cancellationToken)).Count > 0)
+        {
+            return await StartPendingSignInAsync(user, now, cancellationToken);
+        }
+
         user.RecordSuccessfulSignIn(now);
 
         // Throws a ConflictException if the User was changed since it was loaded.
         await userRepository.SaveChangesAsync(cancellationToken);
 
         var sessionToken = secretGenerator.Generate();
-        var session = Session.Create(user, secretHasher.Hash(sessionToken), now, options.Value.SessionLifetime);
+        var session = Session.Create(user, secretHasher.Hash(sessionToken), [AuthenticationMethods.Password], now, options.Value.SessionLifetime);
 
         // Recorded after the User was saved: a retry after a conflict must not record the sign-in twice.
-        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.SignIn, user.Id, $"Session {session.Id}"));
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.SignIn, user.Id, $"Session {session.Id} ({session.AuthenticationMethod})"));
 
         await sessionRepository.CreateSession(session, cancellationToken);
 
         logger.SignedIn(user.Id, session.Id);
 
-        return new SignInResult(sessionToken);
+        return SignInResult.SignedIn(sessionToken);
+    }
+
+    // The password is correct, but the User enrolled a second factor: no Session yet, only a pending sign-in. The
+    // failed attempts are not reset, so knowing the password does not allow guessing the second factor endlessly;
+    // they are reset once the second factor is completed, see CompleteSignInService.
+    private async Task<SignInResult> StartPendingSignInAsync(User user, DateTime now, CancellationToken cancellationToken)
+    {
+        // Saves a rehashed password; throws a ConflictException if the User was changed since it was loaded.
+        await userRepository.SaveChangesAsync(cancellationToken);
+
+        var challengeToken = secretGenerator.Generate();
+        var challenge = SignInChallenge.Create(
+            secretHasher.Hash(challengeToken),
+            user,
+            [AuthenticationMethods.Password],
+            now,
+            options.Value.PendingSignInLifetime);
+
+        auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.SignInPending, user.Id, $"Pending sign-in {challenge.Id}"));
+
+        await challengeRepository.CreateChallenge(challenge, cancellationToken);
+
+        logger.SignInPending(user.Id, challenge.Id);
+
+        return SignInResult.Pending(challengeToken);
     }
 
     private async Task RecordFailureAsync(Guid? userId, string reason, CancellationToken cancellationToken)
@@ -181,24 +224,57 @@ public sealed class SignInService(
 }
 
 /// <summary>
-///     The result of <see cref="SignInService"/>.
+///     The result of <see cref="SignInService"/>: a new Session, a pending sign-in that waits for a second factor, or a
+///     failure.
 /// </summary>
-/// <param name="SessionToken">The plain-text token of the new Session for the cookie, or null if the sign-in failed.</param>
-public sealed record SignInResult(string? SessionToken)
+public sealed record SignInResult
 {
     /// <summary>
     ///     The result of a failed sign-in.
     /// </summary>
-    public static readonly SignInResult Failed = new(SessionToken: null);
+    public static readonly SignInResult Failed = new();
+
+    private SignInResult()
+    {
+    }
 
     /// <summary>
-    ///     Whether the sign-in succeeded.
+    ///     The plain-text token of the new Session for the Session cookie, or null.
+    /// </summary>
+    public string? SessionToken { get; private init; }
+
+    /// <summary>
+    ///     The plain-text token of the pending sign-in for its own cookie, or null.
+    /// </summary>
+    public string? ChallengeToken { get; private init; }
+
+    /// <summary>
+    ///     Whether the User is signed in with a new Session.
     /// </summary>
     public bool Succeeded => SessionToken is not null;
 
     /// <summary>
-    ///     Returns a description without the Session token, so it is not written to logs by accident.
+    ///     Whether the password was correct and the User must complete a second factor.
+    /// </summary>
+    public bool IsPending => ChallengeToken is not null;
+
+    /// <summary>
+    ///     Creates the result of a completed sign-in.
+    /// </summary>
+    /// <param name="sessionToken">The plain-text token of the new Session.</param>
+    /// <returns>The result.</returns>
+    public static SignInResult SignedIn(string sessionToken) => new() { SessionToken = sessionToken };
+
+    /// <summary>
+    ///     Creates the result of a sign-in that waits for a second factor.
+    /// </summary>
+    /// <param name="challengeToken">The plain-text token of the pending sign-in.</param>
+    /// <returns>The result.</returns>
+    public static SignInResult Pending(string challengeToken) => new() { ChallengeToken = challengeToken };
+
+    /// <summary>
+    ///     Returns a description without the tokens, so they are not written to logs by accident.
     /// </summary>
     /// <returns>A description of the result.</returns>
-    public override string ToString() => $"SignInResult(Succeeded = {Succeeded})";
+    public override string ToString() => $"SignInResult(Succeeded = {Succeeded}, IsPending = {IsPending})";
 }

@@ -68,7 +68,8 @@ public sealed class SessionAuthenticationHandler(
                 new Claim(
                     SessionClaimTypes.AuthenticationTime,
                     new DateTimeOffset(session.AuthenticatedAt, TimeSpan.Zero).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
-                    ClaimValueTypes.Integer64)
+                    ClaimValueTypes.Integer64),
+                .. session.AuthenticationMethods.Select(method => new Claim(SessionClaimTypes.AuthenticationMethod, method))
             ],
             SchemeName,
             SessionClaimTypes.Name,
@@ -80,11 +81,29 @@ public sealed class SessionAuthenticationHandler(
     /// <inheritdoc/>
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)
     {
+        RedirectToSignIn(properties);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     A signed-in User who does not meet a policy of the Session scheme, i.e. did not authenticate recently enough
+    ///     (<see cref="Authorization.AuthorizationPolicies.RecentAuthentication"/>), is asked to sign in again.
+    /// </summary>
+    /// <param name="properties">The properties of the request.</param>
+    /// <returns>A Task that completes once the redirect is set.</returns>
+    protected override Task HandleForbiddenAsync(AuthenticationProperties properties)
+    {
+        RedirectToSignIn(properties);
+
+        return Task.CompletedTask;
+    }
+
+    private void RedirectToSignIn(AuthenticationProperties properties)
+    {
         // Only local URLs are used, so the sign-in page cannot be turned into an open redirect.
         var returnUrl = properties.RedirectUri ?? $"{Request.PathBase}{Request.Path}{Request.QueryString}";
 
         Response.Redirect($"{Request.PathBase}{SignInPath}?returnUrl={Uri.EscapeDataString(returnUrl)}");
-
-        return Task.CompletedTask;
     }
 }

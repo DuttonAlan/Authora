@@ -94,6 +94,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
         serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();
         serviceCollection.AddTransient<ISessionRepository, SessionRepository>();
+        serviceCollection.AddTransient<ISignInChallengeRepository, SignInChallengeRepository>();
         serviceCollection.AddTransient<ITokenRepository, TokenRepository>();
         serviceCollection.AddTransient<IUserRepository, UserRepository>();
 

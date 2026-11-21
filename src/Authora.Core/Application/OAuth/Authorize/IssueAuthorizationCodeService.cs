@@ -37,7 +37,8 @@ public sealed class IssueAuthorizationCodeService(
     /// <param name="request">The validated request the User approved.</param>
     /// <param name="userId">The Id of the signed-in User.</param>
     /// <param name="sessionId">The Id of the Session of the User. The code can only be exchanged while it is active.</param>
-    /// <param name="authenticatedAt">When the User signed in (UTC), for <c>auth_time</c> in the ID Token.</param>
+    /// <param name="authenticatedAt">When the User last authenticated in the Session (UTC), for <c>auth_time</c> in the ID Token.</param>
+    /// <param name="authenticationMethods">The authentication methods the User completed in the Session, e.g. <c>pwd</c>.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>The plain-text code, which is only sent to the Client.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the User does not exist or cannot sign in.</exception>
@@ -46,6 +47,7 @@ public sealed class IssueAuthorizationCodeService(
         Guid userId,
         Guid sessionId,
         DateTime authenticatedAt,
+        IReadOnlyCollection<string> authenticationMethods,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -70,6 +72,7 @@ public sealed class IssueAuthorizationCodeService(
             request.CodeChallenge,
             request.Nonce,
             authenticatedAt,
+            authenticationMethods,
             timeProvider.GetUtcNow().UtcDateTime,
             options.Value.AuthorizationCodeLifetime);
 

@@ -42,6 +42,8 @@ Lifetimes of Access and Refresh Tokens are set per Client, in the admin interfac
 | `Authora:SignIn:SessionLifetime` | `12:00:00` | at most 7 days, not shorter than the idle timeout | A Session ends after this time regardless of use. |
 | `Authora:SignIn:MaxFailedAttempts` | `5` | 1 to 100 | Failed sign-ins in a row that lock a User out. |
 | `Authora:SignIn:LockoutDuration` | `00:15:00` | at most 1 hour | How long a User stays locked out. Kept short, because anyone who knows an Email can trigger a lockout. |
+| `Authora:SignIn:PendingSignInLifetime` | `00:05:00` | greater than 0, at most 15 minutes | How long a User with a second factor has after the password to complete it, before signing in starts over. |
+| `Authora:SignIn:RecentAuthenticationWindow` | `00:10:00` | greater than 0, at most 1 hour | How long after authenticating a User may make sensitive changes to their account, such as enrolling or removing a second factor, before being asked to sign in again. |
 
 ## Rate limits
 
@@ -49,7 +51,7 @@ Per client IP address. Behind a reverse proxy, configure `Authora:ForwardedHeade
 
 | Setting | Default | Limits | Description |
 |---|---|---|---|
-| `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts and password changes at `/account/password` per minute, together. |
+| `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts, second factors at `/account/second-factor` and password changes at `/account/password` per minute, together. |
 | `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/admin/callback` and `/admin/session/refresh` per minute, together. A resource server that introspects tokens for every request should cache the results or get a higher limit. |
 | `Authora:RateLimiting:PasswordResetPermitsPerMinute` | `5` | 1 to 100000 | Submissions of `/account/forgot-password`, `/account/reset-password` and `/account/verify-email` per minute, together. Opening the pages is not limited. Each address also gets at most `Authora:PasswordReset:MaxEmailsPerHour` links. |
 

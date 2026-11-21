@@ -12,11 +12,13 @@ namespace Authora.Core.Application.Account.Sessions;
 /// <param name="Email">Email of the User, shown e.g. on the consent screen.</param>
 /// <param name="FirstName">First Name of the User.</param>
 /// <param name="LastName">Last Name of the User.</param>
-/// <param name="AuthenticatedAt">Point in time (UTC) when the User signed in.</param>
+/// <param name="AuthenticatedAt">Point in time (UTC) when the User last authenticated in the Session: the sign-in or a later step-up.</param>
+/// <param name="AuthenticationMethods">The authentication methods the User completed in the Session (RFC 8176), e.g. <c>pwd</c>.</param>
 public sealed record AuthenticatedSession(
     Guid SessionId,
     Guid UserId,
     string Email,
     string FirstName,
     string LastName,
-    DateTime AuthenticatedAt);
+    DateTime AuthenticatedAt,
+    IReadOnlyList<string> AuthenticationMethods);

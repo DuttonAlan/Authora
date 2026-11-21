@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.ValueObjects;
 
@@ -32,6 +33,12 @@ public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
 
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
+
+        builder.Property(x => x.AuthenticationMethod)
+            .IsRequired()
+            .HasMaxLength(AuthenticationMethods.MaxLength);
+
+        builder.Ignore(x => x.AuthenticationMethods);
 
         // Used by the cleanup of expired rows, see ExpiredDataCleaner.
         builder.HasIndex(x => x.ExpiresAt);

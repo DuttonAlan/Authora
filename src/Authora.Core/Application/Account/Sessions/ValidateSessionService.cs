@@ -49,7 +49,9 @@ public sealed class ValidateSessionService(
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var idleTimeout = options.Value.SessionIdleTimeout;
 
-        if (session is null || !session.IsActive(now, idleTimeout))
+        // Sessions from before the authentication methods were recorded have none. They end, and the User signs in
+        // again, so every Authorization Code knows how its User authenticated.
+        if (session is null || !session.IsActive(now, idleTimeout) || session.AuthenticationMethods.Count == 0)
         {
             return null;
         }
@@ -82,7 +84,14 @@ public sealed class ValidateSessionService(
             await sessionRepository.SaveChangesAsync(cancellationToken);
         }
 
-        return new AuthenticatedSession(session.Id, user.Id, user.Email, user.FirstName, user.LastName, session.CreatedAt);
+        return new AuthenticatedSession(
+            session.Id,
+            user.Id,
+            user.Email,
+            user.FirstName,
+            user.LastName,
+            session.AuthenticatedAt,
+            session.AuthenticationMethods);
     }
 
     // The Session and the User are loaded one after the other. A password change in this Session that commits in

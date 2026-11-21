@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 
 using Authora.Api.Authentication;
 using Authora.Api.RateLimiting;
+using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.RequestPasswordReset;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
@@ -15,6 +16,7 @@ using UserEntity = Authora.Core.Domain.Entities.User;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Api.Pages.Account;
 
@@ -25,11 +27,17 @@ namespace Authora.Api.Pages.Account;
 /// <param name="signInService">The Service to check the credentials and start a Session.</param>
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
 /// <param name="requestPasswordResetService">Tells whether the page offers "Forgot password?".</param>
+/// <param name="signInOptions">The sign-in settings with the lifetime of a pending sign-in.</param>
+/// <remarks>
+///     A User who enrolled a second factor is sent on to <see cref="SecondFactorModel"/> after the password, with a
+///     pending sign-in in its own cookie instead of a Session.
+/// </remarks>
 [EnableRateLimiting(RateLimitPolicies.SignIn)]
 public sealed class LoginModel(
     SignInService signInService,
     SignOutService signOutService,
-    RequestPasswordResetService requestPasswordResetService) : PageModel
+    RequestPasswordResetService requestPasswordResetService,
+    IOptions<SignInOptions> signInOptions) : PageModel
 {
     /// <summary>
     ///     Whether the page links to the "Forgot password?" page: email delivery is configured and the self-service reset
@@ -101,6 +109,14 @@ public sealed class LoginModel(
 
         var result = await signInService.ExecuteAsync(Email, Password, cancellationToken);
 
+        if (result.IsPending)
+        {
+            // No Session yet: the browser keeps its current Session, if any, until the second factor is complete.
+            PendingSignInCookie.Append(Response, result.ChallengeToken!, signInOptions.Value.PendingSignInLifetime);
+
+            return LocalRedirect($"{SecondFactorModel.PagePath}?returnUrl={Uri.EscapeDataString(GetSafeReturnUrl())}");
+        }
+
         if (!result.Succeeded)
         {
             return Failed();
@@ -110,6 +126,7 @@ public sealed class LoginModel(
         // and a token an attacker planted in the browser before the sign-in is never upgraded.
         await signOutService.ExecuteAsync(SessionCookie.Read(Request), cancellationToken);
         SessionCookie.Append(Response, result.SessionToken!);
+        PendingSignInCookie.Delete(Response);
 
         return LocalRedirect(GetSafeReturnUrl());
     }

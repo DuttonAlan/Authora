@@ -59,6 +59,21 @@ public sealed class SignInOptionsValidator : IValidateOptions<SignInOptions>
                 + $"and at most {SignInOptions.MaxLockoutDuration}. {DurationHint}");
         }
 
+        if (options.PendingSignInLifetime <= TimeSpan.Zero || options.PendingSignInLifetime > SignInOptions.MaxPendingSignInLifetime)
+        {
+            failures.Add(
+                $"'{SignInOptions.SectionName}:{nameof(SignInOptions.PendingSignInLifetime)}' must be greater than 0 "
+                + $"and at most {SignInOptions.MaxPendingSignInLifetime}. {DurationHint}");
+        }
+
+        if (options.RecentAuthenticationWindow <= TimeSpan.Zero
+            || options.RecentAuthenticationWindow > SignInOptions.MaxRecentAuthenticationWindow)
+        {
+            failures.Add(
+                $"'{SignInOptions.SectionName}:{nameof(SignInOptions.RecentAuthenticationWindow)}' must be greater than 0 "
+                + $"and at most {SignInOptions.MaxRecentAuthenticationWindow}. {DurationHint}");
+        }
+
         return failures.Count > 0 ? ValidateOptionsResult.Fail(failures) : ValidateOptionsResult.Success;
     }
 }

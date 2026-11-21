@@ -1,0 +1,35 @@
+@page "/account/security"
+@model Authora.Api.Pages.Account.SecurityModel
+@{
+    ViewData["Title"] = "Account and security";
+}
+
+<h1>Account and security</h1>
+<p>Signed in as <strong>@Model.SignedInEmail</strong>.</p>
+
+<ul class="scopes">
+    <li>
+        <strong>This session</strong>
+        <span class="description">Signed in on @Model.AuthenticatedAt.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) UTC with @string.Join(" and ", Model.AuthenticationMethods).</span>
+    </li>
+    <li>
+        <a href="/account/password">Change password</a>
+        <span class="description">Signs you out everywhere else.</span>
+    </li>
+    @if (Model.SecondFactors.Count > 0)
+    {
+        <li>
+            <strong>Two-step verification</strong>
+            @foreach (var factor in Model.SecondFactors)
+            {
+                <span class="description">@factor.DisplayName: @(factor.IsEnrolled ? "on" : "off")</span>
+            }
+        </li>
+    }
+    <li>
+        <a href="/account/consents">Connected applications</a>
+        <span class="description">Applications you allowed to access your account.</span>
+    </li>
+</ul>
+
+<p class="muted"><a href="/account/logout">Sign out</a></p>

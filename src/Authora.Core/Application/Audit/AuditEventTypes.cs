@@ -22,6 +22,20 @@ public static class AuditEventTypes
         public const string SignIn = "account.sign-in";
 
         /// <summary>
+        ///     The password of a User was correct, but the User enrolled a second factor, so the sign-in waits for it.
+        ///     Also recorded when a signed-in User starts a step-up of their Session. The Details name the pending
+        ///     sign-in. A wrong second factor is recorded as a failed <see cref="SignIn"/> or <see cref="StepUp"/>.
+        /// </summary>
+        public const string SignInPending = "account.sign-in-pending";
+
+        /// <summary>
+        ///     A signed-in User completed an additional factor for their Session (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>;
+        ///     the Session got a new token), or the step-up failed (<see cref="Domain.Enums.AuditOutcome.Failed"/>,
+        ///     with the reason in the Details).
+        /// </summary>
+        public const string StepUp = "account.step-up";
+
+        /// <summary>
         ///     A User was locked out after too many failed sign-ins.
         /// </summary>
         public const string LockedOut = "account.locked-out";

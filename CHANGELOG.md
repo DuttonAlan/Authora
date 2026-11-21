@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Upgrading
+
+- Stop all instances before applying the new migration `TwoStepSignIn`.
+- Sessions started before the upgrade end; Users sign in again.
+
+### Added
+
+- Sign-in is prepared for a second factor: a User who has enrolled one gets no Session for the password alone, only a pending sign-in (5 minutes, single use, ended by a change of the User's security stamp), completed at `/account/second-factor`. Wrong second factors count towards the lockout. No second factor can be enrolled yet, so sign-in works as before for everyone.
+- Sessions record how the User authenticated (RFC 8176 methods, `pwd` for now) and when they last did; both are carried by Authorization Codes, so `auth_time` reflects the latest authentication.
+- Step-up at `/account/step-up`: a signed-in User completes an additional factor for the current Session, which then gets a new Session token.
+- *Account and security* overview at `/account/security`, linked from the account pages.
+- Settings `Authora:SignIn:PendingSignInLifetime` and `Authora:SignIn:RecentAuthenticationWindow`, audit events `account.sign-in-pending` and `account.step-up`, log events 5019 – 5023 and 8005.
+
 ## [0.2.0] - 2026-11-21
 
 ### Upgrading

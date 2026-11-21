@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.Persistence;
@@ -43,8 +44,8 @@ public sealed class ExpiredDataCleanerTests(AuthoraApiFactory factory) : IClassF
             context.AddRange(
                 // Expired 2 days ago, within the retention: kept for reuse detection.
                 RefreshToken.Create(currentGrant.Id, secretHasher.Hash(Guid.NewGuid().ToString()), now.AddDays(-3), TimeSpan.FromDays(1)),
-                Session.Create(user, secretHasher.Hash(Guid.NewGuid().ToString()), now.AddDays(-30), TimeSpan.FromHours(1)),
-                Session.Create(user, secretHasher.Hash(Guid.NewGuid().ToString()), now, TimeSpan.FromHours(1)));
+                Session.Create(user, secretHasher.Hash(Guid.NewGuid().ToString()), [AuthenticationMethods.Password], now.AddDays(-30), TimeSpan.FromHours(1)),
+                Session.Create(user, secretHasher.Hash(Guid.NewGuid().ToString()), [AuthenticationMethods.Password], now, TimeSpan.FromHours(1)));
 
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }

@@ -44,9 +44,21 @@ public sealed class Session
     public Guid SecurityStamp { get; private set; }
 
     /// <summary>
-    ///     Point in time (UTC) when the User signed in.
+    ///     Point in time (UTC) when the User signed in and the Session started.
     /// </summary>
     public DateTime CreatedAt { get; private set; }
+
+    /// <summary>
+    ///     Point in time (UTC) when the User last authenticated in the Session: the sign-in, or a later step-up.
+    ///     Returned as <c>auth_time</c> in ID Tokens.
+    /// </summary>
+    public DateTime AuthenticatedAt { get; private set; }
+
+    /// <summary>
+    ///     The authentication methods the User completed in the Session (<see cref="Domain.AuthenticationMethods"/>),
+    ///     e.g. <c>pwd</c>, space-delimited in the order they were completed.
+    /// </summary>
+    public string AuthenticationMethod { get; private set; } = null!;
 
     /// <summary>
     ///     Point in time (UTC) when the Session was last used. Used for the idle timeout.
@@ -64,15 +76,28 @@ public sealed class Session
     public DateTime? RevokedAt { get; private set; }
 
     /// <summary>
+    ///     The authentication methods the User completed in the Session.
+    /// </summary>
+    public IReadOnlyList<string> AuthenticationMethods => Domain.AuthenticationMethods.Split(AuthenticationMethod);
+
+    /// <summary>
     ///     Creates a new Session for a User who just signed in.
     /// </summary>
     /// <param name="user">The signed-in User.</param>
     /// <param name="tokenHash">The hash of the Session token.</param>
+    /// <param name="authenticationMethods">The methods the User signed in with, e.g. <c>pwd</c>.</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <param name="lifetime">The absolute lifetime of the Session.</param>
     /// <returns>The created Session.</returns>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC or the lifetime is not positive.</exception>
-    public static Session Create(User user, SecretHash tokenHash, DateTime now, TimeSpan lifetime)
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="now"/> is not in UTC, the lifetime is not positive or the methods are invalid.
+    /// </exception>
+    public static Session Create(
+        User user,
+        SecretHash tokenHash,
+        IEnumerable<string> authenticationMethods,
+        DateTime now,
+        TimeSpan lifetime)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(tokenHash);
@@ -84,10 +109,34 @@ public sealed class Session
             UserId = user.Id,
             TokenHash = tokenHash,
             SecurityStamp = user.SecurityStamp,
+            AuthenticationMethod = Domain.AuthenticationMethods.Format(authenticationMethods),
             CreatedAt = now,
+            AuthenticatedAt = now,
             LastActivityAt = now,
             ExpiresAt = now + lifetime
         };
+    }
+
+    /// <summary>
+    ///     Records a step-up: the User completed an additional method in this Session. The Session gets a new token,
+    ///     like on every sign-in, so a token known before the step-up does not gain its strength.
+    /// </summary>
+    /// <remarks>
+    ///     The absolute lifetime does not change.
+    /// </remarks>
+    /// <param name="tokenHash">The hash of the new Session token.</param>
+    /// <param name="authenticationMethod">The method the User completed.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC or the method is invalid.</exception>
+    public void RecordStepUp(SecretHash tokenHash, string authenticationMethod, DateTime now)
+    {
+        ArgumentNullException.ThrowIfNull(tokenHash);
+        UtcGuard.EnsureUtc(now);
+
+        AuthenticationMethod = Domain.AuthenticationMethods.Format([.. AuthenticationMethods, authenticationMethod]);
+        TokenHash = tokenHash;
+        AuthenticatedAt = now;
+        RecordActivity(now);
     }
 
     /// <summary>
