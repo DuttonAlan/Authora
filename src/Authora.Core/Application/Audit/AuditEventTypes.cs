@@ -57,6 +57,13 @@ public static class AuditEventTypes
         ///     (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the Details).
         /// </summary>
         public const string PasswordReset = "account.password-reset";
+
+        /// <summary>
+        ///     A User confirmed their Email with a verification link (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>),
+        ///     or the link was not accepted (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the
+        ///     Details).
+        /// </summary>
+        public const string EmailVerified = "account.email-verified";
     }
 
     /// <summary>
@@ -129,6 +136,17 @@ public static class AuditEventTypes
         ///     once the mail server accepted it), or the email could not be sent (<see cref="Domain.Enums.AuditOutcome.Failed"/>).
         /// </summary>
         public const string PasswordResetSent = "user.password-reset-sent";
+
+        /// <summary>
+        ///     A verification link was sent to the Email of a User. Sent by an administrator: Succeeded once the mail
+        ///     server accepted it, Failed if it could not be sent. Sent by itself after the User was created or their Email
+        ///     was changed: Succeeded once it was queued (the Details say so), Failed if the queue was full; delivery
+        ///     failures are then only logged.
+        /// </summary>
+        public const string EmailVerificationSent = "user.email-verification-sent";
+
+        /// <summary>An administrator marked the Email of a User as verified.</summary>
+        public const string EmailMarkedVerified = "user.email-marked-verified";
 
         /// <summary>A Role was assigned to a User.</summary>
         public const string RoleAssigned = "user.role-assigned";

@@ -51,7 +51,7 @@ Per client IP address. Behind a reverse proxy, configure `Authora:ForwardedHeade
 |---|---|---|---|
 | `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts and password changes at `/account/password` per minute, together. |
 | `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/admin/callback` and `/admin/session/refresh` per minute, together. A resource server that introspects tokens for every request should cache the results or get a higher limit. |
-| `Authora:RateLimiting:PasswordResetPermitsPerMinute` | `5` | 1 to 100000 | Submissions of `/account/forgot-password` and `/account/reset-password` per minute, together. Opening the pages is not limited. Each address also gets at most `Authora:PasswordReset:MaxEmailsPerHour` links. |
+| `Authora:RateLimiting:PasswordResetPermitsPerMinute` | `5` | 1 to 100000 | Submissions of `/account/forgot-password`, `/account/reset-password` and `/account/verify-email` per minute, together. Opening the pages is not limited. Each address also gets at most `Authora:PasswordReset:MaxEmailsPerHour` links. |
 
 Requests over the limit get `429 Too Many Requests`.
 
@@ -102,6 +102,15 @@ Users who forgot their password ask for a reset link on the sign-in page, and ad
 | `Authora:PasswordReset:SelfServiceEnabled` | `true` | | Whether the sign-in page offers "Forgot password?". With `false`, `/account/forgot-password` returns `404`; links sent by an administrator still work. |
 | `Authora:PasswordReset:LinkLifetime` | `00:30:00` | 1 minute to 24 hours | How long a reset link works. A newer link of the same User replaces an older one right away. |
 | `Authora:PasswordReset:MaxEmailsPerHour` | `3` | 1 to 100 | Reset links the sign-in page sends to one address per hour. Further requests get the same answer but send nothing, so a mailbox cannot be flooded. Links sent by an administrator are not limited but count towards it. |
+
+## Email verification
+
+Users confirm their Email with a link to `{Issuer}/account/verify-email`, which sets `email_verified` to `true` (see [Email verification](oauth-endpoints.md#email-verification)). Sending links needs email delivery (`Authora:Email:Host`); without it, administrators can only mark addresses as verified.
+
+| Setting | Default | Limits | Description |
+|---|---|---|---|
+| `Authora:EmailVerification:SendAutomatically` | `true` | | Whether a link is sent in the background when a User is created or their Email changes to a different address. With `false`, administrators send links with `POST /api/users/{id}/email-verification`. |
+| `Authora:EmailVerification:LinkLifetime` | `1.00:00:00` | 1 minute to 24 hours | How long a verification link works. A newer link of the same User replaces an older one right away. |
 
 ## Bootstrap
 

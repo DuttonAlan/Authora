@@ -136,6 +136,7 @@ python3 -c 'import sys,json,base64; p=sys.argv[1].split(".")[1]; print(json.dump
 - `sub` is your User Id. It never changes, so applications use it, not the Email, to recognize a user.
 - `aud` is your Client Id: the token was made for your application only.
 - `nonce` is the value you sent in step 3, so the application can tell that this token answers its own request.
+- `email_verified` is `false`, because the administrator from the configuration never confirmed the address. Users confirm it with a link Authora emails them, or an administrator marks it as verified.
 - The ID Token expires after five minutes (`exp`). It is meant to be checked once, at sign-in.
 
 A real application also verifies the token's signature with Authora's public keys at <https://localhost:8443/.well-known/jwks.json>. OpenID Connect libraries do that for you.

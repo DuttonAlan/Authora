@@ -122,6 +122,9 @@ builder.Services.AddOptions<SignInOptions>()
 builder.Services.AddOptions<PasswordResetOptions>()
     .Bind(builder.Configuration.GetSection(PasswordResetOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<EmailVerificationOptions>()
+    .Bind(builder.Configuration.GetSection(EmailVerificationOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.AddOptions<BootstrapOptions>()
     .Bind(builder.Configuration.GetSection(BootstrapOptions.SectionName))
     .ValidateOnStart();

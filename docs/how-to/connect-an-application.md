@@ -37,7 +37,7 @@ Things libraries sometimes assume that Authora does not do:
 - **No `form_post` response mode.** Some libraries use it by default; switch them to `query`.
 - **No `offline_access` Scope.** A Client gets a Refresh Token whenever its Grant Types include `Refresh Token`.
 - **Refresh does not return a new ID Token.** Keep the claims from sign-in, or call UserInfo.
-- **`email_verified` is always `false`**, because Authora does not verify Email addresses yet. Do not use the Email to link accounts; use `sub`.
+- **`email_verified` can be `false`.** It is `true` only once the User confirmed the address with a link or an administrator marked it as verified, and becomes `false` again when the Email changes. Identify Users by `sub`, which never changes; if you link accounts by Email, only do so while `email_verified` is `true`.
 - **No Roles or Permissions in tokens.** Authora's Roles and Permissions only control access to Authora's own admin API; see [the access model](../explanation/access-model.md).
 
 ## Example: ASP.NET Core

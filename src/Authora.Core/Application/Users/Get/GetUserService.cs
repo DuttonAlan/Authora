@@ -37,6 +37,8 @@ public sealed class GetUserService(IUserRepository userRepository)
         return new GetUserResponse(
             user.Id,
             user.Email,
+            user.IsEmailVerified,
+            user.EmailVerifiedAt,
             user.FirstName,
             user.LastName,
             user.State,

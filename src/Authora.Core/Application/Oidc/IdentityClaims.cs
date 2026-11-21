@@ -49,8 +49,9 @@ public static class IdentityClaims
     public const string Email = "email";
 
     /// <summary>
-    ///     Whether the User proved to own the Email. Always <see langword="false"/>, because Authora does not verify
-    ///     Emails yet. Released with <see cref="OidcScopes.Email"/>.
+    ///     Whether the User proved to receive email at <see cref="Email"/> with a verification link, or an
+    ///     administrator marked it as verified, see <see cref="User.IsEmailVerified"/>. Released with
+    ///     <see cref="OidcScopes.Email"/>.
     /// </summary>
     public const string EmailVerified = "email_verified";
 
@@ -85,7 +86,7 @@ public static class IdentityClaims
         if (scopes.Contains(OidcScopes.Email))
         {
             claims[Email] = user.Email;
-            claims[EmailVerified] = false;
+            claims[EmailVerified] = user.IsEmailVerified;
         }
 
         return claims;

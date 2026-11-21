@@ -37,4 +37,16 @@ internal static partial class UserLog
 
     [LoggerMessage(EventId = 1009, Level = LogLevel.Information, Message = "A password reset link was sent to User {UserId} at the request of an administrator.")]
     public static partial void PasswordResetSent(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1010, Level = LogLevel.Information, Message = "An email verification link was sent to User {UserId} at the request of an administrator.")]
+    public static partial void EmailVerificationSent(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1011, Level = LogLevel.Information, Message = "An email verification link for User {UserId} was queued, because the User was created or their Email changed.")]
+    public static partial void EmailVerificationQueued(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1012, Level = LogLevel.Warning, Message = "No email verification link was sent to User {UserId}, because the email queue is full.")]
+    public static partial void EmailVerificationNotQueued(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1013, Level = LogLevel.Information, Message = "The Email of User {UserId} was marked as verified by an administrator.")]
+    public static partial void EmailMarkedVerified(this ILogger logger, Guid userId);
 }

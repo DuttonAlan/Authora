@@ -59,4 +59,10 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5016, Level = LogLevel.Warning, Message = "A password reset link was not accepted: {Reason}.")]
     public static partial void PasswordResetRejected(this ILogger logger, string reason);
+
+    [LoggerMessage(EventId = 5017, Level = LogLevel.Information, Message = "User {UserId} confirmed their Email with a verification link.")]
+    public static partial void EmailVerified(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 5018, Level = LogLevel.Warning, Message = "An email verification link was not accepted: {Reason}.")]
+    public static partial void EmailVerificationRejected(this ILogger logger, string reason);
 }

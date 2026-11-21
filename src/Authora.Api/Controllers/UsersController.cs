@@ -21,8 +21,10 @@ using Authora.Core.Application.Users.GetAll;
 using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
+using Authora.Core.Application.Users.MarkEmailVerified;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.RevokeSessions;
+using Authora.Core.Application.Users.SendEmailVerification;
 using Authora.Core.Application.Users.SendPasswordReset;
 using Authora.Core.Application.Users.SetPassword;
 using Authora.Core.Application.Users.Unlock;
@@ -48,9 +50,11 @@ namespace Authora.Api.Controllers;
 /// <param name="getUserGroupsService">The Service to get the Groups of the User.</param>
 /// <param name="getUserRolesService">The Service to get the Roles of the User.</param>
 /// <param name="getUserService">The Service to get the User.</param>
+/// <param name="markEmailVerifiedService">The Service to mark the Email of the User as verified.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
 /// <param name="revokeConsentService">The Service to revoke a Consent of the User.</param>
 /// <param name="revokeUserSessionsService">The Service to revoke all Sessions of the User.</param>
+/// <param name="sendEmailVerificationService">The Service to send the User an email verification link.</param>
 /// <param name="sendPasswordResetService">The Service to send the User a password reset link.</param>
 /// <param name="setPasswordService">The Service to set the password of the User.</param>
 /// <param name="unlockUserService">The Service to unlock the User.</param>
@@ -71,9 +75,11 @@ public sealed class UsersController(
     GetUserGroupsService getUserGroupsService,
     GetUserRolesService getUserRolesService,
     GetUserService getUserService,
+    MarkEmailVerifiedService markEmailVerifiedService,
     RemoveRoleService removeRoleService,
     RevokeConsentService revokeConsentService,
     RevokeUserSessionsService revokeUserSessionsService,
+    SendEmailVerificationService sendEmailVerificationService,
     SendPasswordResetService sendPasswordResetService,
     SetPasswordService setPasswordService,
     UnlockUserService unlockUserService,
@@ -84,7 +90,8 @@ public sealed class UsersController(
     /// </summary>
     /// <remarks>
     ///     Leading and trailing whitespace is trimmed from all fields before the User is saved.
-    ///     New Users are created in the active state.
+    ///     New Users are created in the active state, with an Email that is not verified yet. A verification link is sent
+    ///     to it in the background (see <c>Authora:EmailVerification:SendAutomatically</c>).
     /// </remarks>
     /// <param name="request">The request to create the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -215,6 +222,8 @@ public sealed class UsersController(
     ///     This is a partial update: only fields that are set in the request are changed,
     ///     fields that are null or missing are left unchanged.
     ///     Leading and trailing whitespace is trimmed from all set fields.
+    ///     A different Email is no longer verified, and a verification link is sent to it in the background (see
+    ///     <c>Authora:EmailVerification:SendAutomatically</c>); a change of upper and lower case only keeps the verification.
     /// </remarks>
     /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
     /// <param name="request">The request to update the User.</param>
@@ -436,6 +445,73 @@ public sealed class UsersController(
         CancellationToken cancellationToken)
     {
         await sendPasswordResetService.ExecuteAsync(id, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Sends the User a link to confirm their Email.
+    /// </summary>
+    /// <remarks>
+    ///     A link is already sent by itself when a User is created or their Email changes (unless
+    ///     <c>Authora:EmailVerification:SendAutomatically</c> is false); use this to send another one, e.g. after it
+    ///     expired. The link works for <c>Authora:EmailVerification:LinkLifetime</c> (24 hours by default), and earlier
+    ///     verification links of the User stop working. Needs email delivery (<c>Authora:Email:Host</c>).
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the mail server accepted the email.</returns>
+    /// <response code="204">Responds with no content once the mail server accepted the email.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if email delivery is not configured, the User is deleted or deactivated, or their Email is already verified.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    /// <response code="502">Responds with problem details if the mail server could not be reached or rejected the email.</response>
+    [HttpPost("{id:guid}/email-verification")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Update)]
+    public async Task<IActionResult> SendEmailVerification(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await sendEmailVerificationService.ExecuteAsync(id, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Marks the Email of the User as verified without a link.
+    /// </summary>
+    /// <remarks>
+    ///     Applications may trust a verified Email (<c>email_verified</c>) to belong to the User, so only mark addresses
+    ///     the User is known to own. Open verification links of the User stop working. Marking an Email that is already
+    ///     verified also succeeds and keeps the original point in time. Changing the Email resets the verification.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the Email is marked as verified.</returns>
+    /// <response code="204">Responds with no content once the Email is marked as verified.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the User is deleted.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpPost("{id:guid}/email-verified")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Update)]
+    public async Task<IActionResult> MarkEmailVerified(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await markEmailVerifiedService.ExecuteAsync(id, cancellationToken);
 
         return NoContent();
     }

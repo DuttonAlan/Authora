@@ -29,7 +29,7 @@ public static class PermissionNames
         public const string Create = "users.create";
 
         /// <summary>
-        ///     Change the Email and Name of Users.
+        ///     Change the Email and Name of Users, send them email verification links, and mark their Email as verified.
         /// </summary>
         public const string Update = "users.update";
 
