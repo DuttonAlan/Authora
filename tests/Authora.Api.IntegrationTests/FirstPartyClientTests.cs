@@ -11,6 +11,8 @@ using System.Text.Json.Serialization;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Clients.Get;
+using Authora.Core.Domain.Entities;
+using Authora.Core.Domain.Enums;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -176,6 +178,73 @@ public sealed class FirstPartyClientTests(AuthoraApiFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task FirstPartyClient_WithOnlyUpdatePermission_GetsNoPostLogoutRedirectUri()
+    {
+        var userId = await factory.CreateUserAsync(PermissionNames.Clients.Read, PermissionNames.Clients.Update);
+        var token = await factory.IssueAccessTokenAsync(userId, [AdminApiScope.Name]);
+        var adminUiClientId = await GetAdminUiClientIdAsync();
+        const string evil = "https://evil.example.com/signed-out";
+
+        // Otherwise the logout of the admin interface, whose Client Id is public, would redirect anywhere.
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            await SendAsync(HttpMethod.Post, $"/api/clients/{adminUiClientId}/post-logout-redirect-uris", token, new { uri = evil }));
+        Assert.DoesNotContain(evil, (await GetClientAsync(adminUiClientId, token)).PostLogoutRedirectUris);
+
+        var logout = QueryHelpers.AddQueryString("/oauth/logout", new Dictionary<string, string?>
+        {
+            ["client_id"] = adminUiClientId.ToString(),
+            ["post_logout_redirect_uri"] = evil
+        });
+        using var response = await _client.GetAsync(logout, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        // Third-party Clients can still be changed with the Permission.
+        var (thirdPartyId, _) = await factory.CreatePublicClientAsync("openid");
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            await SendAsync(HttpMethod.Post, $"/api/clients/{thirdPartyId}/post-logout-redirect-uris", token, new { uri = "https://app.example.com/signed-out" }));
+    }
+
+    [Fact]
+    public async Task FirstPartyClient_WithOnlyUpdatePermission_CannotMakePkceOptional_ButCanRequireIt()
+    {
+        var userId = await factory.CreateUserAsync(PermissionNames.Clients.Read, PermissionNames.Clients.Update);
+        var token = await factory.IssueAccessTokenAsync(userId, [AdminApiScope.Name]);
+        var clientId = await CreateFirstPartyConfidentialClientAsync(client => client.SetPkceOptional(true));
+
+        Assert.Equal(HttpStatusCode.NoContent, await SendAsync(HttpMethod.Delete, $"/api/clients/{clientId}/pkce-optional", token));
+        Assert.False((await GetClientAsync(clientId, token)).IsPkceOptional);
+
+        Assert.Equal(HttpStatusCode.Conflict, await SendAsync(HttpMethod.Put, $"/api/clients/{clientId}/pkce-optional", token));
+        Assert.False((await GetClientAsync(clientId, token)).IsPkceOptional);
+    }
+
+    [Fact]
+    public async Task FirstPartyClient_WithOnlyUpdatePermission_CannotAllowClientCredentials_ButCanKeepOrRemoveIt()
+    {
+        var userId = await factory.CreateUserAsync(PermissionNames.Clients.Read, PermissionNames.Clients.Update);
+        var token = await factory.IssueAccessTokenAsync(userId, [AdminApiScope.Name]);
+        var clientId = await CreateFirstPartyConfidentialClientAsync(
+            client => client.SetAllowedGrantTypes(GrantTypes.AuthorizationCode | GrantTypes.ClientCredentials));
+        var path = $"/api/clients/{clientId}";
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            await SendAsync(HttpMethod.Put, path, token, new { grantTypes = new[] { "authorization_code", "client_credentials" } }));
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            await SendAsync(HttpMethod.Put, path, token, new { grantTypes = new[] { "authorization_code" } }));
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            await SendAsync(HttpMethod.Put, path, token, new { grantTypes = new[] { "authorization_code", "client_credentials" } }));
+
+        Assert.DoesNotContain("client_credentials", (await GetClientAsync(clientId, token)).GrantTypes);
+    }
+
+    [Fact]
     public async Task MarkFirstParty_UnknownClient_IsNotFound()
     {
         var adminToken = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
@@ -208,6 +277,33 @@ public sealed class FirstPartyClientTests(AuthoraApiFactory factory) : IClassFix
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         return (clientId, redirectUri);
+    }
+
+    private async Task<Guid> GetAdminUiClientIdAsync()
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+        return await context.Clients
+            .Where(client => client.RedirectUris.Any(uri => uri.Value == $"{AuthoraApiFactory.Issuer}/admin/callback"))
+            .Select(client => client.Id)
+            .SingleAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task<Guid> CreateFirstPartyConfidentialClientAsync(Action<Client> configure)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+        var client = Client.Create("First-party service", ClientType.Confidential);
+        client.AddRedirectUri($"https://{Guid.NewGuid():N}.example.com/callback");
+        configure(client);
+        client.SetFirstParty(true);
+
+        context.Clients.Add(client);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return client.Id;
     }
 
     private async Task<HttpStatusCode> SendAsync(HttpMethod method, string path, string token, object? body = null)

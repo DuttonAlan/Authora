@@ -87,7 +87,7 @@ Third-party Clients ask for consent the first time and for every Scope the User 
 Skipping consent is powerful: a first-party Client gets any allowed Scope for any signed-in User who opens a link. So:
 
 - marking a Client as first-party needs its own Permission, `clients.manage-first-party`, which only `admin` has by default; treat it as equivalent to `admin`, because whoever can make a Client of their own first-party collects the codes of any signed-in User, administrators included;
-- while a Client is first-party, no Redirect URI and no Scope can be added to it. Otherwise anyone with the ordinary `clients.update` Permission could add their own Redirect URI to the admin interface's Client and collect the codes of every administrator who clicks a link.
+- while a Client is first-party, no Redirect URI and no Scope can be added to it. Otherwise anyone with the ordinary `clients.update` Permission could add their own Redirect URI to the admin interface's Client and collect the codes of every administrator who clicks a link. For the same reason, `clients.update` cannot lower its other protections either: no Post-logout Redirect URI can be added (it would make the logout of the admin interface, whose Client Id is public, an open redirect on Authora's origin), PKCE cannot be made optional, and `client_credentials` cannot be newly allowed.
 
 ### Nobody grants more than they hold
 

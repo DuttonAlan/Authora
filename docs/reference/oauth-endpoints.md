@@ -63,11 +63,11 @@ A disabled Client cannot obtain tokens, but can still revoke its tokens.
 
 `prompt=consent` always shows the consent screen. A Consent lasts until it is revoked: by the User at `/account/consents` (*Connected applications*) or by an administrator (`DELETE /api/users/{id}/consents/{clientId}`). Revoking it also revokes the Grants of the User for the Client, so its Access and Refresh Tokens for the User stop working, and an Authorization Code issued before is rejected at the token endpoint (`invalid_grant`), even if the User approves the Client again in the meantime: each code is bound to the Consent it was issued under. Deleting a Scope removes it from every Consent; deleting the User or the Client deletes the Consents.
 
-Marking a Client as first-party needs the Permission `clients.manage-first-party`. While a Client is first-party, no Redirect URI and no Scope can be added to it (`409 Conflict`). See [Security model](../explanation/security-model.md#first-party-clients).
+Marking a Client as first-party needs the Permission `clients.manage-first-party`. While a Client is first-party, no Redirect URI, Post-logout Redirect URI or Scope can be added to it, PKCE cannot be made optional and `client_credentials` cannot be newly allowed (`409 Conflict`). See [Security model](../explanation/security-model.md#first-party-clients).
 
 ### PKCE
 
-Every Client must send PKCE by default. An administrator can make it optional for a Confidential Client (`PUT /api/clients/{id}/pkce-optional`, Permission `clients.update`), for OpenID Connect libraries that do not send it. Such a Client must protect its codes with the `nonce` instead (OAuth 2.1, Section 7.5.1), which Authora does not enforce. Public Clients always need PKCE.
+Every Client must send PKCE by default. An administrator can make it optional for a Confidential Client (`PUT /api/clients/{id}/pkce-optional`, Permission `clients.update`), for OpenID Connect libraries that do not send it. Such a Client must protect its codes with the `nonce` instead (OAuth 2.1, Section 7.5.1), which Authora does not enforce. Public Clients always need PKCE, and it cannot be made optional while a Client is first-party (`409 Conflict`).
 
 | Authorization request of a Client with optional PKCE | Token request |
 |---|---|
@@ -111,7 +111,7 @@ A **Confidential** Client obtains an Access Token for itself, without a User ([R
 | `scope` | Optional. Every Scope must be allowed for the Client and must not be a System Scope (`openid`, `profile`, `email`, `authora.admin`), because they all need a User. Without `scope`, the token gets all Scopes the Client is allowed, except System Scopes; if their names are longer than 4000 characters together, the request fails with `invalid_scope`. |
 | Client authentication | Required, with a Secret (`client_secret_basic` or `client_secret_post`). |
 
-- The Client must be allowed the Grant Type `client_credentials`. It is never allowed by default, and only Confidential Clients can be allowed it.
+- The Client must be allowed the Grant Type `client_credentials`. It is never allowed by default, only Confidential Clients can be allowed it, and not while they are first-party.
 - The response has no `refresh_token` and no `id_token`: the Client asks for a new token when the old one expires. The token lives for the Client's Access Token lifetime.
 - Every issued token is recorded as the audit event `client.token-issued`.
 - Introspection reports the Client as `sub`. UserInfo (`401 invalid_token`) and the admin API (`401`) reject the token.

@@ -31,6 +31,7 @@ public sealed class SetPkceOptionalService(
     /// <returns>A Task that completes once the Client is changed.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
     /// <exception cref="DomainValidationException">Thrown when PKCE should become optional for a Public Client.</exception>
+    /// <exception cref="ConflictException">Thrown when PKCE should become optional for a first-party Client.</exception>
     public async Task ExecuteAsync(
         Guid id,
         bool isPkceOptional,
@@ -42,6 +43,14 @@ public sealed class SetPkceOptionalService(
         if (client.IsPkceOptional == isPkceOptional)
         {
             return;
+        }
+
+        // A first-party Client gets codes without asking the User, so its protections need the Permission to manage
+        // first-party Clients to be lowered, see AddRedirectUriService. Requiring PKCE again is always allowed.
+        if (isPkceOptional && client.IsFirstParty)
+        {
+            throw new ConflictException(
+                $"Client '{id}' is first-party, so PKCE cannot be made optional. Mark it as third-party first.");
         }
 
         client.SetPkceOptional(isPkceOptional);

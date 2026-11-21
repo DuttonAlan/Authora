@@ -183,15 +183,16 @@ function clientActions(context, client) {
             })
             : button('Enable', () => run(() => api('POST', `/clients/${client.id}/enable`), 'The Client was enabled.', context)));
 
-        // Public Clients always need PKCE; the server refuses to make it optional for them.
-        if (client.type === 'Confidential') {
-            actions.push(client.isPkceOptional
-                ? button('Require PKCE', () => run(() => api('DELETE', `/clients/${client.id}/pkce-optional`), 'PKCE is required again.', context))
-                : button('Make PKCE optional', async () => {
-                    if (await confirmed('Make PKCE optional', `Make PKCE optional for ${client.name}? Only for OpenID Connect Clients that cannot send PKCE: they must send a nonce in every authorization request instead.`)) {
-                        run(() => api('PUT', `/clients/${client.id}/pkce-optional`), 'PKCE is optional for the Client.', context);
-                    }
-                }));
+        // Public Clients always need PKCE, and the server refuses to make it optional for them and for first-party
+        // Clients. Requiring it again is always possible.
+        if (client.isPkceOptional) {
+            actions.push(button('Require PKCE', () => run(() => api('DELETE', `/clients/${client.id}/pkce-optional`), 'PKCE is required again.', context)));
+        } else if (client.type === 'Confidential' && !client.isFirstParty) {
+            actions.push(button('Make PKCE optional', async () => {
+                if (await confirmed('Make PKCE optional', `Make PKCE optional for ${client.name}? Only for OpenID Connect Clients that cannot send PKCE: they must send a nonce in every authorization request instead.`)) {
+                    run(() => api('PUT', `/clients/${client.id}/pkce-optional`), 'PKCE is optional for the Client.', context);
+                }
+            }));
         }
     }
 
@@ -217,8 +218,9 @@ function clientActions(context, client) {
     return actions.length > 0 ? h('div', { class: 'button-row panel-actions' }, actions) : null;
 }
 
-// A first-party Client gets codes without asking the User, so the server refuses new Redirect URIs and Scopes for it.
-const firstPartyLockedText = 'This Client is first-party, so no Redirect URIs or Scopes can be added. Mark it as third-party first to change them.';
+// A first-party Client gets codes without asking the User, so the server refuses new Redirect URIs, Post-logout
+// Redirect URIs and Scopes for it.
+const firstPartyLockedText = 'This Client is first-party, so no Redirect URIs, Post-logout Redirect URIs or Scopes can be added. Mark it as third-party first to change them.';
 
 function uriList(uris, empty, remove) {
     if (uris.length === 0) {
@@ -251,8 +253,8 @@ function redirectUrisPanel(context, client, canUpdate) {
             : null);
 }
 
-// Post-logout Redirect URIs only receive the browser after a sign-out, without a code, so first-party Clients can
-// get new ones too.
+// Post-logout Redirect URIs receive no code, but the Client Id of a first-party Client like the admin interface is
+// public, so a new one would make its logout an open redirect. The server refuses them like Redirect URIs.
 function postLogoutRedirectUrisPanel(context, client, canUpdate) {
     const input = h('input', { type: 'url', placeholder: 'https://app.example.com/signed-out', 'aria-label': 'Post-logout Redirect URI' });
 
@@ -261,7 +263,10 @@ function postLogoutRedirectUrisPanel(context, client, canUpdate) {
         uriList(client.postLogoutRedirectUris, 'None: after signing a User out, Authora shows its own page instead of returning to the application.', canUpdate
             ? uri => run(() => api('DELETE', `/clients/${client.id}/post-logout-redirect-uris?uri=${encodeURIComponent(uri)}`), 'The Post-logout Redirect URI was removed.', context)
             : null),
-        canUpdate
+        canUpdate && client.isFirstParty
+            ? h('p', { class: 'hint locked', text: firstPartyLockedText })
+            : null,
+        canUpdate && !client.isFirstParty
             ? h('form', {
                 class: 'inline add-row', onSubmit: event => {
                     event.preventDefault();

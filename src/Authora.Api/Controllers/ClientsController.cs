@@ -199,12 +199,14 @@ public sealed class ClientsController(
     /// <response code="204">Responds with no content once the Client was updated.</response>
     /// <response code="400">Responds with validation problem details if the request body is invalid, e.g. an invalid Grant Type or TTL.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if <c>client_credentials</c> should be allowed for a first-party Client.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> Update(
@@ -341,11 +343,13 @@ public sealed class ClientsController(
     /// <response code="204">Responds with no content once PKCE is optional for the Client.</response>
     /// <response code="400">Responds with problem details if the Client is a Public Client.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is first-party.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}/pkce-optional")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> MakePkceOptional(
@@ -456,8 +460,8 @@ public sealed class ClientsController(
     /// <remarks>
     ///     After signing a User out at the request of the Client (RP-initiated logout), Authora sends the browser to
     ///     the <c>post_logout_redirect_uri</c> only if it exactly matches a registered one. This operation is
-    ///     idempotent: registering a URI that is already registered also succeeds. Also allowed for first-party
-    ///     Clients, because no code or token is sent there.
+    ///     idempotent: registering a URI that is already registered also succeeds. Like Redirect URIs, none can be
+    ///     added while the Client is first-party, so the logout of the admin interface cannot become an open redirect.
     /// </remarks>
     /// <param name="id" example="0199d1a2-7c3e-7b4a-9f10-5c963f66afa6">Id of the Client.</param>
     /// <param name="request">The request with the Post-logout Redirect URI.</param>
@@ -466,12 +470,14 @@ public sealed class ClientsController(
     /// <response code="204">Responds with no content once the Post-logout Redirect URI was registered.</response>
     /// <response code="400">Responds with problem details if the URI is not absolute, contains a fragment or does not use HTTPS.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the Client is first-party.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost("{id:guid}/post-logout-redirect-uris")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
     [Authorize(PermissionNames.Clients.Update)]
     public async Task<IActionResult> AddPostLogoutRedirectUri(
