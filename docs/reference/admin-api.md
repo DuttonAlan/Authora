@@ -20,9 +20,11 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | Endpoint | Permission | Description |
 |---|---|---|
 | `GET /api/users` | `users.read` | List; filter by `state` and `search` (part of the Email, first or last name). `pageSize` 1 to 100, default 25. |
-| `GET /api/users/{id}` | `users.read` | Details. |
-| `POST /api/users` | `users.create` | Create, with `email`, `firstName`, `lastName` and an initial `password` (12 to 128 characters). |
-| `PUT /api/users/{id}` | `users.update` | Change Email or name. |
+| `GET /api/users/{id}` | `users.read` | Details, including `emailVerified` and `emailVerifiedAt` (`null` while the Email is not verified). |
+| `POST /api/users` | `users.create` | Create, with `email`, `firstName`, `lastName` and an initial `password` (12 to 128 characters). The Email starts unverified; a verification link is sent to it in the background (see [Email verification](oauth-endpoints.md#email-verification)). |
+| `PUT /api/users/{id}` | `users.update` | Change Email or name. A different Email is no longer verified and gets a new verification link; a change of upper and lower case keeps the verification. |
+| `POST /api/users/{id}/email-verification` | `users.update` | Email the User a link to confirm their address (see [Email verification](configuration.md#email-verification)); earlier links stop working. `204` once the mail server accepted the email; `409` if email delivery is not configured, the User is deactivated or deleted, or the Email is already verified; `502` if the mail server could not be reached or rejected the email. |
+| `POST /api/users/{id}/email-verified` | `users.update` | Mark the Email as verified without a link, so `email_verified` becomes `true`. Applications may trust a verified Email to belong to the User, so only mark addresses the User is known to own. Open verification links stop working. Idempotent; `409` if the User is deleted. |
 | `DELETE /api/users/{id}` | `users.delete` | Delete. |
 | `POST /api/users/{id}/deactivate` | `users.manage-access` | Block sign-in and end all Sessions and tokens. |
 | `POST /api/users/{id}/activate` | `users.manage-access` | Allow sign-in again. |

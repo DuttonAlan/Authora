@@ -8,6 +8,17 @@ This guide covers the everyday tasks in the admin interface: adding users, givin
 
 **Users** → **New User** (`users.create`). Enter the Email, first and last name, and an initial password of 12 to 128 characters. Give the password to the person through a secure channel.
 
+## Verify a User's Email
+
+Applications read `email_verified` to decide whether to trust a User's Email, e.g. before linking accounts. It is `true` only once the address is verified; the User page shows the state under **Account** → **Email**.
+
+When [email delivery](../reference/configuration.md#email) is configured, a new User gets a link to confirm their address, valid for 24 hours. Changing a User's Email to a different address makes it unverified again and sends a link to the new address. See [Email verification](../reference/configuration.md#email-verification) for the settings.
+
+If the User missed the link, open the User (`users.update`) and use the **Profile** panel:
+
+- **Send verification link**: sends a new link; older ones stop working. Needs email delivery.
+- **Mark as verified**: sets the address as verified without a link, e.g. for addresses you already know from another system. Only do this if you are sure the address belongs to the person: applications may let whoever has a verified address take over an account with the same Email.
+
 ## Change or set a password
 
 Users change their own password at `/account/password` on Authora (e.g. `https://auth.example.com/account/password`), after entering the current one; the admin interface links there from the lock icon next to **Sign out**. They stay signed in in that browser and are signed out everywhere else, and if email is configured, they get a notification. A wrong current password counts towards the lockout like a failed sign-in. Share the link with your users; no Permission is needed.

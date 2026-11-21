@@ -195,6 +195,17 @@ A User who forgot their password follows **Forgot password?** on the sign-in pag
 - The User gets an email that the password was reset.
 - Recorded as audit events `account.password-reset-requested` and `account.password-reset` (and `user.password-reset-sent` for links sent by an administrator).
 
+## Email verification
+
+A User confirms that they receive email at their address with a link to `/account/verify-email?token=…`. Once confirmed, `email_verified` is `true` in ID Tokens and at UserInfo, see [OpenID Connect](openid-connect.md#scopes-and-claims). Settings: [Email verification](configuration.md#email-verification).
+
+- With email delivery configured, the link is sent in the background when an administrator creates a User and when they change a User's Email to a different address, unless `Authora:EmailVerification:SendAutomatically` is `false` or the User is deactivated. A delivery failure does not fail the change; it is only logged (log event 14004). Administrators can send another link with `POST /api/users/{id}/email-verification`, or mark the address as verified without a link with `POST /api/users/{id}/email-verified`, see [Admin API](admin-api.md#users).
+- Changing the Email to a different address makes it unverified again; a change of upper and lower case only keeps the verification. Deleting a User removes it.
+- Opening the link only shows a **Confirm email address** button, so mail scanners that follow links do not use it up; submitting it does. No sign-in is needed: the link itself proves that whoever opens it receives the email.
+- The link works for `Authora:EmailVerification:LinkLifetime` (24 hours) and only once. A newer link replaces older ones, and a link stops working if the User's Email or security stamp changes (password changed or set by an administrator, deactivation, "sign out everywhere"), the User is deactivated, or an administrator marks the address as verified.
+- Submissions share the rate limit of the password reset pages (`Authora:RateLimiting:PasswordResetPermitsPerMinute`, 5 per IP address).
+- Recorded as audit events `user.email-verification-sent` and `account.email-verified` (and `user.email-marked-verified` when an administrator marks the address).
+
 ## Events that invalidate tokens
 
 | Event | Effect |

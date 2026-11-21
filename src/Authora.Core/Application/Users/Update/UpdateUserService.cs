@@ -5,6 +5,7 @@
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.Email;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
@@ -13,10 +14,19 @@ namespace Authora.Core.Application.Users.Update;
 /// <summary>
 ///     The Service to update an existing User.
 /// </summary>
+/// <remarks>
+///     A new Email is no longer verified, and a verification link is sent to it in the background if
+///     <see cref="EmailVerificationSender.ShouldSendAutomatically"/> allows it.
+/// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to update a User.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
+/// <param name="emailVerificationSender">Sends a link to confirm a new Email.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
-public sealed class UpdateUserService(IUserRepository userRepository, PrivilegeGuard privilegeGuard, IAuditLog auditLog)
+public sealed class UpdateUserService(
+    IUserRepository userRepository,
+    PrivilegeGuard privilegeGuard,
+    EmailVerificationSender emailVerificationSender,
+    IAuditLog auditLog)
 {
     /// <summary>
     ///     Updates an existing User.
@@ -34,55 +44,88 @@ public sealed class UpdateUserService(IUserRepository userRepository, PrivilegeG
         UpdateUserRequest request,
         CancellationToken cancellationToken = default)
     {
-        await using var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken);
+        User user;
+        EmailMessage? verification = null;
 
-        var user = await userRepository.GetUserById(id, cancellationToken)
-            ?? throw new NotFoundException($"User '{id}' was not found.");
-
-        DeletedUserGuard.EnsureNotDeleted(user);
-
-        string?[] fields =
-        [
-            request.Email is null ? null : "Email",
-            request.FirstName is null ? null : "First Name",
-            request.LastName is null ? null : "Last Name"
-        ];
-        var sentFields = fields.OfType<string>().ToList();
-
-        var entry = AuditEntry.ForUser(
-            AuditEventTypes.Users.Updated,
-            user.Id,
-            sentFields.Count == 0 ? null : $"Fields: {string.Join(", ", sentFields)}");
-
-        await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
-
-        if (request.Email is not null)
+        await using (var transaction = await privilegeGuard.BeginChangeAsync(cancellationToken))
         {
-            var normalizedEmail = User.Normalize(request.Email);
+            user = await userRepository.GetUserById(id, cancellationToken)
+                ?? throw new NotFoundException($"User '{id}' was not found.");
 
-            if (normalizedEmail != user.NormalizedEmail
-                && await userRepository.EmailExists(normalizedEmail, cancellationToken))
+            DeletedUserGuard.EnsureNotDeleted(user);
+
+            string?[] fields =
+            [
+                request.Email is null ? null : "Email",
+                request.FirstName is null ? null : "First Name",
+                request.LastName is null ? null : "Last Name"
+            ];
+            var sentFields = fields.OfType<string>().ToList();
+
+            await privilegeGuard.EnsureCanActOnUserAsync(
+                user.Id,
+                AuditEntry.ForUser(AuditEventTypes.Users.Updated, user.Id, FormatDetails(sentFields, emailChanged: false)),
+                cancellationToken);
+
+            var emailChanged = false;
+
+            if (request.Email is not null)
             {
-                throw new ConflictException("The Email is already used by another User.");
+                var normalizedEmail = User.Normalize(request.Email);
+
+                if (normalizedEmail != user.NormalizedEmail)
+                {
+                    if (await userRepository.EmailExists(normalizedEmail, cancellationToken))
+                    {
+                        throw new ConflictException("The Email is already used by another User.");
+                    }
+
+                    emailChanged = true;
+                }
+
+                // Resets the verification if the address is a different one.
+                user.SetEmail(request.Email);
             }
 
-            user.SetEmail(request.Email);
+            if (request.FirstName is not null)
+            {
+                user.SetFirstName(request.FirstName);
+            }
+
+            if (request.LastName is not null)
+            {
+                user.SetLastName(request.LastName);
+            }
+
+            auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Users.Updated, user.Id, FormatDetails(sentFields, emailChanged)));
+
+            // Only changed values are written; ModifiedAt is set when saving.
+            await userRepository.SaveChangesAsync(cancellationToken);
+
+            // Joins the transaction, so the link is only issued if the change is committed.
+            if (emailChanged && emailVerificationSender.ShouldSendAutomatically(user))
+            {
+                verification = await emailVerificationSender.PrepareAsync(user, cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
         }
 
-        if (request.FirstName is not null)
+        if (verification is not null)
         {
-            user.SetFirstName(request.FirstName);
+            await emailVerificationSender.QueueAsync(user, verification, "the Email was changed", cancellationToken);
         }
+    }
 
-        if (request.LastName is not null)
+    private static string? FormatDetails(List<string> sentFields, bool emailChanged)
+    {
+        if (sentFields.Count == 0)
         {
-            user.SetLastName(request.LastName);
+            return null;
         }
 
-        auditLog.Record(entry);
+        var details = $"Fields: {string.Join(", ", sentFields)}";
 
-        // Only changed values are written; ModifiedAt is set when saving.
-        await userRepository.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        return emailChanged ? $"{details}. The new Email is not verified" : details;
     }
 }

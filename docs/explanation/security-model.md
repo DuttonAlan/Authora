@@ -71,6 +71,15 @@ A reset link is only as safe as the User's mailbox: whoever can read it can set 
 - Abuse is bounded twice: per IP address (5 submissions per minute) and per address (3 links per hour), so the form cannot be used to flood a mailbox or probe many accounts quickly.
 - Administrators can send a link instead of setting a password, so they never learn it. Sending one needs `users.set-password` and follows the rule that nobody acts on a User with more rights than their own.
 
+### A verified Email is a promise to applications
+
+Applications use `email_verified` to decide whether an Email belongs to the User, e.g. to link an Authora account to an existing one with the same address. A wrong `true` would let someone take over such an account, so Authora only sets it on proof and drops it when the proof no longer applies:
+
+- The proof is a verification link with the same kind of token as a reset link: random, stored only as its hash, single use, valid for 24 hours by default, replaced by newer links, and only valid while the User still has the address it was sent to and the same security stamp. Opening it only shows a button, so mail scanners do not use it up.
+- Changing the Email to a different address resets the verification, so `email_verified` always refers to the current address. Upper and lower case are not a different address, because Authora compares Emails without case.
+- No sign-in is needed to confirm: the link itself proves control of the mailbox, which is all the claim states.
+- Administrators can mark an address as verified without a link. That needs `users.update`, follows the rule that nobody acts on a User with more rights than their own, and is recorded as `user.email-marked-verified`.
+
 ### First-party Clients
 
 Third-party Clients ask for consent the first time and for every Scope the User has not approved yet; the User can withdraw the Consent at any time, which also ends the Client's tokens. First-party Clients, applications of the same operator such as the admin interface, skip it and store no Consent. Asking administrators for consent to their own tools on every sign-in would only train them to click *Allow* without reading.
