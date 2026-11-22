@@ -63,6 +63,13 @@ public static class OAuthErrors
     public const string ConsentRequired = "consent_required";
 
     /// <summary>
+    ///     <c>prompt=none</c> was sent, but the User must do something else first (OpenID Connect): complete another
+    ///     factor or set one up, because the Client requires multi-factor authentication or asked for it with
+    ///     <c>acr_values</c>.
+    /// </summary>
+    public const string InteractionRequired = "interaction_required";
+
+    /// <summary>
     ///     The <c>request</c> parameter (Request Object) is not supported (OpenID Connect).
     /// </summary>
     public const string RequestNotSupported = "request_not_supported";

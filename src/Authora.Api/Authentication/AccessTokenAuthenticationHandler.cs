@@ -5,8 +5,10 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
+using Authora.Api.Authorization;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.OAuth.Introspect;
+using Authora.Core.Domain;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
@@ -80,6 +82,7 @@ public sealed class AccessTokenAuthenticationHandler(
         };
 
         claims.AddRange(accessToken.Scopes.Select(scope => new Claim(AccessTokenClaimTypes.Scope, scope)));
+        claims.AddRange(accessToken.AuthenticationMethods.Select(method => new Claim(AccessTokenClaimTypes.AuthenticationMethod, method)));
 
         var identity = new ClaimsIdentity(claims, SchemeName, AccessTokenClaimTypes.Subject, roleType: null);
 
@@ -106,8 +109,16 @@ public sealed class AccessTokenAuthenticationHandler(
 
         Response.StatusCode = StatusCodes.Status403Forbidden;
 
-        // A missing Scope can be fixed by the Client with a new token, a missing Permission only by an administrator.
-        if (result.Principal?.HasClaim(AccessTokenClaimTypes.Scope, AdminApiScope.Name) == false)
+        // A missing Scope or second factor can be fixed by the Client with a new token, a missing Permission only by
+        // an administrator.
+        if (Context.Items.ContainsKey(AdministratorMfaHandler.InsufficientAuthenticationItem))
+        {
+            // RFC 9470: the Client sends the User to /authorize with these acr_values to get a stronger token.
+            Response.Headers.Append(
+                HeaderNames.WWWAuthenticate,
+                $"Bearer error=\"insufficient_user_authentication\", error_description=\"Multi-factor authentication is required.\", acr_values=\"{AuthenticationContextClasses.MultiFactor}\"");
+        }
+        else if (result.Principal?.HasClaim(AccessTokenClaimTypes.Scope, AdminApiScope.Name) == false)
         {
             Response.Headers.Append(
                 HeaderNames.WWWAuthenticate,

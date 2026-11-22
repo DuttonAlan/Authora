@@ -128,6 +128,12 @@ public sealed class LoginModel(
         SessionCookie.Append(Response, result.SessionToken!);
         PendingSignInCookie.Delete(Response);
 
+        if (result.MustEnrollSecondFactor)
+        {
+            // Multi-factor authentication is required for administrators: set up the factor first, then continue.
+            return LocalRedirect($"{AuthenticatorModel.PagePath}?returnUrl={Uri.EscapeDataString(GetSafeReturnUrl())}");
+        }
+
         return LocalRedirect(GetSafeReturnUrl());
     }
 

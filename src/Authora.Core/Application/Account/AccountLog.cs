@@ -80,4 +80,7 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5023, Level = LogLevel.Information, Message = "User {UserId} completed {Method} for Session {SessionId}, which got a new token.")]
     public static partial void SteppedUp(this ILogger logger, Guid userId, Guid sessionId, string method);
+
+    [LoggerMessage(EventId = 5024, Level = LogLevel.Information, Message = "User {UserId} holds a Permission and must set up a second factor, because multi-factor authentication is required for administrators.")]
+    public static partial void SecondFactorEnrollmentRequired(this ILogger logger, Guid userId);
 }

@@ -1,8 +1,6 @@
 # Require multi-factor authentication
 
-This guide shows how to get your Users, above all your administrators, to sign in with an authenticator app in addition to their password, how to check who has done so, and how to help someone who lost their phone. Each admin task names the Permission it needs; the `admin` Role has all of them.
-
-> Authora cannot yet enforce multi-factor authentication: each User decides whether to set up an authenticator app, and ID Tokens do not yet tell applications whether a sign-in used one (no `amr` claim). Until then, "require" means asking Users to set it up and checking that they did. See [Standards and limitations](../reference/standards.md#not-supported).
+This guide shows how to make your Users, above all your administrators, sign in with an authenticator app in addition to their password: by requiring it for administrators, for single applications, or by letting an application ask for it. It also shows how to check who has set it up and how to help someone who lost their phone. Each admin task names the Permission it needs; the `admin` Role has all of them.
 
 ## Before you start
 
@@ -29,6 +27,42 @@ Send your Users the link to their account page on Authora, e.g. `https://auth.ex
 From then on, they enter a code of the app after their password. Each code works once.
 
 Start with the administrators: an administrator account is the most valuable one to protect, and its owners can best help others afterwards.
+
+## Require it for administrators
+
+Turn on the requirement for every User who holds a Permission of the admin API (any Role with a Permission, not only `admin`):
+
+```sh
+Authora__Mfa__RequireForAdministrators=true
+```
+
+See [Configuration](../reference/configuration.md#multi-factor-authentication). After a restart:
+
+- An administrator without an authenticator app is sent to set one up right after entering their password, so nobody is locked out, the bootstrap administrator included. They then confirm a code of the app once more to open the admin interface.
+- An administrator whose Session has the password only, e.g. because it started before they set up the app, enters a code of the app before the admin interface (or any Client asking for `authora.admin`) gets a code.
+- The admin API rejects Access Tokens of these Users that were issued for a sign-in with the password only, whichever Client holds them, with `403` and `insufficient_user_authentication`. The admin interface then sends the User through the sign-in again. Scripts that call the API as an administrator need a token from a sign-in with two factors.
+
+Users without any Permission are not affected. The setting is off by default so upgrades keep working; [Deploy to production](deploy-to-production.md) recommends it.
+
+## Require it for an application
+
+For an application that handles sensitive data, require a second factor for everyone who uses it (`clients.update`): open the Client in the admin interface and select **Require MFA**, or call:
+
+```sh
+curl -X PUT -H "Authorization: Bearer $TOKEN" "https://auth.example.com/api/clients/$CLIENT_ID/mfa-required"
+```
+
+From then on, a User whose Session has only the password enters a code of their app before the application gets a code, and a User without an app sets one up first. Requests with `prompt=none` get `interaction_required` instead. The change is recorded as `client.mfa-required`. **Allow without MFA** (`DELETE …/mfa-required`) turns it off again.
+
+## Let an application ask for it
+
+An application can ask for a second factor itself with `acr_values`, without an administrator, and check the result in the ID Token:
+
+```text
+/oauth/authorize?…&acr_values=urn:authora:acr:mfa
+```
+
+A User who has an authenticator app but signed in with the password only enters a code first. A User without one is not stopped: the request is voluntary, and the application sees `"acr": "urn:authora:acr:pwd"` in the ID Token and decides itself, e.g. by asking the User to set up an app. Every ID Token contains `amr` (e.g. `["pwd", "otp", "mfa"]`) and `acr`, see [OpenID Connect](../reference/openid-connect.md#authentication-levels).
 
 ## Check who has set it up
 

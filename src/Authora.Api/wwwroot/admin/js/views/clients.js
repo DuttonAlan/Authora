@@ -157,6 +157,7 @@ export async function detail(context, id) {
                     ['Client Id', copyable(client.id, 'Client Id')],
                     ['Consent', client.isFirstParty ? 'First-party: not asked' : 'Asked on every sign-in'],
                     ['PKCE', client.isPkceOptional ? badge('Optional', 'warn') : 'Required'],
+                    ['Multi-factor authentication', client.requiresMfa ? 'Required' : 'Optional'],
                     ['Grant Types', h('span', { class: 'badge-row' }, client.grantTypes.map(grantType => h('code', { class: 'token', text: grantType })))],
                     ['Access Token lifetime', duration(client.accessTokenTTL)],
                     ['Refresh Token lifetime', duration(client.refreshTokenTTL)],
@@ -199,6 +200,20 @@ function clientActions(context, client) {
                 }
             }));
         }
+    }
+
+    if (context.can('clients.update')) {
+        actions.push(client.requiresMfa
+            ? button('Allow without MFA', async () => {
+                if (await confirmed('Allow without MFA', `Allow ${client.name} without multi-factor authentication? Users can then use it with their password alone.`)) {
+                    run(() => api('DELETE', `/clients/${client.id}/mfa-required`), 'Multi-factor authentication is no longer required.', context);
+                }
+            })
+            : button('Require MFA', async () => {
+                if (await confirmed('Require MFA', `Require multi-factor authentication for ${client.name}? Users without a second factor must set up an authenticator app before they can use it.`)) {
+                    run(() => api('PUT', `/clients/${client.id}/mfa-required`), 'Multi-factor authentication is required.', context);
+                }
+            }));
     }
 
     if (context.can('clients.manage-first-party')) {

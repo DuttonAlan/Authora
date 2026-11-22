@@ -189,12 +189,14 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// <param name="scopes">The Scope Names of the token.</param>
     /// <param name="issuedAt">When the token was issued, now by default. The token is valid for one hour.</param>
     /// <param name="clientId">The Client the token is issued to, or null for a new Public Client.</param>
+    /// <param name="authenticationMethods">How the User signed in for the token, the password only by default.</param>
     /// <returns>The plain-text Access Token.</returns>
     public async Task<string> IssueAccessTokenAsync(
         Guid userId,
         IReadOnlyList<string> scopes,
         DateTime? issuedAt = null,
-        Guid? clientId = null)
+        Guid? clientId = null,
+        IReadOnlyList<string>? authenticationMethods = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
@@ -208,7 +210,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             : await context.Clients.SingleAsync(client => client.Id == clientId);
 
         var authorizationCode = AuthorizationCode.Create(
-            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, "test-challenge", null, now, [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
+            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, "test-challenge", null, now, authenticationMethods ?? [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
         var grant = Grant.Create(authorizationCode, now, TimeSpan.FromDays(1));
 
         var token = secretGenerator.Generate();

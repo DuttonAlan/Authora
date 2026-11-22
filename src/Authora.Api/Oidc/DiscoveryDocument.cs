@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
 using Authora.Core.Application.Oidc;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Enums;
 
 namespace Authora.Api.Oidc;
@@ -82,7 +83,11 @@ internal sealed record DiscoveryDocument
 
     [JsonPropertyName("claims_supported")]
     public IReadOnlyList<string> ClaimsSupported { get; } =
-        ["iss", "aud", "exp", "iat", "auth_time", "nonce", "at_hash", .. IdentityClaims.All];
+        ["iss", "aud", "exp", "iat", "auth_time", "nonce", "at_hash", "amr", "acr", .. IdentityClaims.All];
+
+    // Only the levels a User can reach with the registered factors: phr needs a passkey.
+    [JsonPropertyName("acr_values_supported")]
+    public required IReadOnlyList<string> AcrValuesSupported { get; init; }
 
     [JsonPropertyName("claims_parameter_supported")]
     public bool ClaimsParameterSupported { get; } = false;
@@ -101,12 +106,17 @@ internal sealed record DiscoveryDocument
     ///     Creates the document for an Issuer. All endpoints are below the Issuer, so they stay consistent with it.
     /// </summary>
     /// <param name="issuer">The Issuer Identifier, without a trailing slash.</param>
+    /// <param name="secondFactorMethods">The methods of the registered second factors, e.g. <c>otp</c>.</param>
     /// <returns>The discovery document.</returns>
-    public static DiscoveryDocument Create(string issuer)
+    public static DiscoveryDocument Create(string issuer, IEnumerable<string> secondFactorMethods)
     {
+        var strongest = AuthenticationContextClasses.Rank(
+            AuthenticationContextClasses.Of([AuthenticationMethods.Password, .. secondFactorMethods]));
+
         return new DiscoveryDocument
         {
             Issuer = issuer,
+            AcrValuesSupported = AuthenticationContextClasses.All.Take(strongest + 1).ToList(),
             AuthorizationEndpoint = $"{issuer}/oauth/authorize",
             TokenEndpoint = $"{issuer}/oauth/token",
             UserInfoEndpoint = $"{issuer}/oauth/userinfo",

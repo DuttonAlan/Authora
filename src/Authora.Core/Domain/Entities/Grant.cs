@@ -61,6 +61,15 @@ public sealed class Grant
     public Guid? AuthorizationCodeId { get; private set; }
 
     /// <summary>
+    ///     The authentication methods the User completed in the Session the Grant was approved in
+    ///     (<see cref="Domain.AuthenticationMethods"/>), space-delimited, e.g. <c>pwd otp</c>. Every token of the Grant
+    ///     carries them, so the admin API can check how the User signed in. <see langword="null"/> for a Grant of the
+    ///     Client itself, and for Grants from before the methods were recorded, which count as a sign-in with the
+    ///     password only.
+    /// </summary>
+    public string? AuthenticationMethod { get; private set; }
+
+    /// <summary>
     ///     Point in time (UTC) when the Grant was created.
     /// </summary>
     public DateTime CreatedAt { get; private set; }
@@ -92,6 +101,13 @@ public sealed class Grant
     public bool HasUser => UserId is not null;
 
     /// <summary>
+    ///     The authentication methods of the sign-in, empty without them, see <see cref="AuthenticationMethod"/>.
+    /// </summary>
+    public IReadOnlyList<string> AuthenticationMethods => AuthenticationMethod is null
+        ? []
+        : Domain.AuthenticationMethods.Split(AuthenticationMethod);
+
+    /// <summary>
     ///     Creates a new Grant from an Authorization Code that is being exchanged.
     /// </summary>
     /// <param name="authorizationCode">The exchanged Authorization Code.</param>
@@ -113,6 +129,7 @@ public sealed class Grant
             SecurityStamp = authorizationCode.SecurityStamp,
             Scope = authorizationCode.Scope,
             AuthorizationCodeId = authorizationCode.Id,
+            AuthenticationMethod = authorizationCode.AuthenticationMethod,
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };

@@ -157,6 +157,13 @@ public sealed class Client
     public bool RequiresPkce => Type == ClientType.Public || !IsPkceOptional;
 
     /// <summary>
+    ///     Whether Users must sign in with multi-factor authentication to use the Client. Defaults to
+    ///     <see langword="false"/>. A Session without a second factor is stepped up before the Client gets a code, and
+    ///     Users without one set it up first. Set via <see cref="SetRequiresMfa(bool)"/>.
+    /// </summary>
+    public bool RequiresMfa { get; private set; }
+
+    /// <summary>
     ///     Point in time (UTC) when the Client was created.
     /// </summary>
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -331,6 +338,15 @@ public sealed class Client
         }
 
         IsPkceOptional = isPkceOptional;
+    }
+
+    /// <summary>
+    ///     Requires multi-factor authentication for the Users of the Client, or no longer requires it.
+    /// </summary>
+    /// <param name="requiresMfa">True to require at least two factors.</param>
+    public void SetRequiresMfa(bool requiresMfa)
+    {
+        RequiresMfa = requiresMfa;
     }
 
     /// <summary>

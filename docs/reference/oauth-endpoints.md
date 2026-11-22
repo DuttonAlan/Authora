@@ -54,7 +54,7 @@ A disabled Client cannot obtain tokens, but can still revoke its tokens.
 | `scope` | Required. Space-separated; every Scope must be allowed for the Client. |
 | `state` | Optional. Returned unchanged. |
 | `response_mode` | Optional. Only `query`. |
-| `nonce`, `prompt`, `max_age` | OpenID Connect parameters, see [OpenID Connect](openid-connect.md#authorization-request). |
+| `nonce`, `prompt`, `max_age`, `acr_values` | OpenID Connect parameters, see [OpenID Connect](openid-connect.md#authorization-request). |
 
 - Unknown parameters are ignored; parameters without a value count as omitted; a parameter sent twice is rejected.
 - Until `client_id` and `redirect_uri` are valid, errors are shown to the User. After that, they are sent to the Redirect URI with `error`, `error_description`, `state` and `iss`.
@@ -84,7 +84,7 @@ Every Client must send PKCE by default. An administrator can make it optional fo
 
 A `303 See Other` redirect to the Redirect URI with `code`, `state` (if sent) and `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)).
 
-Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsupported_response_type`, `invalid_scope`, and the OpenID Connect codes `login_required`, `consent_required`, `request_not_supported`, `request_uri_not_supported`, `registration_not_supported`.
+Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsupported_response_type`, `invalid_scope`, and the OpenID Connect codes `login_required`, `interaction_required`, `consent_required`, `request_not_supported`, `request_uri_not_supported`, `registration_not_supported`.
 
 ## Token request
 

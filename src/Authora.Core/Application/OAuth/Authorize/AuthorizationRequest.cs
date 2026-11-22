@@ -20,6 +20,7 @@ namespace Authora.Core.Application.OAuth.Authorize;
 /// <param name="Nonce">The OpenID Connect <c>nonce</c>, returned unchanged in the ID Token.</param>
 /// <param name="Prompt">The OpenID Connect <c>prompt</c>, space-delimited.</param>
 /// <param name="MaxAge">The OpenID Connect <c>max_age</c> in seconds, unparsed.</param>
+/// <param name="AcrValues">The OpenID Connect <c>acr_values</c>, space-delimited, in order of preference.</param>
 /// <param name="UnsupportedParameter">
 ///     The first sent parameter of <see cref="UnsupportedParameterNames"/>, or null. Such requests must be rejected
 ///     instead of ignoring the parameter.
@@ -37,6 +38,7 @@ public sealed record AuthorizationRequest(
     string? Nonce,
     string? Prompt,
     string? MaxAge,
+    string? AcrValues,
     string? UnsupportedParameter,
     IReadOnlyCollection<string> DuplicateParameters)
 {
@@ -55,7 +57,8 @@ public sealed record AuthorizationRequest(
         "response_mode",
         "nonce",
         "prompt",
-        "max_age"
+        "max_age",
+        "acr_values"
     ];
 
     /// <summary>
@@ -100,6 +103,7 @@ public sealed record AuthorizationRequest(
             Get("nonce"),
             Get("prompt"),
             Get("max_age"),
+            Get("acr_values"),
             UnsupportedParameterNames.FirstOrDefault(name => getValues(name).Any(value => !string.IsNullOrEmpty(value))),
             duplicates);
     }

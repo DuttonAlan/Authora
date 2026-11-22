@@ -2,7 +2,7 @@
 
 The admin API under `/api/*` manages Authora. The admin interface uses it, and scripts can too; see [Call the admin API](../how-to/call-the-admin-api.md).
 
-- **Authentication:** an Access Token of Authora with the Scope `authora.admin`, as `Authorization: Bearer …`. ID Tokens and Session cookies are not accepted. The admin interface's own cookie is accepted only together with the header `X-Authora-Admin: 1` from the same origin.
+- **Authentication:** an Access Token of Authora with the Scope `authora.admin`, as `Authorization: Bearer …`. ID Tokens and Session cookies are not accepted. With `Authora:Mfa:RequireForAdministrators`, the token of a User who holds a Permission must come from a sign-in with two factors, whichever Client it was issued to; otherwise `403` with `WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="urn:authora:acr:mfa"` ([RFC 9470](https://www.rfc-editor.org/rfc/rfc9470)), and the Client sends the User to `/oauth/authorize` again. The admin interface's own cookie is accepted only together with the header `X-Authora-Admin: 1` from the same origin.
 - **Authorization:** every action needs the Permission in the tables below. Permissions come from the User's Roles, directly or through Groups, and are loaded on every request. Actions that give out rights or act on a User are also checked against the caller's own rights, see [Nobody grants more than they hold](#nobody-grants-more-than-they-hold).
 - **Format:** JSON in and out; enums as strings. Errors are [problem details](https://www.rfc-editor.org/rfc/rfc9457): `400` (validation), `401`, `403` (missing Permission without a body, or a change that would exceed the caller's rights with a `detail`), `404`, `409` (conflict with the current state).
 - **Lists:** `GET /api/users` and `GET /api/audit-events` are paged: they take `page` (from 1) and `pageSize` and return `{"items": […], "total": n}`. The other lists return a plain JSON array.
@@ -85,7 +85,7 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | Endpoint | Permission | Description |
 |---|---|---|
 | `GET /api/clients` | `clients.read` | List. |
-| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty` and `isPkceOptional`. |
+| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty`, `isPkceOptional` and `requiresMfa`. |
 | `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes` (`authorization_code`, `refresh_token`, `client_credentials`; default the first two, see below), `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `postLogoutRedirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
 | `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. `client_credentials` cannot be newly allowed while first-party (`409`); keeping or removing it can. |
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
@@ -95,6 +95,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `DELETE /api/clients/{id}/first-party` | `clients.manage-first-party` | Mark as third-party again. |
 | `PUT /api/clients/{id}/pkce-optional` | `clients.update` | Let a Confidential Client send authorization requests without PKCE; `400` for a Public Client, `409` while first-party. See [PKCE](oauth-endpoints.md#pkce). |
 | `DELETE /api/clients/{id}/pkce-optional` | `clients.update` | Require PKCE again. |
+| `PUT /api/clients/{id}/mfa-required` | `clients.update` | Require multi-factor authentication: Users step up or set up an authenticator app before the Client gets a code; `interaction_required` with `prompt=none`. Codes issued before without it can no longer be exchanged. See [Step-up and required MFA](openid-connect.md#step-up-and-required-mfa). |
+| `DELETE /api/clients/{id}/mfa-required` | `clients.update` | No longer require multi-factor authentication. |
 | `POST /api/clients/{id}/redirect-uris` | `clients.update` | Add a Redirect URI (not while first-party). |
 | `DELETE /api/clients/{id}/redirect-uris` | `clients.update` | Remove a Redirect URI. |
 | `POST /api/clients/{id}/post-logout-redirect-uris` | `clients.update` | Add a Post-logout Redirect URI, body `{"uri": "…"}`; same rules as Redirect URIs, also not while first-party. See [Logout](openid-connect.md#logout). |

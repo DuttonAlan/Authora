@@ -37,6 +37,7 @@ using Authora.Core.Application.Clients.RemovePostLogoutRedirectUri;
 using Authora.Core.Application.Clients.RemoveRedirectUri;
 using Authora.Core.Application.Clients.RevokeSecret;
 using Authora.Core.Application.Clients.SetFirstParty;
+using Authora.Core.Application.Clients.SetMfaRequired;
 using Authora.Core.Application.Clients.SetPkceOptional;
 using Authora.Core.Application.Clients.ServeScope;
 using Authora.Core.Application.Clients.StopServingScope;
@@ -150,6 +151,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<MfaOptions>, MfaOptionsValidator>());
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Scoped<ISecondFactor, TotpSecondFactor>());
         serviceCollection.AddTransient<MfaVerifier>();
+        serviceCollection.AddTransient<AdministratorMfaPolicy>();
         serviceCollection.AddTransient<ConfirmTotpEnrollmentService>();
         serviceCollection.AddTransient<GetMfaStatusService>();
         serviceCollection.AddTransient<RegenerateRecoveryCodesService>();
@@ -174,6 +176,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<ClientAuthenticator>();
         serviceCollection.AddTransient<IntrospectTokenService>();
         serviceCollection.AddTransient<IssueAuthorizationCodeService>();
+        serviceCollection.AddTransient<CheckAuthenticationRequirementService>();
         serviceCollection.AddTransient<IssueTokenService>();
         serviceCollection.AddTransient<RevokeTokenService>();
         serviceCollection.AddTransient<TokenIssuer>();
@@ -198,6 +201,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<EnableClientService>();
         serviceCollection.AddTransient<SetFirstPartyService>();
         serviceCollection.AddTransient<SetPkceOptionalService>();
+        serviceCollection.AddTransient<SetMfaRequiredService>();
         serviceCollection.AddTransient<GetAllClientsService>();
         serviceCollection.AddTransient<GetClientService>();
         serviceCollection.AddTransient<RegisterClientService>();

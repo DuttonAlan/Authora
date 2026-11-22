@@ -52,6 +52,9 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
 
         builder.Ignore(x => x.RequiresPkce);
 
+        builder.Property(x => x.RequiresMfa)
+            .IsRequired();
+
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 

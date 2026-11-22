@@ -50,6 +50,7 @@ Lifetimes of Access and Refresh Tokens are set per Client, in the admin interfac
 | Setting | Default | Limits | Description |
 |---|---|---|---|
 | `Authora:Mfa:IssuerName` | `Authora` | 1 to 64 characters, no colon or control characters | The name authenticator apps show next to the User's Email, e.g. the name of your company. Changing it does not change the entries Users already added. |
+| `Authora:Mfa:RequireForAdministrators` | `false` | – | Require multi-factor authentication for every User who holds a Permission of the admin API. Such a User without a second factor sets up an authenticator app right after the password; an authorization request with `authora.admin` steps up a Session without one; and the admin API rejects their Access Tokens unless they come from a sign-in with two factors, also tokens of other Clients (`403`, `insufficient_user_authentication`). Off by default so upgrades keep working; recommended in production. |
 
 The algorithm is fixed to what every authenticator app supports: TOTP with HMAC-SHA-1, 6 digits, 30-second steps, one step of clock drift either way; 10 recovery codes per set. The secrets are encrypted with the Data Protection keys below. See [Require multi-factor authentication](../how-to/require-multi-factor-authentication.md).
 

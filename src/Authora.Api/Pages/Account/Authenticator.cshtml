@@ -17,17 +17,22 @@
         }
     </ul>
 
-    <p><a href="/account/security">Done</a></p>
+    <p><a href="@Model.ContinueUrl">@(Model.SafeReturnUrl is null ? "Done" : "Continue")</a></p>
 }
 else if (Model.AlreadyEnrolled)
 {
     <h1>Authenticator app</h1>
     <p>An authenticator app is already set up. To use another one, remove it first, then set up the new one.</p>
-    <p class="links"><a href="/account/security/authenticator/remove">Remove authenticator app</a> <a href="/account/security">Back</a></p>
+    <p class="links"><a href="/account/security/authenticator/remove">Remove authenticator app</a> <a href="@Model.ContinueUrl">@(Model.SafeReturnUrl is null ? "Back" : "Continue")</a></p>
 }
 else
 {
     <h1>Set up an authenticator app</h1>
+
+    @if (Model.SafeReturnUrl is not null)
+    {
+        <p><strong>To continue, your account needs a second step after the password.</strong></p>
+    }
 
     @if (Model.ErrorMessage is not null)
     {
@@ -47,6 +52,7 @@ else
         <code class="secret">@Model.Enrollment.Secret</code>
 
         <form method="post">
+            <input type="hidden" asp-for="ReturnUrl" />
             <label asp-for="Code">Code from the app</label>
             <input asp-for="Code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="32" required autofocus />
 

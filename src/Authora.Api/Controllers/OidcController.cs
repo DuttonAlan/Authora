@@ -5,6 +5,7 @@
 using Authora.Api.OAuth;
 using Authora.Api.Oidc;
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.SecondFactors;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Application.Oidc.Jwks;
@@ -23,11 +24,13 @@ namespace Authora.Api.Controllers;
 /// <param name="options">The OAuth settings with the Issuer.</param>
 /// <param name="signingKeyProvider">The provider of the published keys.</param>
 /// <param name="getUserInfoService">The Service behind the UserInfo endpoint.</param>
+/// <param name="secondFactors">The registered second factors, which decide the reachable <c>acr</c> values.</param>
 [ApiExplorerSettings(IgnoreApi = true)]
 public sealed class OidcController(
     IOptions<OAuthOptions> options,
     ISigningKeyProvider signingKeyProvider,
-    GetUserInfoService getUserInfoService) : ControllerBase
+    GetUserInfoService getUserInfoService,
+    SecondFactorRegistry secondFactors) : ControllerBase
 {
     /// <summary>
     ///     How long Clients may cache the discovery document and the JWKS. A new key must be published at least this
@@ -46,7 +49,7 @@ public sealed class OidcController(
     [ResponseCache(Duration = MetadataCacheDurationSeconds, Location = ResponseCacheLocation.Any)]
     public IActionResult Discovery()
     {
-        return Ok(DiscoveryDocument.Create(options.Value.Issuer));
+        return Ok(DiscoveryDocument.Create(options.Value.Issuer, secondFactors.All.Select(factor => factor.Method)));
     }
 
     /// <summary>

@@ -36,15 +36,6 @@
         "comment": "As for oidcc-scope-email: ID Tokens contain the claims of the approved Scopes by design."
     },
     {
-        "test-name": "oidcc-ensure-request-with-acr-values-succeeds",
-        "variant": "*",
-        "configuration-filename": "*",
-        "current-block": "Verify authorization endpoint response",
-        "condition": "ValidateIdTokenACRClaimAgainstAcrValuesRequest",
-        "expected-result": "warning",
-        "comment": "acr_values is ignored and ID Tokens have no acr claim; planned with multi-factor authentication."
-    },
-    {
         "test-name": "oidcc-claims-essential",
         "variant": "*",
         "configuration-filename": "*",

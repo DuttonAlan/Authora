@@ -69,6 +69,23 @@ public sealed class AuthenticatorModel(
     public string Code { get; set; } = string.Empty;
 
     /// <summary>
+    ///     The local URL to continue at once the app is set up, e.g. an authorization request that requires
+    ///     multi-factor authentication. Other URLs are ignored.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? ReturnUrl { get; set; }
+
+    /// <summary>
+    ///     The <see cref="ReturnUrl"/> if it is local, otherwise null.
+    /// </summary>
+    public string? SafeReturnUrl => !string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl) ? ReturnUrl : null;
+
+    /// <summary>
+    ///     Where to continue once the app is set up: the <see cref="SafeReturnUrl"/>, otherwise the account overview.
+    /// </summary>
+    public string ContinueUrl => SafeReturnUrl ?? SecurityModel.PagePath;
+
+    /// <summary>
     ///     The secret and URI to add to the app, or null if there is nothing to set up.
     /// </summary>
     public TotpEnrollmentResponse? Enrollment { get; private set; }

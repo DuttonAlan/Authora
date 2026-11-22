@@ -273,6 +273,14 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidGrant, "PKCE is required, but the authorization request contained no code_challenge.");
         }
 
+        // Multi-factor authentication was required for the Client after the code was issued without it.
+        if (client.RequiresMfa
+            && !AuthenticationContextClasses.Satisfies(authorizationCode.AuthenticationMethods, AuthenticationContextClasses.MultiFactor))
+        {
+            logger.AuthorizationCodeWithoutMfa(authorizationCode.Id, client.Id);
+            throw new OAuthException(OAuthErrors.InvalidGrant, "The Client requires multi-factor authentication, but the User signed in without it.");
+        }
+
         // A code issued before the User signed out must not sign them in again.
         var session = await sessionRepository.GetSessionById(authorizationCode.SessionId, cancellationToken);
 

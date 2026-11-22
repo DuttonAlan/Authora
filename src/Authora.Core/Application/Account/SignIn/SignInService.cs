@@ -6,6 +6,7 @@ using Authora.Core.Abstractions;
 using Authora.Core.Application.Account.SecondFactors;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Application.Mfa;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -39,6 +40,7 @@ namespace Authora.Core.Application.Account.SignIn;
 /// <param name="secretHasher">The hasher for the stored tokens.</param>
 /// <param name="timeProvider">The TimeProvider for the lockout and the Session lifetime.</param>
 /// <param name="options">The sign-in settings.</param>
+/// <param name="administratorMfaPolicy">Decides whether a User without a second factor must set one up right away.</param>
 /// <param name="auditLog">The audit log to record sign-ins and lockouts.</param>
 /// <param name="logger">The Logger to record sign-ins.</param>
 public sealed class SignInService(
@@ -51,6 +53,7 @@ public sealed class SignInService(
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
     IOptions<SignInOptions> options,
+    AdministratorMfaPolicy administratorMfaPolicy,
     IAuditLog auditLog,
     ILogger<SignInService> logger)
 {
@@ -179,7 +182,16 @@ public sealed class SignInService(
 
         logger.SignedIn(user.Id, session.Id);
 
-        return SignInResult.SignedIn(sessionToken);
+        // The User has no second factor (otherwise the sign-in would be pending), but must use one: they set it up
+        // right away, with this Session, so nobody is locked out by turning the requirement on.
+        var mustEnroll = await administratorMfaPolicy.IsRequiredAsync(user.Id, cancellationToken);
+
+        if (mustEnroll)
+        {
+            logger.SecondFactorEnrollmentRequired(user.Id);
+        }
+
+        return SignInResult.SignedIn(sessionToken, mustEnroll);
     }
 
     // The password is correct, but the User enrolled a second factor: no Session yet, only a pending sign-in. The
@@ -249,6 +261,12 @@ public sealed record SignInResult
     public string? ChallengeToken { get; private init; }
 
     /// <summary>
+    ///     Whether the User is signed in, but must set up a second factor right away, because they hold a Permission and
+    ///     multi-factor authentication is required for administrators.
+    /// </summary>
+    public bool MustEnrollSecondFactor { get; private init; }
+
+    /// <summary>
     ///     Whether the User is signed in with a new Session.
     /// </summary>
     public bool Succeeded => SessionToken is not null;
@@ -262,8 +280,13 @@ public sealed record SignInResult
     ///     Creates the result of a completed sign-in.
     /// </summary>
     /// <param name="sessionToken">The plain-text token of the new Session.</param>
+    /// <param name="mustEnrollSecondFactor">Whether the User must set up a second factor right away.</param>
     /// <returns>The result.</returns>
-    public static SignInResult SignedIn(string sessionToken) => new() { SessionToken = sessionToken };
+    public static SignInResult SignedIn(string sessionToken, bool mustEnrollSecondFactor = false) => new()
+    {
+        SessionToken = sessionToken,
+        MustEnrollSecondFactor = mustEnrollSecondFactor
+    };
 
     /// <summary>
     ///     Creates the result of a sign-in that waits for a second factor.
@@ -276,5 +299,5 @@ public sealed record SignInResult
     ///     Returns a description without the tokens, so they are not written to logs by accident.
     /// </summary>
     /// <returns>A description of the result.</returns>
-    public override string ToString() => $"SignInResult(Succeeded = {Succeeded}, IsPending = {IsPending})";
+    public override string ToString() => $"SignInResult(Succeeded = {Succeeded}, IsPending = {IsPending}, MustEnrollSecondFactor = {MustEnrollSecondFactor})";
 }

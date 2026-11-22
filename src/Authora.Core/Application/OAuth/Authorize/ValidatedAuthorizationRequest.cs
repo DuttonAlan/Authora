@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 
 namespace Authora.Core.Application.OAuth.Authorize;
@@ -21,6 +22,10 @@ namespace Authora.Core.Application.OAuth.Authorize;
 /// <param name="Nonce">The <c>nonce</c> to return in the ID Token, or null.</param>
 /// <param name="Prompts">The supported values of <c>prompt</c>, see <see cref="PromptValues"/>.</param>
 /// <param name="MaxAge">The <c>max_age</c>: how long ago the User may have signed in at most, or null.</param>
+/// <param name="AcrValues">
+///     The values of <c>acr_values</c> Authora knows (<see cref="AuthenticationContextClasses"/>), in the requested
+///     order. Empty if none was sent or none is known.
+/// </param>
 public sealed record ValidatedAuthorizationRequest(
     Client Client,
     string RedirectUri,
@@ -30,8 +35,17 @@ public sealed record ValidatedAuthorizationRequest(
     string? CodeChallenge,
     string? Nonce,
     IReadOnlySet<string> Prompts,
-    TimeSpan? MaxAge)
+    TimeSpan? MaxAge,
+    IReadOnlyList<string> AcrValues)
 {
+    /// <summary>
+    ///     The weakest level of <see cref="AcrValues"/>: a Session that reaches it satisfies the request, because any
+    ///     of the requested values is acceptable. Null if no known value was requested.
+    /// </summary>
+    public string? RequestedAcr => AcrValues.Count == 0
+        ? null
+        : AcrValues.MinBy(AuthenticationContextClasses.Rank);
+
     /// <summary>
     ///     Whether the User must be asked for consent: always for <c>prompt=consent</c>, never for a first-party
     ///     Client otherwise, and for a third-party Client unless the User's Consent already contains every requested

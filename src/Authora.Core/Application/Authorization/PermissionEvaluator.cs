@@ -41,4 +41,22 @@ public sealed class PermissionEvaluator(IUserRepository userRepository)
         return user.GetEffectiveRoles().Any(role => role.IsAdministrator
             || role.Permissions.Any(permission => permission.Name == permissionName));
     }
+
+    /// <summary>
+    ///     Checks whether a User has any Permission of the admin API.
+    /// </summary>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if the User exists, can sign in and has at least one Permission.</returns>
+    public async Task<bool> HasAnyPermissionAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await userRepository.GetUserWithPermissionsById(userId, cancellationToken);
+
+        if (user is null || !user.CanSignIn)
+        {
+            return false;
+        }
+
+        return user.GetEffectiveRoles().Any(role => role.IsAdministrator || role.Permissions.Count > 0);
+    }
 }

@@ -20,7 +20,8 @@ namespace Authora.Api.Authorization;
 internal static class AuthorizationPolicies
 {
     /// <summary>
-    ///     Requires an Access Token with the <see cref="AdminApiScope"/>. The Session cookie is not accepted.
+    ///     Requires an Access Token with the <see cref="AdminApiScope"/>, and, if MFA is required for administrators, a
+    ///     multi-factor sign-in (<see cref="AdministratorMfaRequirement"/>). The Session cookie is not accepted.
     /// </summary>
     public const string AdminApi = "admin-api";
 
@@ -42,7 +43,8 @@ internal static class AuthorizationPolicies
         options.AddPolicy(AdminApi, policy => policy
             .AddAuthenticationSchemes(AccessTokenAuthenticationHandler.SchemeName)
             .RequireAuthenticatedUser()
-            .RequireClaim(AccessTokenClaimTypes.Scope, AdminApiScope.Name));
+            .RequireClaim(AccessTokenClaimTypes.Scope, AdminApiScope.Name)
+            .AddRequirements(new AdministratorMfaRequirement()));
 
         options.AddPolicy(RecentAuthentication, policy => policy
             .AddAuthenticationSchemes(SessionAuthenticationHandler.SchemeName)
