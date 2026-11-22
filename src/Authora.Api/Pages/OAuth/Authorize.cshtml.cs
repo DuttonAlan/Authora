@@ -126,7 +126,7 @@ public sealed class AuthorizeModel(
         // from signing in.
         var requirement = mustSignIn
             ? AuthenticationRequirement.Satisfied
-            : await CheckAuthenticationAsync(validated, cancellationToken);
+            : await CheckSessionStrengthAsync(validated, cancellationToken);
 
         var mustConsent = !mustSignIn
             && requirement == AuthenticationRequirement.Satisfied
@@ -160,7 +160,7 @@ public sealed class AuthorizeModel(
 
         if (requirement != AuthenticationRequirement.Satisfied)
         {
-            return CompleteAuthentication(request, requirement);
+            return RedirectToMissingFactor(request, requirement);
         }
 
         if (!mustConsent)
@@ -225,11 +225,11 @@ public sealed class AuthorizeModel(
         }
 
         // Checked again: the Client may require multi-factor authentication since the consent screen was shown.
-        var requirement = await CheckAuthenticationAsync(validated, cancellationToken);
+        var requirement = await CheckSessionStrengthAsync(validated, cancellationToken);
 
         if (requirement != AuthenticationRequirement.Satisfied)
         {
-            return CompleteAuthentication(request, requirement);
+            return RedirectToMissingFactor(request, requirement);
         }
 
         // Remembered before the code is issued, so the code of a third-party Client is bound to the Consent.
@@ -312,7 +312,7 @@ public sealed class AuthorizeModel(
     ///     Sends a signed-in User whose Session is not strong enough to complete another factor (step-up) or to set one
     ///     up, and from there back to the same authorization request, which is then checked again.
     /// </summary>
-    private LocalRedirectResult CompleteAuthentication(AuthorizationRequest request, AuthenticationRequirement requirement)
+    private LocalRedirectResult RedirectToMissingFactor(AuthorizationRequest request, AuthenticationRequirement requirement)
     {
         var page = requirement == AuthenticationRequirement.Enrollment ? AuthenticatorModel.PagePath : StepUpModel.PagePath;
         var returnUrl = GetAuthorizeUrl(GetParameters(request));
@@ -323,7 +323,7 @@ public sealed class AuthorizeModel(
     /// <summary>
     ///     Checks whether the Session of the signed-in User is strong enough for the request.
     /// </summary>
-    private Task<AuthenticationRequirement> CheckAuthenticationAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
+    private Task<AuthenticationRequirement> CheckSessionStrengthAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
     {
         return checkAuthenticationRequirementService.ExecuteAsync(validated, GetUserId(), GetAuthenticationMethods(), cancellationToken);
     }
