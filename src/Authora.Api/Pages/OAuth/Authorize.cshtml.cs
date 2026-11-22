@@ -5,6 +5,7 @@
 using System.Globalization;
 
 using Authora.Api.Authentication;
+using Authora.Api.Pages.Account;
 using Authora.Core.Application.Consents.Check;
 using Authora.Core.Application.Consents.Remember;
 using Authora.Core.Application.OAuth;
@@ -34,13 +35,20 @@ namespace Authora.Api.Pages.OAuth;
 ///     <para>
 ///         OpenID Connect: <c>prompt=login</c>, <c>prompt=select_account</c> and an exceeded <c>max_age</c> send a
 ///         signed-in User to the sign-in page again. <c>prompt=none</c> never shows a page: a signed-in User gets the
-///         code if no consent is needed, otherwise it is answered with <c>login_required</c> or
-///         <c>consent_required</c>.
+///         code if no consent is needed, otherwise it is answered with <c>login_required</c>,
+///         <c>interaction_required</c> or <c>consent_required</c>.
+///     </para>
+///     <para>
+///         Multi-factor authentication: if the Client requires it, the request asks for it with <c>acr_values</c>,
+///         or MFA is required for administrators and the request contains <c>authora.admin</c>, a Session without
+///         enough factors is stepped up first, and a User without a second factor sets one up, see
+///         <see cref="CheckAuthenticationRequirementService"/>. Both pages return to the same request.
 ///     </para>
 /// </remarks>
 /// <param name="validateAuthorizationRequestService">The Service to validate the request.</param>
 /// <param name="checkConsentService">The Service to check whether the User must be asked for consent.</param>
 /// <param name="rememberConsentService">The Service to remember the approval of the User.</param>
+/// <param name="checkAuthenticationRequirementService">The Service to check whether the Session is strong enough.</param>
 /// <param name="issueAuthorizationCodeService">The Service to issue the Authorization Code.</param>
 /// <param name="options">The OAuth settings with the Issuer.</param>
 /// <param name="timeProvider">The clock for <c>max_age</c>.</param>
@@ -50,6 +58,7 @@ public sealed class AuthorizeModel(
     ValidateAuthorizationRequestService validateAuthorizationRequestService,
     CheckConsentService checkConsentService,
     RememberConsentService rememberConsentService,
+    CheckAuthenticationRequirementService checkAuthenticationRequirementService,
     IssueAuthorizationCodeService issueAuthorizationCodeService,
     IOptions<OAuthOptions> options,
     TimeProvider timeProvider,
@@ -113,21 +122,33 @@ public sealed class AuthorizeModel(
         var mustSignIn = User.Identity?.IsAuthenticated != true
             || validated.RequiresSignIn(GetAuthenticatedAt(), timeProvider.GetUtcNow().UtcDateTime);
 
-        // Without a sign-in the User is unknown, so the Consent is only checked once the User is back from signing in.
+        // Without a sign-in the User is unknown, so the Session and the Consent are only checked once the User is back
+        // from signing in.
+        var requirement = mustSignIn
+            ? AuthenticationRequirement.Satisfied
+            : await CheckAuthenticationAsync(validated, cancellationToken);
+
         var mustConsent = !mustSignIn
+            && requirement == AuthenticationRequirement.Satisfied
             && await checkConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken) == ConsentCheckResult.Required;
 
         if (validated.Prompts.Contains(PromptValues.None))
         {
-            if (!mustSignIn && !mustConsent)
+            if (!mustSignIn && requirement == AuthenticationRequirement.Satisfied && !mustConsent)
             {
                 return await IssueCodeAsync(validated, cancellationToken);
             }
 
+            var (error, description) = mustSignIn
+                ? (OAuthErrors.LoginRequired, "The User must sign in.")
+                : requirement != AuthenticationRequirement.Satisfied
+                    ? (OAuthErrors.InteractionRequired, "The User must complete or set up another factor.")
+                    : (OAuthErrors.ConsentRequired, "The User must consent.");
+
             return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
             {
-                ["error"] = mustSignIn ? OAuthErrors.LoginRequired : OAuthErrors.ConsentRequired,
-                ["error_description"] = mustSignIn ? "The User must sign in." : "The User must consent.",
+                ["error"] = error,
+                ["error_description"] = description,
                 ["state"] = validated.State
             });
         }
@@ -135,6 +156,11 @@ public sealed class AuthorizeModel(
         if (mustSignIn)
         {
             return SignIn(request);
+        }
+
+        if (requirement != AuthenticationRequirement.Satisfied)
+        {
+            return CompleteAuthentication(request, requirement);
         }
 
         if (!mustConsent)
@@ -198,6 +224,14 @@ public sealed class AuthorizeModel(
             return SignIn(request);
         }
 
+        // Checked again: the Client may require multi-factor authentication since the consent screen was shown.
+        var requirement = await CheckAuthenticationAsync(validated, cancellationToken);
+
+        if (requirement != AuthenticationRequirement.Satisfied)
+        {
+            return CompleteAuthentication(request, requirement);
+        }
+
         // Remembered before the code is issued, so the code of a third-party Client is bound to the Consent.
         await rememberConsentService.ExecuteAsync(validated, GetUserId(), cancellationToken);
 
@@ -229,13 +263,12 @@ public sealed class AuthorizeModel(
     private async Task<StatusCodeResult> IssueCodeAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
     {
         var sessionId = Guid.Parse(User.FindFirst(SessionClaimTypes.SessionId)!.Value);
-        var authenticationMethods = User.FindAll(SessionClaimTypes.AuthenticationMethod).Select(claim => claim.Value).ToList();
         var code = await issueAuthorizationCodeService.ExecuteAsync(
             validated,
             GetUserId(),
             sessionId,
             GetAuthenticatedAt(),
-            authenticationMethods,
+            GetAuthenticationMethods(),
             cancellationToken);
 
         return RedirectToClient(validated.RedirectUri, new Dictionary<string, string?>
@@ -272,11 +305,45 @@ public sealed class AuthorizeModel(
             parameters.Remove("prompt");
         }
 
-        var returnUrl = QueryHelpers.AddQueryString(
+        return Challenge(new AuthenticationProperties { RedirectUri = GetAuthorizeUrl(parameters) });
+    }
+
+    /// <summary>
+    ///     Sends a signed-in User whose Session is not strong enough to complete another factor (step-up) or to set one
+    ///     up, and from there back to the same authorization request, which is then checked again.
+    /// </summary>
+    private LocalRedirectResult CompleteAuthentication(AuthorizationRequest request, AuthenticationRequirement requirement)
+    {
+        var page = requirement == AuthenticationRequirement.Enrollment ? AuthenticatorModel.PagePath : StepUpModel.PagePath;
+        var returnUrl = GetAuthorizeUrl(GetParameters(request));
+
+        return LocalRedirect($"{page}?returnUrl={Uri.EscapeDataString(returnUrl)}");
+    }
+
+    /// <summary>
+    ///     Checks whether the Session of the signed-in User is strong enough for the request.
+    /// </summary>
+    private Task<AuthenticationRequirement> CheckAuthenticationAsync(ValidatedAuthorizationRequest validated, CancellationToken cancellationToken)
+    {
+        return checkAuthenticationRequirementService.ExecuteAsync(validated, GetUserId(), GetAuthenticationMethods(), cancellationToken);
+    }
+
+    /// <summary>
+    ///     The URL of the authorization request as GET, with the given parameters.
+    /// </summary>
+    private string GetAuthorizeUrl(Dictionary<string, string> parameters)
+    {
+        return QueryHelpers.AddQueryString(
             $"{Request.PathBase}{Request.Path}",
             parameters.Select(parameter => new KeyValuePair<string, string?>(parameter.Key, parameter.Value)));
+    }
 
-        return Challenge(new AuthenticationProperties { RedirectUri = returnUrl });
+    /// <summary>
+    ///     The authentication methods the User completed in the Session, from the Session.
+    /// </summary>
+    private List<string> GetAuthenticationMethods()
+    {
+        return User.FindAll(SessionClaimTypes.AuthenticationMethod).Select(claim => claim.Value).ToList();
     }
 
     /// <summary>
@@ -355,7 +422,8 @@ public sealed class AuthorizeModel(
             ["response_mode"] = request.ResponseMode,
             ["nonce"] = request.Nonce,
             ["prompt"] = request.Prompt,
-            ["max_age"] = request.MaxAge
+            ["max_age"] = request.MaxAge,
+            ["acr_values"] = request.AcrValues
         };
 
         return parameters

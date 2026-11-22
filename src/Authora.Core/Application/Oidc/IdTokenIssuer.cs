@@ -8,6 +8,7 @@ using System.Text;
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.OAuth;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Options;
@@ -61,6 +62,11 @@ public sealed class IdTokenIssuer(
         // the sign-in page.
         claims["auth_time"] = ToUnixTime(authorizationCode.AuthenticatedAt);
         claims["at_hash"] = ComputeAccessTokenHash(accessToken);
+
+        // How the User signed in (RFC 8176) and the level it reached, so the Client can decide whether that is enough.
+        var methods = authorizationCode.AuthenticationMethods;
+        claims["amr"] = AuthenticationMethods.ToAmrClaim(methods);
+        claims["acr"] = AuthenticationContextClasses.Of(methods);
 
         // Returned unchanged, so the Client can check that the token belongs to its request (replay protection).
         if (authorizationCode.Nonce is not null)

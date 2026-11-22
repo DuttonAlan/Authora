@@ -25,6 +25,22 @@ public static class AuthenticationMethods
     public const string OneTimeCode = "otp";
 
     /// <summary>
+    ///     A proof of possession of a hardware-secured key (<c>hwk</c>), e.g. a passkey on a security key.
+    /// </summary>
+    public const string HardwareKey = "hwk";
+
+    /// <summary>
+    ///     A proof of possession of a software-secured key (<c>swk</c>), e.g. a synced passkey.
+    /// </summary>
+    public const string SoftwareKey = "swk";
+
+    /// <summary>
+    ///     Multiple-factor authentication (<c>mfa</c>): added to <c>amr</c> in ID Tokens when the User completed at
+    ///     least two methods. Never stored as a method of its own.
+    /// </summary>
+    public const string MultiFactor = "mfa";
+
+    /// <summary>
     ///     Maximum length of a formatted list of methods, which is how long Sessions and Authorization Codes store it.
     /// </summary>
     public const int MaxLength = 200;
@@ -79,6 +95,55 @@ public static class AuthenticationMethods
         }
 
         return value;
+    }
+
+    /// <summary>
+    ///     Checks whether the methods are a multi-factor authentication: at least two distinct methods, e.g. the
+    ///     password and a one-time code.
+    /// </summary>
+    /// <param name="methods">The completed methods.</param>
+    /// <returns><see langword="true"/> if at least two factors were completed.</returns>
+    public static bool IsMultiFactor(IEnumerable<string> methods)
+    {
+        ArgumentNullException.ThrowIfNull(methods);
+
+        return methods
+            .Where(method => !string.Equals(method, MultiFactor, StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Count() >= 2;
+    }
+
+    /// <summary>
+    ///     Checks whether the methods contain a passkey (<see cref="HardwareKey"/> or <see cref="SoftwareKey"/>), which
+    ///     is phishing-resistant.
+    /// </summary>
+    /// <param name="methods">The completed methods.</param>
+    /// <returns><see langword="true"/> if a passkey was used.</returns>
+    public static bool ContainsPasskey(IEnumerable<string> methods)
+    {
+        ArgumentNullException.ThrowIfNull(methods);
+
+        return methods.Any(method => method is HardwareKey or SoftwareKey);
+    }
+
+    /// <summary>
+    ///     The <c>amr</c> claim of an ID Token: the completed methods in their order, plus <see cref="MultiFactor"/>
+    ///     if there were at least two (RFC 8176).
+    /// </summary>
+    /// <param name="methods">The completed methods.</param>
+    /// <returns>The values of the claim.</returns>
+    public static IReadOnlyList<string> ToAmrClaim(IReadOnlyCollection<string> methods)
+    {
+        ArgumentNullException.ThrowIfNull(methods);
+
+        var values = methods.Distinct(StringComparer.Ordinal).ToList();
+
+        if (IsMultiFactor(values) && !values.Contains(MultiFactor, StringComparer.Ordinal))
+        {
+            values.Add(MultiFactor);
+        }
+
+        return values;
     }
 
     /// <summary>

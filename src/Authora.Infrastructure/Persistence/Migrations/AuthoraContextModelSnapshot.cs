@@ -250,6 +250,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<int>("RefreshTokenTTL")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("RequiresMfa")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -366,6 +369,10 @@ namespace Authora.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("AuthenticationMethod")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<Guid?>("AuthorizationCodeId")
                         .HasColumnType("uuid");

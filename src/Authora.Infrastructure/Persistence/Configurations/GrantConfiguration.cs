@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,12 @@ public sealed class GrantConfiguration : IEntityTypeConfiguration<Grant>
         builder.Ignore(x => x.Scopes);
         builder.Ignore(x => x.IsRevoked);
         builder.Ignore(x => x.HasUser);
+
+        // Optional: Grants of the Client itself, and Grants from before the methods were recorded, have none.
+        builder.Property(x => x.AuthenticationMethod)
+            .HasMaxLength(AuthenticationMethods.MaxLength);
+
+        builder.Ignore(x => x.AuthenticationMethods);
 
         // Used to revoke the Grants of a reused Authorization Code and of a disabled Client.
         builder.HasIndex(x => x.AuthorizationCodeId);

@@ -27,6 +27,7 @@ All URLs in the document are built from `Authora:OAuth:Issuer`, so they always m
 | `subject_types_supported` | `public` |
 | `scopes_supported` | `openid`, `profile`, `email` |
 | `prompt_values_supported` | `none`, `login`, `consent`, `select_account` |
+| `acr_values_supported` | `urn:authora:acr:pwd`, `urn:authora:acr:mfa`; `phr` only once a passkey factor is available |
 | `request_parameter_supported`, `request_uri_parameter_supported`, `claims_parameter_supported` | `false` |
 | `authorization_response_iss_parameter_supported` | `true` |
 | `end_session_endpoint` | `{Issuer}/oauth/logout` |
@@ -55,19 +56,44 @@ In addition to the [OAuth parameters](oauth-endpoints.md#authorization-request):
 | `nonce` | Optional, at most 512 characters. Returned unchanged in the ID Token. |
 | `prompt` | Optional. `none` must not be combined with other values. Unknown values are ignored. |
 | `max_age` | Optional, a non-negative number of seconds. |
+| `acr_values` | Optional, space-delimited levels of [Authentication levels](#authentication-levels), in order of preference. Unknown values are ignored. |
 | `request`, `request_uri`, `registration` | Not supported: `request_not_supported`, `request_uri_not_supported`, `registration_not_supported`. |
-| `display`, `ui_locales`, `login_hint`, `id_token_hint`, `acr_values`, `claims_locales`, `claims` | Ignored. |
+| `display`, `ui_locales`, `login_hint`, `id_token_hint`, `claims_locales`, `claims` | Ignored. |
 
 | `prompt` | Behavior |
 |---|---|
-| `none` | No page is shown. `login_required` if the User is not signed in or must sign in again. Otherwise the code is sent if no consent is needed: the Client is first-party, or the User's Consent contains every requested Scope. If not, `consent_required`. |
+| `none` | No page is shown. `login_required` if the User is not signed in or must sign in again; `interaction_required` if the Session lacks a factor the request needs (see [Step-up](#step-up-and-required-mfa)). Otherwise the code is sent if no consent is needed: the Client is first-party, or the User's Consent contains every requested Scope. If not, `consent_required`. |
 | `login` | The User signs in again, even if signed in. |
 | `select_account` | Same as `login`; there is no account chooser. |
 | `consent` | The consent screen is shown, also for a first-party Client and when the User's Consent already contains the requested Scopes. |
 
 If the sign-in is older than `max_age`, the User signs in again. This is checked when the consent screen is shown and again when it is approved.
 
-`prompt` and `max_age` travel through the browser, which can remove them. Clients that need a recent sign-in, e.g. before a sensitive action, must compare the `auth_time` claim with the time they sent the request.
+`prompt`, `max_age` and `acr_values` travel through the browser, which can remove them. Clients that need a recent sign-in, e.g. before a sensitive action, must compare the `auth_time` claim with the time they sent the request; Clients that need a second factor must check `acr` or `amr`, or have an administrator turn on *Require MFA* for them.
+
+## Authentication levels
+
+The `acr` claim names the level the sign-in reached; a stronger level satisfies every weaker one.
+
+| `acr` | Reached when the Session has | Strength |
+|---|---|---|
+| `urn:authora:acr:pwd` | the password only | weakest |
+| `urn:authora:acr:mfa` | at least two factors, e.g. `pwd` and `otp` | |
+| `phr` (OpenID EAP ACR Values 1.0) | a passkey (`hwk` or `swk`) | strongest |
+
+The `amr` claim ([RFC 8176](https://www.rfc-editor.org/rfc/rfc8176)) lists the methods in the order they were completed: `pwd` (password), `otp` (code of an authenticator app or a recovery code), `hwk`/`swk` (passkeys), plus `mfa` when at least two were used.
+
+## Step-up and required MFA
+
+Before a code is issued, the Session of a signed-in User is checked:
+
+| Rule | Session not strong enough, User has another factor | User has no second factor | `prompt=none` |
+|---|---|---|---|
+| `acr_values` (voluntary) | Asked for the factor that gets closest to a requested level (step-up) | Gets the strongest level they reach; the Client sees it in `acr` | `interaction_required` if a step-up would be needed |
+| Client with *Require MFA* (see [Admin API](admin-api.md#clients)) | Step-up | Sets up an authenticator app first | `interaction_required` |
+| `Authora:Mfa:RequireForAdministrators` and the request contains `authora.admin`, for a User who holds a Permission | Step-up | Sets up an authenticator app first | `interaction_required` |
+
+`acr_values` is satisfied by its weakest known value: `urn:authora:acr:mfa urn:authora:acr:pwd` accepts a password-only Session. A step-up adds the factor to the existing Session (`auth_time` becomes the time of the step-up) and returns to the same authorization request. After setting up an authenticator app, the User completes it once more as a step-up. Codes issued without a second factor cannot be exchanged after the Client was set to *Require MFA*: `invalid_grant`.
 
 ## ID Tokens
 
@@ -79,9 +105,11 @@ Returned by `POST /oauth/token` when exchanging a code whose Scopes include `ope
 | `sub` | User Id |
 | `aud` | `client_id` |
 | `iat`, `exp` | Issue time, and issue time plus `Authora:Oidc:IdTokenLifetime` (5 minutes) |
-| `auth_time` | When the User signed in (start of the Session) |
+| `auth_time` | When the User last authenticated in the Session: the sign-in, or a later step-up |
 | `nonce` | The `nonce` of the authorization request, if sent |
 | `at_hash` | Hash of the Access Token |
+| `amr` | The methods of the Session, e.g. `["pwd", "otp", "mfa"]`, see [Authentication levels](#authentication-levels) |
+| `acr` | The level of the Session, e.g. `urn:authora:acr:mfa`, always sent |
 | identity claims | See [Scopes and claims](#scopes-and-claims) |
 
 The header contains `alg: RS256`, `typ: JWT` and the `kid` of the signing key. Clients must validate the signature with the JWKS, and `iss`, `aud`, `exp` and `nonce`.

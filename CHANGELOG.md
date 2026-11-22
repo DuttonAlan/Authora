@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Upgrading
 
-- Stop all instances before applying the three new migrations `TwoStepSignIn`, `SessionTokenConcurrency` and `MultiFactorAuthentication`.
+- Stop all instances before applying the four new migrations `TwoStepSignIn`, `SessionTokenConcurrency`, `MultiFactorAuthentication` and `MfaRequirements`.
+- Grants from before the upgrade have no recorded authentication methods and count as a sign-in with the password only; if you turn on `Authora:Mfa:RequireForAdministrators`, administrators sign in again.
 - The Data Protection keys now also encrypt the secrets of authenticator apps: persist them (`Authora:DataProtection:KeysPath`) and include them in your backups, or every authenticator app stops working when they are lost. See [Persist Data Protection keys](docs/how-to/persist-data-protection-keys.md).
 - Sessions started before the upgrade end; Users sign in again.
 
@@ -22,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Multi-factor authentication with an authenticator app (TOTP, RFC 6238) and recovery codes. Users set it up at `/account/security/authenticator` with a QR code drawn on the server, confirmed by a first code; the sign-in then asks for a code after the password, and the Session records `otp`. A code works once (replayed codes are rejected), and wrong codes count towards the lockout. 10 single-use recovery codes, stored only as hashes, stand in for a lost phone; Users see how many are left and generate new ones at `/account/security/recovery-codes`, after confirming with the app if they signed in without it. Removing the app at `/account/security/authenticator/remove` needs a current code or recovery code and ends all other Sessions. See [Require multi-factor authentication](docs/how-to/require-multi-factor-authentication.md).
 - Admin API and interface: `GET /api/users/{id}/mfa` shows whether a User has an authenticator app, when it was last used and how many recovery codes are left; `DELETE /api/users/{id}/mfa` resets it and ends all Sessions and Grants of the User, with the new Permission `users.reset-mfa`. Only administrators can reset an administrator.
 - Setting `Authora:Mfa:IssuerName`, audit events `mfa.enrolled`, `mfa.removed`, `mfa.verified`, `mfa.recovery-code-used`, `mfa.recovery-codes-regenerated` and `user.mfa-reset`, log events 1014 and 16001 – 16010.
+- ID Tokens contain `amr` (RFC 8176: `pwd`, `otp`, `hwk`/`swk` for passkeys, plus `mfa` for two or more factors) and `acr` (`urn:authora:acr:pwd`, `urn:authora:acr:mfa`, or `phr` of OpenID EAP ACR Values with a passkey); the discovery document lists `acr_values_supported`.
+- `acr_values` in authorization requests: a Session below the requested level is stepped up if the User has a factor that reaches it; otherwise the User gets the strongest level they can reach. With `prompt=none`, `interaction_required`.
+- Client setting *Require MFA* (`PUT`/`DELETE /api/clients/{id}/mfa-required`, `clients.update`, in the admin interface): Users step up or set up an authenticator app before the Client gets a code, and codes issued without a second factor can no longer be exchanged. Audit events `client.mfa-required` and `client.mfa-no-longer-required`.
+- Setting `Authora:Mfa:RequireForAdministrators` (off by default): Users who hold a Permission set up an authenticator app right after the password, authorization requests with `authora.admin` step up their Sessions, and the admin API rejects their Access Tokens from sign-ins without a second factor with `403` and `insufficient_user_authentication` (RFC 9470). Grants now record the authentication methods of their sign-in.
+- The authenticator setup page takes a `returnUrl` to continue at once the app is set up. Log events 4021, 4022, 5024 and 6017 – 6019.
 
 ### Changed
 

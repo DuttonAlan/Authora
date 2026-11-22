@@ -38,7 +38,10 @@ export async function api(method, path, body) {
         response = await send(method, path, body);
     }
 
-    if (response.status === 401) {
+    // A token without a second factor while multi-factor authentication is required for administrators (RFC 9470):
+    // signing in again steps up the Session, or lets the User set up a second factor first.
+    if (response.status === 401
+        || (response.status === 403 && response.headers.get('WWW-Authenticate')?.includes('insufficient_user_authentication'))) {
         await signIn();
     }
 

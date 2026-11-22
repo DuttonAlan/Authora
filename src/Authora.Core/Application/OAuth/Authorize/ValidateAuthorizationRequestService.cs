@@ -235,6 +235,14 @@ public sealed class ValidateAuthorizationRequestService(
             maxAge = TimeSpan.FromSeconds(seconds);
         }
 
+        // OpenID Connect Core 1.0, Section 3.1.2.1: acr_values is a voluntary request, so values Authora does not
+        // know are ignored instead of rejected, e.g. "1 2" of older test suites.
+        var acrValues = (request.AcrValues ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(value => AuthenticationContextClasses.Rank(value) >= 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
         return AuthorizationRequestValidationResult.Valid(new ValidatedAuthorizationRequest(
             client,
             redirectUri,
@@ -244,6 +252,7 @@ public sealed class ValidateAuthorizationRequestService(
             request.CodeChallenge,
             request.Nonce,
             prompts,
-            maxAge));
+            maxAge,
+            acrValues));
     }
 }

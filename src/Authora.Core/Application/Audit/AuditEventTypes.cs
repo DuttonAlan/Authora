@@ -338,6 +338,12 @@ public static class AuditEventTypes
         /// <summary>A Client must send PKCE again.</summary>
         public const string PkceRequired = "client.pkce-required";
 
+        /// <summary>Users of a Client must now sign in with multi-factor authentication.</summary>
+        public const string MfaRequired = "client.mfa-required";
+
+        /// <summary>Users of a Client no longer need multi-factor authentication.</summary>
+        public const string MfaNoLongerRequired = "client.mfa-no-longer-required";
+
         /// <summary>
         ///     A Client obtained an Access Token for itself with <c>grant_type=client_credentials</c>. The Details list
         ///     the Grant, the Scopes and the expiry, never the token.

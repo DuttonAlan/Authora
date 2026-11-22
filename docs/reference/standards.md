@@ -15,7 +15,9 @@
 | [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517) JWK / [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) JWK Thumbprint | JWKS, `kid` as thumbprint. |
 | [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details | Errors of the admin API. |
 | [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238) TOTP / [RFC 4226](https://www.rfc-editor.org/rfc/rfc4226) HOTP | Authenticator apps as a second factor: HMAC-SHA-1, 6 digits, 30-second steps, one step of drift either way, 160-bit secrets; a used time step is rejected. Set up with an `otpauth://totp/` URI ([Key Uri Format](https://github.com/google/google-authenticator/wiki/Key-Uri-Format)) as QR code. No SHA-256/SHA-512, other lengths or periods, no HOTP counters. |
-| [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176) Authentication Method Reference Values | Sessions and Authorization Codes record `pwd` and `otp` (authenticator app or recovery code). Not yet in ID Tokens. |
+| [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176) Authentication Method Reference Values | `amr` in ID Tokens: `pwd`, `otp` (authenticator app or recovery code), `hwk`/`swk` for passkeys, and `mfa` for two or more factors. |
+| [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) `acr` / [OpenID EAP ACR Values 1.0](https://openid.net/specs/openid-connect-eap-acr-values-1_0.html) | `acr` in ID Tokens with the levels `urn:authora:acr:pwd` and `urn:authora:acr:mfa`, and `phr` for passkeys; `acr_values` with step-up. |
+| [RFC 9470](https://www.rfc-editor.org/rfc/rfc9470) Step-up Authentication Challenge | The admin API answers a token without a required second factor with `insufficient_user_authentication` and `acr_values`. `max_age` in the challenge is not used. |
 
 ## Conformance testing
 
@@ -30,7 +32,6 @@ All 35 test modules of the Basic OP plan run. None fails. Those that warn or are
 | `oidcc-scope-profile` | Warning | Users have only a first and last name, so `profile` returns `name`, `given_name` and `family_name`. |
 | `oidcc-scope-email`, `oidcc-alternate-happy-flow` | Warning | ID Tokens contain the claims of the approved Scopes, not only UserInfo. Allowed, but the suite points out the privacy risk. |
 | `oidcc-userinfo-post-body` | Warning | UserInfo accepts the Access Token only in the `Authorization` header. |
-| `oidcc-ensure-request-with-acr-values-succeeds` | Warning | `acr_values` is ignored; there is no `acr` claim. |
 | `oidcc-claims-essential` | Warning | The `claims` parameter is not supported. |
 
 `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri` and `oidcc-ensure-request-object-with-redirect-uri` end with the result *Review*: they pass, and the suite's log contains the page Authora showed (sign-in or error page) for a person to check, as certification requires.
@@ -50,7 +51,6 @@ Authora deliberately keeps a small feature set. Not supported today:
 - Self-registration. Administrators create Users; Users change their own password at `/account/password`, reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)) and confirm their address with a link (see [Email verification](oauth-endpoints.md#email-verification)).
 - Requesting a new email verification link without an administrator. Users who miss the link sent when their account was created or their Email changed ask an administrator to send another one.
 - Passkeys, and second factors other than an authenticator app (TOTP) with recovery codes, e.g. SMS or email codes.
-- Requiring multi-factor authentication: each User decides whether to set up an authenticator app, and ID Tokens do not tell applications (no `amr` or `acr` claim yet).
 - Sign-in through external identity providers (e.g. Google).
 
 **Protocols**
@@ -59,7 +59,7 @@ Authora deliberately keeps a small feature set. Not supported today:
 - Session management, front- and back-channel logout: applications are not told when a User signs out at Authora, and ID Tokens have no `sid` claim. The end-session endpoint ignores `logout_hint` and `ui_locales`.
 - Pushed authorization requests (PAR), JWT-secured authorization requests (JAR), the `request` and `request_uri` parameters.
 - Response modes other than `query`, e.g. `form_post`.
-- The `claims` parameter, `acr_values` and the `acr` claim, the `address` and `phone` Scopes, and Access Tokens in the body of UserInfo requests.
+- The `claims` parameter, the `address` and `phone` Scopes, and Access Tokens in the body of UserInfo requests.
 - Dynamic Client registration.
 - Pairwise subject identifiers.
 - Audience-restricted Access Tokens ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)); APIs are told apart by the Scopes they serve.

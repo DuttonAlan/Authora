@@ -72,7 +72,8 @@ public sealed class AccessTokenValidator(
             grant.UserId,
             accessToken.Scopes,
             accessToken.CreatedAt,
-            accessToken.ExpiresAt);
+            accessToken.ExpiresAt,
+            grant.AuthenticationMethods);
     }
 }
 
@@ -88,6 +89,10 @@ public sealed class AccessTokenValidator(
 /// <param name="Scopes">The Scope Names of the token.</param>
 /// <param name="IssuedAt">Point in time (UTC) when the token was issued.</param>
 /// <param name="ExpiresAt">Point in time (UTC) when the token expires.</param>
+/// <param name="AuthenticationMethods">
+///     The methods the User completed in the Session the Grant was approved in, e.g. <c>pwd</c> and <c>otp</c>. Empty
+///     for a token of the Client itself and for Grants from before the methods were recorded.
+/// </param>
 public sealed record ValidatedAccessToken(
     Guid Id,
     Guid GrantId,
@@ -95,7 +100,8 @@ public sealed record ValidatedAccessToken(
     Guid? UserId,
     IReadOnlyList<string> Scopes,
     DateTime IssuedAt,
-    DateTime ExpiresAt)
+    DateTime ExpiresAt,
+    IReadOnlyList<string> AuthenticationMethods)
 {
     /// <summary>
     ///     The <c>sub</c> of the token: the User, or the Client if the token has no User.

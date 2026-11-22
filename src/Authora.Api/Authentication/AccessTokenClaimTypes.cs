@@ -23,4 +23,10 @@ internal static class AccessTokenClaimTypes
     ///     One Scope of the token. There is one claim per Scope.
     /// </summary>
     public const string Scope = "scope";
+
+    /// <summary>
+    ///     An authentication method the User completed in the Session the token was issued for (RFC 8176), e.g.
+    ///     <c>pwd</c>. One claim per method; none for Grants from before the methods were recorded.
+    /// </summary>
+    public const string AuthenticationMethod = "amr";
 }

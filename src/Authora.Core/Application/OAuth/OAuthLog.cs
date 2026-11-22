@@ -58,4 +58,13 @@ internal static partial class OAuthLog
 
     [LoggerMessage(EventId = 6016, Level = LogLevel.Information, Message = "Grant {GrantId} was revoked, because User {UserId} revoked the Consent for Client {ClientId} while it was created.")]
     public static partial void GrantRevokedForRevokedConsent(this ILogger logger, Guid grantId, Guid clientId, Guid userId);
+
+    [LoggerMessage(EventId = 6017, Level = LogLevel.Information, Message = "Authorization request of Client {ClientId} requires multi-factor authentication, which the Session of User {UserId} lacks: {Requirement}.")]
+    public static partial void MfaRequired(this ILogger logger, Guid clientId, Guid userId, Authorize.AuthenticationRequirement requirement);
+
+    [LoggerMessage(EventId = 6018, Level = LogLevel.Information, Message = "Authorization request of Client {ClientId} asks for acr {Acr}, so User {UserId} is asked for another factor.")]
+    public static partial void AcrStepUpRequested(this ILogger logger, Guid clientId, Guid userId, string acr);
+
+    [LoggerMessage(EventId = 6019, Level = LogLevel.Information, Message = "Authorization Code {CodeId} was rejected, because Client {ClientId} requires multi-factor authentication and the code was issued without it.")]
+    public static partial void AuthorizationCodeWithoutMfa(this ILogger logger, Guid codeId, Guid clientId);
 }

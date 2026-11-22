@@ -9,9 +9,9 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 1001 – 1014 | Users (1009: an administrator sent a password reset link; 1010 – 1013: email verification, see below; 1014: an administrator reset multi-factor authentication, see below) |
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
-| 4001 – 4020 | Clients |
-| 5001 – 5023 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below), second factor and step-up (5019 – 5023, see below) |
-| 6001 – 6016 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016) |
+| 4001 – 4022 | Clients |
+| 5001 – 5024 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below), second factor and step-up (5019 – 5024, see below) |
+| 6001 – 6019 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016), required multi-factor authentication and `acr_values` (6017 – 6019, see below) |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8005 | Cleanup of expired data (including email tokens and, as 8005, pending sign-ins) and audit events |
 | 9001 – 9005 | Signing keys |
@@ -77,6 +77,10 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 5021 | Information | Pending sign-in … was not completed: … | It was already completed, expired, its User cannot sign in or has a new security stamp, no factor is left, or the Session of a step-up ended. The User signs in again. |
 | 5022 | Information | User … started a step-up … of Session … | At `/account/step-up`. |
 | 5023 | Information | User … completed … for Session …, which got a new token | The step-up is complete. |
+| 5024 | Information | User … holds a Permission and must set up a second factor … | `Authora:Mfa:RequireForAdministrators` is on; the User is sent to set up an authenticator app after the password. |
+| 6017 | Information | Authorization request of Client … requires multi-factor authentication, which the Session of User … lacks: … | `StepUp` or `Enrollment`: the Client or the admin Scope requires a second factor. |
+| 6018 | Information | Authorization request of Client … asks for acr …, so User … is asked for another factor | `acr_values` asks for a level the User can reach with a factor the Session lacks. |
+| 6019 | Information | Authorization Code … was rejected, because Client … requires multi-factor authentication … | The code was issued before *Require MFA* was turned on for the Client. |
 | 8005 | Information | Deleted … pending sign-ins that expired before … | Written by the cleanup, without the retention. |
 
 ## Multi-factor authentication

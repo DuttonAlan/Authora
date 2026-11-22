@@ -72,4 +72,10 @@ internal static partial class ClientLog
 
     [LoggerMessage(EventId = 4020, Level = LogLevel.Information, Message = "Post-logout Redirect URI {RedirectUri} was removed from Client {ClientId}.")]
     public static partial void PostLogoutRedirectUriRemoved(this ILogger logger, Guid clientId, string redirectUri);
+
+    [LoggerMessage(EventId = 4021, Level = LogLevel.Information, Message = "Client {ClientId} ({ClientName}) now requires multi-factor authentication.")]
+    public static partial void ClientMfaRequired(this ILogger logger, Guid clientId, string clientName);
+
+    [LoggerMessage(EventId = 4022, Level = LogLevel.Warning, Message = "Client {ClientId} ({ClientName}) no longer requires multi-factor authentication.")]
+    public static partial void ClientMfaNoLongerRequired(this ILogger logger, Guid clientId, string clientName);
 }
