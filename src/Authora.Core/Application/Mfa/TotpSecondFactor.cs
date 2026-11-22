@@ -22,7 +22,7 @@ public sealed class TotpSecondFactor(IMfaRepository mfaRepository, MfaVerifier v
     public const string Name = "Authenticator app";
 
     /// <inheritdoc/>
-    public string Method => AuthenticationMethods.OneTimePassword;
+    public string Method => AuthenticationMethods.OneTimeCode;
 
     /// <inheritdoc/>
     public string DisplayName => Name;

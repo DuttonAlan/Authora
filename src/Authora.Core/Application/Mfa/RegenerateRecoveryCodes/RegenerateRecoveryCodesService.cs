@@ -78,7 +78,7 @@ public sealed class RegenerateRecoveryCodesService(
             return RegenerateRecoveryCodesResult.NotEnrolled;
         }
 
-        if (!session.AuthenticationMethods.Contains(AuthenticationMethods.OneTimePassword, StringComparer.Ordinal))
+        if (!session.AuthenticationMethods.Contains(AuthenticationMethods.OneTimeCode, StringComparer.Ordinal))
         {
             logger.RecoveryCodesNeedStepUp(user.Id, session.Id);
 

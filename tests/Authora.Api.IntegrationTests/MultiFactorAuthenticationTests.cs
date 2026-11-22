@@ -153,7 +153,7 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         Assert.NotNull(ReadCookie(response, SessionCookie.Name));
 
         var session = Assert.Single(await GetSessionsAsync(userId));
-        Assert.Equal($"{AuthenticationMethods.Password} {AuthenticationMethods.OneTimePassword}", session.AuthenticationMethod);
+        Assert.Equal($"{AuthenticationMethods.Password} {AuthenticationMethods.OneTimeCode}", session.AuthenticationMethod);
 
         var verified = Assert.Single(await GetEventsAsync(AuditEventTypes.Mfa.Verified, userId));
         Assert.Equal(AuditOutcome.Succeeded, verified.Outcome);
@@ -340,7 +340,7 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
     {
         var (userId, email) = await factory.CreateUserWithPasswordAsync(Password);
         var (_, oldCodes) = await factory.EnrollTotpAsync(userId);
-        var sessionToken = await factory.CreateSessionAsync(userId, authenticationMethods: [AuthenticationMethods.Password, AuthenticationMethods.OneTimePassword]);
+        var sessionToken = await factory.CreateSessionAsync(userId, authenticationMethods: [AuthenticationMethods.Password, AuthenticationMethods.OneTimeCode]);
 
         Assert.Contains("10 of 10", await GetPageAsync(RecoveryCodesModel.PagePath, sessionToken), StringComparison.Ordinal);
 
@@ -396,7 +396,7 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
         var (secret, _) = await factory.EnrollTotpAsync(userId);
         var removingSession = await factory.CreateSessionAsync(userId);
-        var regeneratingSession = await factory.CreateSessionAsync(userId, authenticationMethods: [AuthenticationMethods.Password, AuthenticationMethods.OneTimePassword]);
+        var regeneratingSession = await factory.CreateSessionAsync(userId, authenticationMethods: [AuthenticationMethods.Password, AuthenticationMethods.OneTimeCode]);
 
         // Whichever runs first, codes must never outlive the app they stand in for.
         var removal = PostAsync(RemoveAuthenticatorModel.PagePath, removingSession, ("Code", CurrentCode(secret)));
@@ -681,7 +681,7 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         {
             Content = new FormUrlEncodedContent(
             [
-                new("Method", AuthenticationMethods.OneTimePassword),
+                new("Method", AuthenticationMethods.OneTimeCode),
                 new("Code", code),
                 new("__RequestVerificationToken", antiforgeryToken)
             ])

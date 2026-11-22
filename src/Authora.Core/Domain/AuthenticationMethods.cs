@@ -20,9 +20,9 @@ public static class AuthenticationMethods
     public const string Password = "pwd";
 
     /// <summary>
-    ///     A one-time password (<c>otp</c>), e.g. the code of an authenticator app or a recovery code.
+    ///     A one-time code (<c>otp</c>, "one-time password" in RFC 8176), e.g. the code of an authenticator app or a recovery code.
     /// </summary>
-    public const string OneTimePassword = "otp";
+    public const string OneTimeCode = "otp";
 
     /// <summary>
     ///     Maximum length of a formatted list of methods, which is how long Sessions and Authorization Codes store it.

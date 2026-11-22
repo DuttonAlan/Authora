@@ -62,7 +62,7 @@ public sealed class RecoveryCodesModel(
     ///     Whether the Session lacks the authenticator app, so the User must confirm with it before generating codes.
     /// </summary>
     public bool NeedsStepUp => !User.FindAll(SessionClaimTypes.AuthenticationMethod)
-        .Any(claim => claim.Value == AuthenticationMethods.OneTimePassword);
+        .Any(claim => claim.Value == AuthenticationMethods.OneTimeCode);
 
     /// <summary>
     ///     The step-up that adds the authenticator app to the Session and returns here.
