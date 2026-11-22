@@ -188,3 +188,42 @@ a {
     padding: 6px 12px;
     font-size: 0.9rem;
 }
+
+/* The QR code stays dark on light in dark mode too, which every authenticator app can read. */
+.qr {
+    display: block;
+    width: 220px;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto 16px;
+    border-radius: 8px;
+}
+
+.secret {
+    display: block;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    letter-spacing: 0.05em;
+    overflow-wrap: anywhere;
+}
+
+.codes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 12px;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+}

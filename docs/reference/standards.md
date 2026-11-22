@@ -14,6 +14,8 @@
 | [OpenID Connect RP-Initiated Logout 1.0](https://openid.net/specs/openid-connect-rpinitiated-1_0.html) | `end_session_endpoint` with `id_token_hint` (also expired), `client_id`, `post_logout_redirect_uri` and `state`; Post-logout Redirect URIs registered per Client; confirmation page unless the hint belongs to the current Session. |
 | [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517) JWK / [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) JWK Thumbprint | JWKS, `kid` as thumbprint. |
 | [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details | Errors of the admin API. |
+| [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238) TOTP / [RFC 4226](https://www.rfc-editor.org/rfc/rfc4226) HOTP | Authenticator apps as a second factor: HMAC-SHA-1, 6 digits, 30-second steps, one step of drift either way, 160-bit secrets; a used time step is rejected. Set up with an `otpauth://totp/` URI ([Key Uri Format](https://github.com/google/google-authenticator/wiki/Key-Uri-Format)) as QR code. No SHA-256/SHA-512, other lengths or periods, no HOTP counters. |
+| [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176) Authentication Method Reference Values | Sessions and Authorization Codes record `pwd` and `otp` (authenticator app or recovery code). Not yet in ID Tokens. |
 
 ## Conformance testing
 
@@ -47,7 +49,8 @@ Authora deliberately keeps a small feature set. Not supported today:
 
 - Self-registration. Administrators create Users; Users change their own password at `/account/password`, reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)) and confirm their address with a link (see [Email verification](oauth-endpoints.md#email-verification)).
 - Requesting a new email verification link without an administrator. Users who miss the link sent when their account was created or their Email changed ask an administrator to send another one.
-- Multi-factor authentication and passkeys.
+- Passkeys, and second factors other than an authenticator app (TOTP) with recovery codes, e.g. SMS or email codes.
+- Requiring multi-factor authentication: each User decides whether to set up an authenticator app, and ID Tokens do not tell applications (no `amr` or `acr` claim yet).
 - Sign-in through external identity providers (e.g. Google).
 
 **Protocols**

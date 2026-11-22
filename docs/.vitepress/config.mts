@@ -95,6 +95,7 @@ export default defineConfig({
           { text: 'Connect an application', link: '/how-to/connect-an-application' },
           { text: 'Protect an API with introspection', link: '/how-to/protect-an-api' },
           { text: 'Manage users and access', link: '/how-to/manage-users-and-access' },
+          { text: 'Require multi-factor authentication', link: '/how-to/require-multi-factor-authentication' },
           { text: 'Call the admin API', link: '/how-to/call-the-admin-api' },
           { text: 'Check the integrity of the audit log', link: '/how-to/verify-the-audit-log' },
         ],

@@ -112,7 +112,7 @@ flowchart LR
 - A wrong second factor counts towards the same lockout as a wrong password. A correct password does not reset the failed attempts while a second factor is pending, so knowing the password does not allow guessing the second factor endlessly; only a complete sign-in resets them.
 - A password reset by email sets the password and nothing else: it never signs in and never skips the second factor.
 
-No second factor exists yet, so today every User signs in with the password alone, exactly as before; the authenticator app and passkeys build on this step.
+The second factor is an authenticator app (TOTP), with single-use recovery codes for a lost phone; Users without one sign in with the password alone. See [Authenticator app and recovery codes](#authenticator-app-and-recovery-codes).
 
 ### What a Session knows about the sign-in
 
@@ -121,3 +121,13 @@ Each Session records **how** the User authenticated, as Authentication Method Re
 A *step-up* adds a factor to an existing Session, e.g. when an application asks for a stronger sign-in: the User completes the factor at `/account/step-up`, and the Session records the additional method and the new authentication time. Like every sign-in, it then gets a **new Session token**, so a token that was copied before the step-up does not gain its strength. The absolute lifetime of the Session does not change.
 
 Sensitive account changes, such as enrolling or removing a factor, require a *recent* authentication: one within `Authora:SignIn:RecentAuthenticationWindow` (10 minutes by default). Otherwise the User is asked to sign in again, which starts a new Session with a new authentication time.
+
+### Authenticator app and recovery codes
+
+Users set up an authenticator app themselves at `/account/security/authenticator`. Unlike passwords and tokens, its secret cannot be stored as a hash: the server needs it to compute the expected code. It is therefore encrypted with ASP.NET Core Data Protection under a purpose of its own, which makes the Data Protection key ring as important to back up as the database: a database restored without its keys has secrets nobody can read, and every User with an app has to fall back to a recovery code or be reset.
+
+- **Setup is confirmed by a code.** Until the User enters a first valid code, the secret is stored but changes nothing about the sign-in, so a QR code that was never scanned cannot lock anyone out. An unfinished setup expires after 15 minutes.
+- **A code works once.** Each accepted code records its time step in a single atomic update; the same code, or one of an earlier step, is rejected afterwards. A code that was read over someone's shoulder or phished is worth nothing once the User has used it.
+- **Recovery codes are the fallback.** Ten random 80-bit codes are shown once, stored only as SHA-256 hashes, and each works once. They stand in for the app, so a sign-in with one also records `otp`, and its use is audited separately (`mfa.recovery-code-used`).
+- **Removing the app is a sensitive change.** It needs a recent authentication *and* a current code or recovery code, and it ends every other Session and Grant of the User, like a password change. A taken-over Session alone therefore cannot turn the second factor off, and wrong codes count towards the lockout.
+- **Administrators can reset it** (`users.reset-mfa`), which ends all Sessions and Grants of the User. Like every action on a User, it follows the rule that nobody acts on a User with more rights than their own, so only an administrator can reset an administrator.

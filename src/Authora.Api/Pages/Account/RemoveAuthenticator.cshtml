@@ -1,0 +1,43 @@
+@page "/account/security/authenticator/remove"
+@model Authora.Api.Pages.Account.RemoveAuthenticatorModel
+@{
+    ViewData["Title"] = "Remove authenticator app";
+}
+
+@if (Model.Removed)
+{
+    <h1>Authenticator app removed</h1>
+    <p class="success" role="status">Your password alone signs you in again. Your recovery codes no longer work.</p>
+    <p>You stay signed in here. Everywhere else you were signed out, and applications will ask you to sign in again.</p>
+    <p class="muted">Also delete the entry from the app.</p>
+    <p><a href="/account/security">Back</a></p>
+}
+else if (Model.NotEnrolled)
+{
+    <h1>Remove authenticator app</h1>
+    <p>No authenticator app is set up.</p>
+    <p><a href="/account/security">Back</a></p>
+}
+else
+{
+    <h1>Remove authenticator app</h1>
+    <p>Without it, your password alone signs you in. Confirm with a code of the app, or with a recovery code if you no longer have it.</p>
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error" role="alert">@Model.ErrorMessage</p>
+    }
+
+    <form method="post">
+        <label asp-for="Code">Code</label>
+        <input asp-for="Code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="64" required autofocus />
+
+        <p class="muted">Afterwards you are signed out everywhere else.</p>
+
+        <div class="actions">
+            <button type="submit" class="primary">Remove</button>
+        </div>
+    </form>
+
+    <p class="muted"><a href="/account/security">Cancel</a></p>
+}

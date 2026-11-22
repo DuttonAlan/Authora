@@ -44,6 +44,16 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<Scope> Scopes => Set<Scope>();
 
     /// <summary>
+    ///     The authenticator apps of Users, with their encrypted secrets.
+    /// </summary>
+    public DbSet<TotpAuthenticator> TotpAuthenticators => Set<TotpAuthenticator>();
+
+    /// <summary>
+    ///     The hashes of the recovery codes of Users.
+    /// </summary>
+    public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
+
+    /// <summary>
     ///     The Sessions Table in the <c>auth</c> schema.
     /// </summary>
     public DbSet<Session> Sessions => Set<Session>();

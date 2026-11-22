@@ -8,11 +8,12 @@ This guide shows what to back up, how, and how to restore Authora without bringi
 |---|---|---|
 | The PostgreSQL database | `pg_dump`, or continuous archiving for point-in-time recovery | Users, Clients, Roles, Scopes and the audit log. |
 | The signing keys | Separately from the database, e.g. in your secret store, encrypted | Without them, ID Tokens cannot be signed. Never store them with the database backup: together they would allow forging ID Tokens. |
+| The Data Protection keys | The directory of `Authora:DataProtection:KeysPath` and the certificate that encrypts it, with its password, separately from the database | The secrets of the Users' authenticator apps are encrypted with these keys. A database restored without them has secrets nobody can read. |
 | The configuration | Infrastructure as code and your secret store | Connection string, Issuer, proxy and key settings. |
 
-The Data Protection keys and certificate need no backup: losing them only signs administrators out.
+Losing the Data Protection keys signs every administrator out of the admin interface, which alone would be harmless, but it also makes every authenticator app unusable.
 
-The database holds password hashes and token hashes, but no plain-text secrets. Still, encrypt backups and restrict access to them like access to the database itself.
+The database holds password, token and recovery code hashes and the encrypted secrets of authenticator apps, but no plain-text secrets. Still, encrypt backups and restrict access to them like access to the database itself.
 
 ## Back up the database
 
@@ -40,5 +41,5 @@ The backup user needs read access to the schemas `identity`, `auth` and `audit`.
    TRUNCATE auth.access_tokens, auth.refresh_tokens, auth.grants, auth.authorization_codes, auth.sessions;
    ```
 
-5. **Check for changes the backup undid.** Users who were deactivated or deleted, Roles that were removed or Client Secrets that were revoked after the backup was taken are back. Use the audit events of that period, if you still have them in your log system, and repeat those changes.
+5. **Check for changes the backup undid.** Users who were deactivated or deleted, Roles that were removed or Client Secrets that were revoked after the backup was taken are back. So are authenticator apps that were removed or reset, and recovery codes that were used or replaced. Use the audit events of that period, if you still have them in your log system, and repeat those changes.
 6. **Start Authora** and check `GET /health`.

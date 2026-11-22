@@ -8,16 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Upgrading
 
-- Stop all instances before applying the two new migrations `TwoStepSignIn` and `SessionTokenConcurrency`.
+- Stop all instances before applying the three new migrations `TwoStepSignIn`, `SessionTokenConcurrency` and `MultiFactorAuthentication`.
+- The Data Protection keys now also encrypt the secrets of authenticator apps: persist them (`Authora:DataProtection:KeysPath`) and include them in your backups, or every authenticator app stops working when they are lost. See [Persist Data Protection keys](docs/how-to/persist-data-protection-keys.md).
 - Sessions started before the upgrade end; Users sign in again.
 
 ### Added
 
-- Sign-in is prepared for a second factor: a User who has enrolled one gets no Session for the password alone, only a pending sign-in (5 minutes, single use, ended by a change of the User's security stamp), completed at `/account/second-factor`. Wrong second factors count towards the lockout. No second factor can be enrolled yet, so sign-in works as before for everyone.
-- Sessions record how the User authenticated (RFC 8176 methods, `pwd` for now) and when they last did; both are carried by Authorization Codes, so `auth_time` reflects the latest authentication.
+- Two-step sign-in: a User who has enrolled a second factor gets no Session for the password alone, only a pending sign-in (5 minutes, single use, ended by a change of the User's security stamp), completed at `/account/second-factor`. Wrong second factors count towards the lockout.
+- Sessions record how the User authenticated (RFC 8176 methods, `pwd` and `otp`) and when they last did; both are carried by Authorization Codes, so `auth_time` reflects the latest authentication.
 - Step-up at `/account/step-up`: a signed-in User completes an additional factor for the current Session, which then gets a new Session token.
 - *Account and security* overview at `/account/security`, linked from the account pages.
 - Settings `Authora:SignIn:PendingSignInLifetime` and `Authora:SignIn:RecentAuthenticationWindow`, audit events `account.sign-in-pending` and `account.step-up`, log events 5019 – 5023 and 8005.
+- Multi-factor authentication with an authenticator app (TOTP, RFC 6238) and recovery codes. Users set it up at `/account/security/authenticator` with a QR code drawn on the server, confirmed by a first code; the sign-in then asks for a code after the password, and the Session records `otp`. A code works once (replayed codes are rejected), and wrong codes count towards the lockout. 10 single-use recovery codes, stored only as hashes, stand in for a lost phone; Users see how many are left and generate new ones at `/account/security/recovery-codes`. Removing the app at `/account/security/authenticator/remove` needs a current code or recovery code and ends all other Sessions. See [Require multi-factor authentication](docs/how-to/require-multi-factor-authentication.md).
+- Admin API and interface: `GET /api/users/{id}/mfa` shows whether a User has an authenticator app, when it was last used and how many recovery codes are left; `DELETE /api/users/{id}/mfa` resets it and ends all Sessions and Grants of the User, with the new Permission `users.reset-mfa`. Only administrators can reset an administrator.
+- Setting `Authora:Mfa:IssuerName`, audit events `mfa.enrolled`, `mfa.removed`, `mfa.verified`, `mfa.recovery-code-used`, `mfa.recovery-codes-regenerated` and `user.mfa-reset`, log events 1014 and 16001 – 16009.
+
+### Changed
+
+- Deleting a User also deletes their authenticator app and recovery codes.
 
 ## [0.2.0] - 2026-11-21
 

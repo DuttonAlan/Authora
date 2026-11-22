@@ -90,6 +90,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<IConsentRepository, ConsentRepository>();
         serviceCollection.AddTransient<IEmailTokenRepository, EmailTokenRepository>();
         serviceCollection.AddTransient<IGroupRepository, GroupRepository>();
+        serviceCollection.AddTransient<IMfaRepository, MfaRepository>();
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
         serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();

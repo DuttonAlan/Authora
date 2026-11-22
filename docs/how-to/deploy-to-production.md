@@ -15,7 +15,7 @@ This guide shows how to run Authora for real users: with its own database users,
 - [ ] Migrations ran before the server started.
 - [ ] After the first sign-in of the bootstrap administrator: a new password is set and `Authora__Bootstrap__Administrator__Password` is removed.
 - [ ] Health checks are wired to the orchestrator, and the logs are shipped to a separate log system.
-- [ ] With several instances, or without a persistent home directory: Data Protection keys are persisted and encrypted ([Persist Data Protection keys](persist-data-protection-keys.md)).
+- [ ] Data Protection keys are persisted, encrypted and backed up ([Persist Data Protection keys](persist-data-protection-keys.md)): they encrypt the secrets of authenticator apps, so losing them breaks every User's second factor.
 - [ ] Database backups run and a restore was tested ([Back up and restore](back-up-and-restore.md)).
 - [ ] If Authora sends email: the SMTP server is reached over TLS (`StartTls` or `Implicit`), its password comes from a secret store, and the sender domain has SPF and DKIM records, so the emails are not marked as spam. With email, the sign-in page offers a password reset by email and Users get links to verify their address; set `Authora__PasswordReset__SelfServiceEnabled=false` if Users' mailboxes are less protected than their passwords.
 

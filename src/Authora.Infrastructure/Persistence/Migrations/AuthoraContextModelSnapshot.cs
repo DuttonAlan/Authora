@@ -461,6 +461,33 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.ToTable("permissions", "identity");
                 });
 
+            modelBuilder.Entity("Authora.Core.Domain.Entities.RecoveryCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CodeHash")
+                        .IsUnique();
+
+                    b.ToTable("recovery_codes", "identity");
+                });
+
             modelBuilder.Entity("Authora.Core.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -659,6 +686,40 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("sign_in_challenges", "auth");
+                });
+
+            modelBuilder.Entity("Authora.Core.Domain.Entities.TotpAuthenticator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastUsedTimeStep")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ProtectedSecret")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("totp_authenticators", "identity");
                 });
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.User", b =>
@@ -952,6 +1013,15 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("Authora.Core.Domain.Entities.RecoveryCode", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Authora.Core.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("Authora.Core.Domain.Entities.Grant", "Grant")
@@ -973,6 +1043,15 @@ namespace Authora.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.SignInChallenge", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Authora.Core.Domain.Entities.TotpAuthenticator", b =>
                 {
                     b.HasOne("Authora.Core.Domain.Entities.User", null)
                         .WithMany()

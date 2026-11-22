@@ -12,7 +12,10 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `GET/POST /account/login` | Browser | Sign-in page. |
 | `GET/POST /account/second-factor` | Browser | Second step of the sign-in for Users with a second factor, and of a step-up. See [Sign-in](#sign-in). |
 | `GET /account/step-up` | Browser | A signed-in User completes an additional factor for the current Session. See [Sign-in](#sign-in). |
-| `GET /account/security` | Browser | *Account and security*: overview of a signed-in User, with how they signed in and links to the password change, the connected applications and the second factors. |
+| `GET /account/security` | Browser | *Account and security*: overview of a signed-in User, with how they signed in, whether an authenticator app is set up and how many recovery codes are left, and links to the password change, the connected applications and two-step verification. |
+| `GET/POST /account/security/authenticator` | Browser | A signed-in User sets up an authenticator app. Needs a recent authentication. See [Authenticator app and recovery codes](#authenticator-app-and-recovery-codes). |
+| `GET/POST /account/security/authenticator/remove` | Browser | A signed-in User removes their authenticator app with a current code or a recovery code. Needs a recent authentication. |
+| `GET/POST /account/security/recovery-codes` | Browser | A signed-in User sees how many recovery codes are left and generates a new set. Needs a recent authentication. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
 | `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
 | `GET/POST /account/forgot-password` | Browser | A User who forgot their password asks for a reset link by email. See [Password reset](#password-reset). |
@@ -182,9 +185,18 @@ A User who has enrolled a second factor gets no Session for the password alone. 
 
 `/account/step-up` starts the same second step for a signed-in User whose Session lacks one of their enrolled factors, and returns to a local `returnUrl` afterwards. Completing it adds the method to the Session, sets its authentication time to now and gives it a new Session token; the old token stops working. Without a missing factor, the page says there is nothing to confirm.
 
-Account changes that need a recent authentication (enrolling or removing a factor) send a User who authenticated longer than `Authora:SignIn:RecentAuthenticationWindow` (10 minutes) ago to the sign-in page and back.
+Account changes that need a recent authentication (setting up or removing the authenticator app, generating recovery codes) send a User who authenticated longer than `Authora:SignIn:RecentAuthenticationWindow` (10 minutes) ago to the sign-in page and back.
 
-No second factor can be enrolled yet, so all Users currently sign in with the password alone.
+### Authenticator app and recovery codes
+
+The second factor is an authenticator app with time-based one-time passwords (TOTP, [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238): HMAC-SHA-1, 6 digits, 30-second steps). Users without one sign in with the password alone.
+
+- **Setup** at `/account/security/authenticator`: the page shows the secret as a QR code of an `otpauth://totp/{IssuerName}:{Email}?secret=…&issuer=…` URI, drawn on the server as inline SVG, and as Base32 text to type in. The setup counts only once the User enters a first valid code, within 15 minutes; reloading the page keeps the same secret meanwhile. A wrong first code does not count towards the lockout. `{IssuerName}` is `Authora:Mfa:IssuerName`.
+- **Recovery codes**: confirming the setup shows 10 single-use codes once, of 16 characters in groups of four (`7KQM-2WXF-HN4P-9TRB`; case, spaces and dashes do not matter). Only their SHA-256 hashes are stored. `/account/security/recovery-codes` shows how many are left and generates a new set, which replaces the previous one.
+- **Sign-in**: `/account/second-factor` accepts a code of the app for the current time step and one step before and after, or a recovery code instead. Either way the Session records `otp`. A code is used up when it is accepted: the same code, or any code of an earlier time step, is rejected afterwards (replay). Wrong and replayed codes count towards the lockout like a wrong password and share the sign-in rate limit.
+- **Removal** at `/account/security/authenticator/remove` needs a current code or a recovery code; a wrong one counts towards the lockout. It deletes the app and the recovery codes and ends every other Session and every Grant of the User; the Session it was removed in stays valid.
+- Administrators see the state and reset it through the [admin API](admin-api.md#users) (`users.reset-mfa`).
+- The secret is stored encrypted with ASP.NET Core Data Protection, so the key ring must be kept and backed up, see [Persist Data Protection keys](../how-to/persist-data-protection-keys.md).
 
 `/account/logout` revokes the Session on the server and deletes the cookie. Applications sign Users out through the end-session endpoint `/oauth/logout` instead, see [Logout](openid-connect.md#logout).
 

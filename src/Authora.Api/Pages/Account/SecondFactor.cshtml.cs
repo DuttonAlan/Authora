@@ -91,6 +91,11 @@ public sealed class SecondFactorModel(
     public string? ErrorMessage { get; private set; }
 
     /// <summary>
+    ///     Whether the User can enter a recovery code: one of the factors is the authenticator app.
+    /// </summary>
+    public bool AcceptsRecoveryCodes => Pending?.Factors.Any(factor => factor.Method == AuthenticationMethods.OneTimePassword) == true;
+
+    /// <summary>
     ///     The <see cref="ReturnUrl"/> if it is local, otherwise null.
     /// </summary>
     public string? SafeReturnUrl => !string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl) ? ReturnUrl : null;

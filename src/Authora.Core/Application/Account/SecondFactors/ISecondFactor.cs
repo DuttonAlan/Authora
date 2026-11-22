@@ -14,8 +14,9 @@ namespace Authora.Core.Application.Account.SecondFactors;
 ///         the sign-in works with the password only.
 ///     </para>
 ///     <para>
-///         A wrong response counts towards the lockout like a wrong password. Implementations only check the response;
-///         they must not record audit events of their own for failures, which the sign-in does.
+///         A wrong response counts towards the lockout like a wrong password, which the sign-in records along with its
+///         outcome. Implementations must not count failures themselves; they may record audit events about the factor
+///         itself, e.g. that a code was already used or a recovery code was used up (see <see cref="Mfa.MfaVerifier"/>).
 ///     </para>
 /// </remarks>
 public interface ISecondFactor

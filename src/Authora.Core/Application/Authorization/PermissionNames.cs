@@ -49,6 +49,12 @@ public static class PermissionNames
         public const string SetPassword = "users.set-password";
 
         /// <summary>
+        ///     Reset the multi-factor authentication of Users: remove their authenticator app and recovery codes, e.g.
+        ///     after they lost their phone. Signs them out everywhere.
+        /// </summary>
+        public const string ResetMfa = "users.reset-mfa";
+
+        /// <summary>
         ///     Assign Roles to Users and remove them. Whoever has this Permission can give themselves any Role.
         /// </summary>
         public const string AssignRoles = "users.assign-roles";
@@ -238,6 +244,7 @@ public static class PermissionNames
         Users.Delete,
         Users.ManageAccess,
         Users.SetPassword,
+        Users.ResetMfa,
         Users.AssignRoles,
         Roles.Read,
         Roles.Create,

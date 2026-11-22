@@ -1,0 +1,51 @@
+@page "/account/security/recovery-codes"
+@model Authora.Api.Pages.Account.RecoveryCodesModel
+@{
+    ViewData["Title"] = "Recovery codes";
+}
+
+<h1>Recovery codes</h1>
+
+@if (Model.ErrorMessage is not null)
+{
+    <p class="error" role="alert">@Model.ErrorMessage</p>
+}
+
+@if (Model.NewCodes.Count > 0)
+{
+    <p class="success" role="status">Your new recovery codes are ready. The previous ones no longer work.</p>
+    <p>Each code works once instead of a code of your authenticator app. Save them somewhere safe, e.g. in your password manager: they are not shown again.</p>
+
+    <ul class="codes" aria-label="Recovery codes">
+        @foreach (var code in Model.NewCodes)
+        {
+            <li>@code</li>
+        }
+    </ul>
+
+    <p><a href="/account/security">Done</a></p>
+}
+else if (Model.Status is not { Enabled: true })
+{
+    <p>Recovery codes stand in for an authenticator app. Set one up first; you then get your recovery codes.</p>
+    <p class="links"><a href="/account/security/authenticator">Set up an authenticator app</a> <a href="/account/security">Back</a></p>
+}
+else
+{
+    <p>
+        You have <strong>@(Model.Status.RecoveryCodes?.Remaining ?? 0) of @(Model.Status.RecoveryCodes?.Total ?? 0)</strong> recovery codes left.
+        @if (Model.Status.RecoveryCodes?.LastUsedAt is { } lastUsedAt)
+        {
+            <text>The last one was used on @lastUsedAt.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) UTC.</text>
+        }
+    </p>
+    <p>Generate new codes when only a few are left or someone may have seen them. The previous codes then stop working.</p>
+
+    <form method="post">
+        <div class="actions">
+            <button type="submit" class="primary">Generate new codes</button>
+        </div>
+    </form>
+
+    <p class="muted"><a href="/account/security">Back</a></p>
+}

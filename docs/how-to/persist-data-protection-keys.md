@@ -1,8 +1,8 @@
 # Persist Data Protection keys
 
-Authora uses ASP.NET Core Data Protection to encrypt the antiforgery tokens of its forms and the cookies of the admin interface, which hold the administrator's Access and Refresh Token. This guide shows how to store its keys durably and encrypted.
+Authora uses ASP.NET Core Data Protection to encrypt the antiforgery tokens of its forms, the cookies of the admin interface, which hold the administrator's Access and Refresh Token, and the secrets of the Users' authenticator apps. This guide shows how to store its keys durably and encrypted.
 
-You need this when you run more than one instance, or when the container has no persistent home directory. Without it, the keys live in memory or in the container, so every restart signs all administrators out, and with several instances a cookie set by one instance cannot be read by another.
+You need this as soon as Users set up an authenticator app, and whenever you run more than one instance or the container has no persistent home directory. Without it, the keys live in memory or in the container, so every restart signs all administrators out and makes every authenticator app unusable (Users then need a recovery code or an administrator's reset), and with several instances a cookie set by one instance cannot be read by another.
 
 ## 1. Create a certificate
 
@@ -39,3 +39,7 @@ Authora does not start if the certificate cannot be loaded with its private key,
 - **Replacing the certificate** makes the keys encrypted with the old one unreadable. Authora creates new keys, and administrators sign in again. No other data is lost.
 - **Without a certificate**, the keys are stored in plain text, and whoever can read them can decrypt a stolen admin cookie.
 - **Backups:** do not store the keys or the certificate together with the database backup. Losing them only signs administrators out.
+
+## Keep the keys
+
+Data Protection keeps retired keys to decrypt what they encrypted, and the secrets of authenticator apps are kept for as long as the User keeps the app. Never delete files from the key directory, and back the directory up together with the certificate and its password, see [Back up and restore](back-up-and-restore.md). If the keys are lost anyway, Authora logs event 16009 for every User who tries a code of their app; they sign in with a recovery code and set the app up again, or an administrator resets their multi-factor authentication.

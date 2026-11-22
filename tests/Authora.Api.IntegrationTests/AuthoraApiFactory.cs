@@ -9,6 +9,7 @@ using Authora.Core.Application.Account.SecondFactors;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Mfa;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
@@ -65,7 +66,8 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public FakeEmailSender EmailSender { get; } = new();
 
     /// <summary>
-    ///     The only second factor of the Api. Users the tests enroll in it must complete it after the password.
+    ///     A second factor of the Api next to the authenticator app. Users the tests enroll in it must complete it after
+    ///     the password.
     /// </summary>
     public FakeSecondFactor SecondFactor { get; } = new();
 
@@ -247,6 +249,39 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     }
 
     /// <summary>
+    ///     Sets up an authenticator app for a User, like confirming the setup does, with a set of recovery codes.
+    /// </summary>
+    /// <param name="userId">The Id of the User.</param>
+    /// <returns>The secret of the app, to compute codes with <see cref="Totp"/>, and the recovery codes.</returns>
+    public async Task<(byte[] Secret, IReadOnlyList<string> RecoveryCodes)> EnrollTotpAsync(Guid userId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var protector = scope.ServiceProvider.GetRequiredService<ITotpSecretProtector>();
+        var secretHasher = scope.ServiceProvider.GetRequiredService<ISecretHasher>();
+
+        var now = DateTime.UtcNow;
+        var secret = Totp.GenerateSecret();
+
+        // Confirmed with a code of an earlier time step, so every current code can be used.
+        var authenticator = TotpAuthenticator.Create(userId, protector.Protect(secret), now);
+        authenticator.Confirm(Totp.GetTimeStep(now) - 10, now);
+        context.Add(authenticator);
+
+        var codes = Enumerable.Range(0, RecoveryCodeFormat.CountPerSet).Select(_ => RecoveryCodeFormat.Generate()).ToList();
+
+        foreach (var code in codes)
+        {
+            RecoveryCodeFormat.TryNormalize(code, out var normalized);
+            context.Add(RecoveryCode.Create(userId, secretHasher.Hash(normalized!), now));
+        }
+
+        await context.SaveChangesAsync();
+
+        return (secret, codes);
+    }
+
+    /// <summary>
     ///     Creates an enabled Public Client with a Redirect URI that is allowed the given Scopes.
     /// </summary>
     /// <param name="scopeNames">The Names of existing Scopes, e.g. the seeded <c>openid</c>.</param>
@@ -299,7 +334,8 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             // No SMTP server: the emails are kept by the fake.
             services.Replace(ServiceDescriptor.Singleton<IEmailSender>(EmailSender));
 
-            // Only Users enrolled in the fake need a second factor; all others sign in with the password only.
+            // Only Users enrolled in the fake or in an authenticator app need a second factor; all others sign in with
+            // the password only.
             services.AddSingleton<ISecondFactor>(SecondFactor);
         });
     }

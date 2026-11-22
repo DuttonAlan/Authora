@@ -63,7 +63,7 @@ Every failed sign-in shows the same message, and unknown Emails still go through
 
 ### A second factor comes before the Session, not after
 
-Sign-in is built for a second factor: once a User has enrolled one, the correct password only starts a *pending sign-in*, a single-use, five-minute record bound to the User's security stamp, held in its own cookie. The browser gets a Session cookie only after the second factor, so there is never a half-authenticated Session that some page could forget to check. Wrong second factors count towards the same lockout as wrong passwords, and a correct password alone does not reset that count. A step-up of an existing Session and every completed sign-in issue a new Session token. Sensitive changes to the account, such as enrolling or removing a factor, require a recent authentication. See [How a User signs in](tokens-and-sessions.md#how-a-user-signs-in).
+Sign-in is built for a second factor: once a User has enrolled one, the correct password only starts a *pending sign-in*, a single-use, five-minute record bound to the User's security stamp, held in its own cookie. The browser gets a Session cookie only after the second factor, so there is never a half-authenticated Session that some page could forget to check. Wrong second factors count towards the same lockout as wrong passwords, and a correct password alone does not reset that count. A step-up of an existing Session and every completed sign-in issue a new Session token. Sensitive changes to the account, such as setting up or removing the authenticator app, require a recent authentication, and removing it also a current code. Codes of the authenticator app work once, so a phished code is useless after its first use. See [How a User signs in](tokens-and-sessions.md#how-a-user-signs-in).
 
 ### Password reset proves control of the mailbox, nothing more
 
@@ -116,7 +116,7 @@ Every change is recorded in the same transaction as the change itself, and event
 
 ## Known gaps
 
-- No multi-factor authentication yet. Sign-in is prepared for a second factor, but none can be enrolled, so passwords are the only factor: protect administrator accounts with long, unique passwords. With email delivery configured, the mailbox is a second way in through the password reset: protect it as well as the password, or turn the self-service reset off (`Authora:PasswordReset:SelfServiceEnabled`).
+- Multi-factor authentication is up to each User: Authora cannot require it, and applications cannot tell from the ID Token whether a sign-in used it. Ask administrators to set up an authenticator app, see [Require multi-factor authentication](../how-to/require-multi-factor-authentication.md). TOTP codes can still be phished in real time by a proxy that relays them at once. With email delivery configured, the mailbox is a second way in through the password reset: protect it as well as the password, or turn the self-service reset off (`Authora:PasswordReset:SelfServiceEnabled`).
 - Reset requests from the sign-in page and the emails sent in the background are kept in memory and lost if the server stops before they are handled; the User asks again.
 - `prompt=login` and `max_age` travel through the browser and can be stripped. Clients that need a recent sign-in must check `auth_time` themselves.
 - A script running on the admin interface could act as the signed-in administrator while the page is open, like on any web application. The Content Security Policy is what keeps such scripts out.

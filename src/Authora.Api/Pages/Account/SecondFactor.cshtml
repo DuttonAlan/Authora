@@ -48,7 +48,14 @@ else
         }
 
         <label asp-for="Code">Code</label>
-        <input asp-for="Code" type="text" inputmode="numeric" autocomplete="one-time-code" required autofocus />
+        @* Not inputmode="numeric": a recovery code has letters. *@
+        <input asp-for="Code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required autofocus
+               aria-describedby="@(Model.AcceptsRecoveryCodes ? "code-hint" : null)" />
+
+        @if (Model.AcceptsRecoveryCodes)
+        {
+            <p class="muted hint" id="code-hint">Lost your phone? Enter one of your recovery codes instead.</p>
+        }
 
         <div class="actions">
             <button type="submit" class="primary">Verify</button>

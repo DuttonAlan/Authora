@@ -63,6 +63,12 @@ using Authora.Core.Application.Groups.GetMembers;
 using Authora.Core.Application.Groups.RemoveMember;
 using Authora.Core.Application.Groups.RemoveRole;
 using Authora.Core.Application.Groups.Update;
+using Authora.Core.Application.Mfa;
+using Authora.Core.Application.Mfa.ConfirmEnrollment;
+using Authora.Core.Application.Mfa.GetStatus;
+using Authora.Core.Application.Mfa.RegenerateRecoveryCodes;
+using Authora.Core.Application.Mfa.Remove;
+using Authora.Core.Application.Mfa.StartEnrollment;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Application.Oidc.EndSession;
 using Authora.Core.Application.Oidc.UserInfo;
@@ -93,6 +99,7 @@ using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.MarkEmailVerified;
 using Authora.Core.Application.Users.RemoveRole;
+using Authora.Core.Application.Users.ResetMfa;
 using Authora.Core.Application.Users.RevokeSessions;
 using Authora.Core.Application.Users.SendEmailVerification;
 using Authora.Core.Application.Users.SendPasswordReset;
@@ -138,6 +145,16 @@ public static class ServiceCollectionExtensions
 
         // Second factors register themselves as ISecondFactor; without any, signing in needs the password only.
         serviceCollection.AddScoped<SecondFactorRegistry>();
+
+        // The authenticator app (TOTP) with recovery codes, the second factor of Authora.
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<MfaOptions>, MfaOptionsValidator>());
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Scoped<ISecondFactor, TotpSecondFactor>());
+        serviceCollection.AddTransient<MfaVerifier>();
+        serviceCollection.AddTransient<ConfirmTotpEnrollmentService>();
+        serviceCollection.AddTransient<GetMfaStatusService>();
+        serviceCollection.AddTransient<RegenerateRecoveryCodesService>();
+        serviceCollection.AddTransient<RemoveTotpService>();
+        serviceCollection.AddTransient<StartTotpEnrollmentService>();
 
         serviceCollection.AddTransient<PermissionEvaluator>();
         serviceCollection.AddTransient<PrivilegeGuard>();
@@ -236,6 +253,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<GetAllUsersService>();
         serviceCollection.AddTransient<MarkEmailVerifiedService>();
         serviceCollection.AddTransient<RemoveRoleService>();
+        serviceCollection.AddTransient<ResetMfaService>();
         serviceCollection.AddTransient<RevokeUserSessionsService>();
         serviceCollection.AddTransient<SendEmailVerificationService>();
         serviceCollection.AddTransient<SendPasswordResetService>();
