@@ -6,6 +6,7 @@ using System.Globalization;
 
 using Authora.Api.Authentication;
 using Authora.Core.Application.Account.Security;
+using Authora.Core.Application.Mfa.GetStatus;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -17,8 +18,9 @@ namespace Authora.Api.Pages.Account;
 ///     applications and the second factors. Users who are not signed in are sent to the sign-in page first.
 /// </summary>
 /// <param name="getAccountSecurityService">The Service to list the second factors of the User.</param>
+/// <param name="getMfaStatusService">The Service to get the authenticator app and the recovery codes of the User.</param>
 [Authorize]
-public sealed class SecurityModel(GetAccountSecurityService getAccountSecurityService) : PageModel
+public sealed class SecurityModel(GetAccountSecurityService getAccountSecurityService, GetMfaStatusService getMfaStatusService) : PageModel
 {
     /// <summary>
     ///     Path of the page.
@@ -46,6 +48,11 @@ public sealed class SecurityModel(GetAccountSecurityService getAccountSecuritySe
     public IReadOnlyList<SecondFactorStatusResponse> SecondFactors { get; private set; } = [];
 
     /// <summary>
+    ///     The authenticator app and the recovery codes of the User.
+    /// </summary>
+    public MfaStatusResponse Mfa { get; private set; } = new(false, null, null);
+
+    /// <summary>
     ///     Shows the overview.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -58,6 +65,7 @@ public sealed class SecurityModel(GetAccountSecurityService getAccountSecuritySe
 
         AuthenticatedAt = DateTimeOffset.FromUnixTimeSeconds(authenticationTime).UtcDateTime;
         SecondFactors = await getAccountSecurityService.ExecuteAsync(userId, cancellationToken);
+        Mfa = await getMfaStatusService.ExecuteAsync(userId, cancellationToken);
 
         AuthenticationMethods = [.. User.FindAll(SessionClaimTypes.AuthenticationMethod).Select(claim => DisplayName(claim.Value))];
     }

@@ -61,7 +61,7 @@ Authora never changes its schema at startup. Migrations are a separate, explicit
 
 - **Signing keys** live in files. A stolen database copy then cannot be used to forge ID Tokens.
 - **Plain-text secrets** are never stored. Passwords are hashed with PBKDF2; Client Secrets, codes and tokens with SHA-256. A database copy cannot be used to call APIs.
-- **Data Protection keys**, which encrypt cookies, live in a separate directory.
+- **Data Protection keys**, which encrypt cookies and the secrets of authenticator apps, live in a separate directory and must be backed up separately from the database.
 
 ## Two ways to authenticate a request
 

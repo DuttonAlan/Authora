@@ -34,6 +34,7 @@ Using Authora:
 - [Connect an application](how-to/connect-an-application.md)
 - [Protect an API with introspection](how-to/protect-an-api.md)
 - [Manage users and access](how-to/manage-users-and-access.md)
+- [Require multi-factor authentication](how-to/require-multi-factor-authentication.md)
 - [Call the admin API](how-to/call-the-admin-api.md)
 - [Check the integrity of the audit log](how-to/verify-the-audit-log.md)
 

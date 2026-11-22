@@ -49,4 +49,7 @@ internal static partial class UserLog
 
     [LoggerMessage(EventId = 1013, Level = LogLevel.Information, Message = "The Email of User {UserId} was marked as verified by an administrator.")]
     public static partial void EmailMarkedVerified(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1014, Level = LogLevel.Information, Message = "The multi-factor authentication of User {UserId} was reset by an administrator. All Sessions and tokens of the User were revoked.")]
+    public static partial void MfaReset(this ILogger logger, Guid userId);
 }

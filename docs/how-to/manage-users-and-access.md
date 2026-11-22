@@ -30,6 +30,10 @@ To help a User yourself, open the User (`users.set-password`) and either:
 - **Send reset link**: the User gets the same email and chooses the password themselves, so you never learn it. Their current password keeps working until they use the link. Needs email delivery; if the mail server cannot be reached, the admin interface shows an error.
 - **Set password**: you choose the new password and give it to the User through a secure channel. This signs the User out everywhere, including the browser they use.
 
+## Reset two-step verification
+
+Users set up an authenticator app themselves on their account page. If someone lost their phone and has no recovery code left, open the User → **Two-step verification** → **Reset two-step verification** (`users.reset-mfa`). This signs them out everywhere; they then sign in with the password alone and set up the app again. See [Require multi-factor authentication](require-multi-factor-authentication.md).
+
 ## Give someone administrative rights
 
 The simplest way: open the User → assign the Role `admin` (`users.assign-roles`).

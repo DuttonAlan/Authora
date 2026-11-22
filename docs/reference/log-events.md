@@ -6,7 +6,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 
 | Range | Area |
 |---|---|
-| 1001 – 1013 | Users (1009: an administrator sent a password reset link; 1010 – 1013: email verification, see below) |
+| 1001 – 1014 | Users (1009: an administrator sent a password reset link; 1010 – 1013: email verification, see below; 1014: an administrator reset multi-factor authentication, see below) |
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
 | 4001 – 4020 | Clients |
@@ -21,6 +21,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 13001 | Admin API changes denied because they exceed the caller's rights |
 | 14001 – 14006, 14011 – 14014, 14021 – 14026 | Email delivery; one-time tokens of email links; background delivery and background handling of reset requests |
 | 15001 – 15002 | Consents granted on the consent screen and revoked by the User or an administrator |
+| 16001 – 16010 | Multi-factor authentication: authenticator app and recovery codes, see below |
 
 ## Email
 
@@ -78,12 +79,32 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 5023 | Information | User … completed … for Session …, which got a new token | The step-up is complete. |
 | 8005 | Information | Deleted … pending sign-ins that expired before … | Written by the cleanup, without the retention. |
 
+## Multi-factor authentication
+
+Codes, recovery codes and secrets are never logged.
+
+| Id | Level | Message | Meaning |
+|---|---|---|---|
+| 16001 | Information | User … started to set up an authenticator app | At `/account/security/authenticator`; not a second factor until confirmed. |
+| 16002 | Information | User … set up an authenticator app and got … recovery codes | From now on the User enters a code after the password. |
+| 16003 | Information | User … entered a valid code of their authenticator app | In the second step of a sign-in or step-up, or to remove the app. |
+| 16004 | Warning | A code of User … was rejected: … | Wrong code, code already used (a replay), wrong or already used recovery code, no app set up, or the secret cannot be decrypted. Counts towards the lockout. |
+| 16005 | Warning | User … used a recovery code; … left | The User may have lost their phone, or someone else has the codes. |
+| 16006 | Information | User … generated new recovery codes | The previous codes no longer work. |
+| 16007 | Information | User … removed their authenticator app in Session … | All other Sessions and all tokens of the User were revoked. |
+| 16008 | Warning | Removing the authenticator app of User … failed: … | Wrong code, or the User is locked out. |
+| 16009 | Error | The authenticator secret of User … cannot be decrypted | The Data Protection key ring was lost or replaced, see [Persist Data Protection keys](../how-to/persist-data-protection-keys.md). The User can only sign in with a recovery code or after a reset. |
+| 16010 | Information | User … must complete the authenticator app in Session … before generating new recovery codes | The Session was signed in with the password alone, e.g. before the app was set up; the User is sent to the step-up. |
+| 1014 | Information | The multi-factor authentication of User … was reset by an administrator | `DELETE /api/users/{id}/mfa`. All Sessions and tokens of the User were revoked. |
+
 ## Events worth alerting on
 
 | Event Id | Level | Message (shortened) | Meaning |
 |---|---|---|---|
 | 5004 | Warning | User … was locked out … | Possible password guessing. |
 | 5020 | Warning | Second factor … of User … was wrong … | The password was correct; someone may know it. |
+| 16005 | Warning | User … used a recovery code … | Unexpected for the User if they still have their phone. |
+| 16009 | Error | The authenticator secret of User … cannot be decrypted | The Data Protection key ring is missing; Users with an authenticator app cannot sign in with it. |
 | 6004 | Warning | Authorization Code … was used more than once | Possible code theft; the Grant was revoked. |
 | 6005 | Warning | Refresh Token … was used more than once | Possible token theft; the Grant was revoked. |
 | 6006 | Warning | Client … presented a code or token that was issued to Client … | A Client used another Client's token. |

@@ -9,14 +9,14 @@ using Authora.Core.Application.Account.SecondFactors;
 namespace Authora.Api.IntegrationTests;
 
 /// <summary>
-///     A second factor for the tests: a User is enrolled with a fixed code, until the real factors exist.
+///     A second factor for the tests: a User is enrolled with a fixed code, next to the authenticator app, to test the sign-in with any factor and with several.
 /// </summary>
 public sealed class FakeSecondFactor : ISecondFactor
 {
     /// <summary>
-    ///     The method the fake records, the one of one-time codes (RFC 8176).
+    ///     The method the fake records, a hardware-secured key (RFC 8176), so it does not collide with the <c>otp</c> of the authenticator app.
     /// </summary>
-    public const string MethodName = "otp";
+    public const string MethodName = "hwk";
 
     private readonly ConcurrentDictionary<Guid, string> _codes = new();
 

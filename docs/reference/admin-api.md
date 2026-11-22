@@ -39,6 +39,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `GET /api/users/{id}/groups` | `users.read` | Groups the User is a member of. |
 | `GET /api/users/{id}/consents` | `users.read` | Consents: the third-party Clients the User approved, with `clientId`, `clientName`, the approved `scopes` (`id`, `name`, `displayName`), `createdAt` and `modifiedAt` (Scopes last added). |
 | `DELETE /api/users/{id}/consents/{clientId}` | `users.manage-access` | Revoke the Consent for a Client and the User's Grants for it, so its tokens for the User stop working and the User is asked again. Idempotent. |
+| `GET /api/users/{id}/mfa` | `users.read` | Multi-factor authentication: `enabled` (the User enters a code after the password), `authenticatorApp` (`enrolledAt`, `lastUsedAt`; `null` without an app, an unfinished setup does not count) and `recoveryCodes` (`remaining`, `total`, `createdAt`, `lastUsedAt`; `null` without codes). Never the secret or the codes. |
+| `DELETE /api/users/{id}/mfa` | `users.reset-mfa` | Reset multi-factor authentication, e.g. after the User lost their phone and their recovery codes: removes the authenticator app and the recovery codes, and ends all Sessions and tokens. The password alone then signs the User in until they set up a new app. Idempotent; `409` if the User is deleted. See [Require multi-factor authentication](../how-to/require-multi-factor-authentication.md). |
 
 ## Groups
 
@@ -120,7 +122,7 @@ All Permissions, as returned by `GET /api/permissions`. The System Role `admin` 
 
 | Area | Permissions |
 |---|---|
-| Users | `users.read`, `users.create`, `users.update`, `users.delete`, `users.manage-access`, `users.set-password`, `users.assign-roles` |
+| Users | `users.read`, `users.create`, `users.update`, `users.delete`, `users.manage-access`, `users.set-password`, `users.reset-mfa`, `users.assign-roles` |
 | Groups | `groups.read`, `groups.create`, `groups.update`, `groups.delete`, `groups.manage-members`, `groups.assign-roles` |
 | Roles | `roles.read`, `roles.create`, `roles.update`, `roles.delete`, `roles.grant-permissions` |
 | Permissions | `permissions.read` |
@@ -141,7 +143,7 @@ A caller who is not an administrator (has no `admin` Role) can never give out mo
 | `PUT /api/roles/{id}/permissions/{permissionId}` | the caller holds the Permission. |
 | `PUT /api/groups/{id}/roles/{roleId}` | the caller holds every Permission of the Role. |
 | `PUT /api/groups/{id}/members/{userId}` | the caller holds every Permission of all Roles of the Group, and the rule below holds for the User. |
-| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `/password-reset`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/consents/{clientId}`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
+| `PUT /api/users/{id}`, `DELETE /api/users/{id}`, `POST /api/users/{id}/deactivate`, `/activate`, `/unlock`, `/revoke-sessions`, `/password-reset`, `PUT /api/users/{id}/password`, `DELETE /api/users/{id}/mfa`, `DELETE /api/users/{id}/consents/{clientId}`, `DELETE /api/users/{id}/roles/{roleId}` | the User has no `admin` Role and every effective Permission of the User is also held by the caller. |
 
 A caller may act on themselves and on Users with the same rights. An administrator is never restricted by this rule.
 

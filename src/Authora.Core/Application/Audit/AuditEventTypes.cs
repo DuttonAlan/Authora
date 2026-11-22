@@ -81,6 +81,44 @@ public static class AuditEventTypes
     }
 
     /// <summary>
+    ///     Multi-factor authentication of a User with an authenticator app and recovery codes. The Target is the User.
+    ///     A reset by an administrator is <see cref="Users.MfaReset"/>.
+    /// </summary>
+    public static class Mfa
+    {
+        /// <summary>
+        ///     A User set up an authenticator app and got a first set of recovery codes. From now on they enter a code
+        ///     after the password.
+        /// </summary>
+        public const string Enrolled = "mfa.enrolled";
+
+        /// <summary>
+        ///     A User removed their authenticator app and recovery codes (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>;
+        ///     all other Sessions and all tokens of the User were revoked), or the removal failed
+        ///     (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the Details).
+        /// </summary>
+        public const string Removed = "mfa.removed";
+
+        /// <summary>
+        ///     A code of the authenticator app was accepted (<see cref="Domain.Enums.AuditOutcome.Succeeded"/>), or a code
+        ///     or recovery code was rejected (<see cref="Domain.Enums.AuditOutcome.Failed"/>, with the reason in the
+        ///     Details, e.g. a code that was already used). Recorded for the second step of a sign-in, a step-up and the
+        ///     removal; the sign-in records its own outcome as well.
+        /// </summary>
+        public const string Verified = "mfa.verified";
+
+        /// <summary>
+        ///     A User used a recovery code instead of the authenticator app. The Details say how many are left.
+        /// </summary>
+        public const string RecoveryCodeUsed = "mfa.recovery-code-used";
+
+        /// <summary>
+        ///     A User generated a new set of recovery codes; the previous codes no longer work.
+        /// </summary>
+        public const string RecoveryCodesRegenerated = "mfa.recovery-codes-regenerated";
+    }
+
+    /// <summary>
     ///     Consents of Users for third-party Clients. The Target is the User; the Details name the Client of the
     ///     Consent. A granted Consent has that Client as the Client of the event; a revoked one has the Client the
     ///     revocation came through (none for the account page, e.g. the admin interface for an administrator).
@@ -161,6 +199,12 @@ public static class AuditEventTypes
 
         /// <summary>An administrator marked the Email of a User as verified.</summary>
         public const string EmailMarkedVerified = "user.email-marked-verified";
+
+        /// <summary>
+        ///     An administrator reset the multi-factor authentication of a User: the authenticator app and the recovery
+        ///     codes were removed, and all Sessions and tokens of the User were revoked.
+        /// </summary>
+        public const string MfaReset = "user.mfa-reset";
 
         /// <summary>A Role was assigned to a User.</summary>
         public const string RoleAssigned = "user.role-assigned";

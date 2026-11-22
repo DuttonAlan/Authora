@@ -22,6 +22,7 @@ using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Email;
+using Authora.Core.Application.Mfa;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
 using Authora.Infrastructure;
@@ -87,6 +88,9 @@ var dataProtection = builder.Configuration.GetSection(DataProtectionSettings.Sec
 
 builder.Services.AddSingleton<AdminUiCookies>();
 
+// The secrets of authenticator apps are encrypted with the same keys, so the key ring must be kept and backed up.
+builder.Services.AddSingleton<ITotpSecretProtector, DataProtectionTotpSecretProtector>();
+
 builder.Services.AddHsts(options =>
 {
     options.MaxAge = TimeSpan.FromDays(365);
@@ -118,6 +122,9 @@ builder.Services.AddOptions<OidcOptions>()
     .ValidateOnStart();
 builder.Services.AddOptions<SignInOptions>()
     .Bind(builder.Configuration.GetSection(SignInOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<MfaOptions>()
+    .Bind(builder.Configuration.GetSection(MfaOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddOptions<PasswordResetOptions>()
     .Bind(builder.Configuration.GetSection(PasswordResetOptions.SectionName))

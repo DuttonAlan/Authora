@@ -108,12 +108,13 @@ function createPanel(context) {
  * @returns {Promise<HTMLElement>} The page.
  */
 export async function detail(context, id) {
-    const [user, roles, groups, permissions, consents, allRoles] = await Promise.all([
+    const [user, roles, groups, permissions, consents, mfa, allRoles] = await Promise.all([
         api('GET', `/users/${id}`),
         api('GET', `/users/${id}/roles`),
         api('GET', `/users/${id}/groups`),
         api('GET', `/users/${id}/permissions`),
         api('GET', `/users/${id}/consents`),
+        api('GET', `/users/${id}/mfa`),
         context.can('roles.read') && context.can('users.assign-roles') ? api('GET', '/roles') : Promise.resolve([])
     ]);
 
@@ -143,6 +144,7 @@ export async function detail(context, id) {
                     ['Modified', formatDate(user.modifiedAt)]
                 ]),
                 deleted ? null : accessActions(context, user)),
+            mfaPanel(context, user, mfa, deleted),
             !deleted && context.can('users.update') ? panel('Profile', form([
                 { name: 'email', label: 'Email', type: 'email', required: true, value: user.email, maxLength: 254 },
                 { name: 'firstName', label: 'First name', required: true, value: user.firstName, maxLength: 100 },
@@ -256,6 +258,30 @@ function accessActions(context, user) {
     }
 
     return actions.length > 0 ? h('div', { class: 'button-row panel-actions' }, actions) : null;
+}
+
+function mfaPanel(context, user, mfa, deleted) {
+    const app = mfa.authenticatorApp;
+    const codes = mfa.recoveryCodes;
+    const canReset = !deleted && context.can('users.reset-mfa') && (app || codes);
+
+    return panel('Two-step verification',
+        details([
+            ['Authenticator app', app
+                ? h('span', { class: 'badge-row' }, badge('On', 'ok'), formatDate(app.enrolledAt))
+                : badge('Off', 'neutral')],
+            ['Last code', app ? relativeTime(app.lastUsedAt) : '–'],
+            ['Recovery codes left', codes ? `${codes.remaining} of ${codes.total}` : '–'],
+            ['Last recovery code', codes ? relativeTime(codes.lastUsedAt) : '–']
+        ]),
+        canReset ? [
+            hint('Resetting removes the authenticator app and the recovery codes, e.g. after the User lost their phone. The password alone then signs them in until they set up a new app.'),
+            h('div', { class: 'button-row panel-actions' }, button('Reset two-step verification', async () => {
+                if (await confirmed('Reset two-step verification', `Remove the authenticator app and the recovery codes of ${user.email}? The User is signed out everywhere and can then sign in with the password alone.`)) {
+                    run(() => api('DELETE', `/users/${user.id}/mfa`), 'Two-step verification was reset.', context);
+                }
+            }, 'destructive'))
+        ] : null);
 }
 
 function rolesPanel(context, user, roles, allRoles, deleted) {

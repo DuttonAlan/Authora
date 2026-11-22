@@ -9,6 +9,7 @@ using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Consents;
 using Authora.Core.Application.Consents.GetAll;
 using Authora.Core.Application.Consents.Revoke;
+using Authora.Core.Application.Mfa.GetStatus;
 using Authora.Core.Application.Paging;
 using Authora.Core.Application.Users;
 using Authora.Core.Application.Users.Activate;
@@ -23,6 +24,7 @@ using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.MarkEmailVerified;
 using Authora.Core.Application.Users.RemoveRole;
+using Authora.Core.Application.Users.ResetMfa;
 using Authora.Core.Application.Users.RevokeSessions;
 using Authora.Core.Application.Users.SendEmailVerification;
 using Authora.Core.Application.Users.SendPasswordReset;
@@ -46,6 +48,7 @@ namespace Authora.Api.Controllers;
 /// <param name="deleteUserService">The Service to delete the User.</param>
 /// <param name="getAllUsersService">The Service to get all Users.</param>
 /// <param name="getEffectivePermissionsService">The Service to get the effective Permissions of the User.</param>
+/// <param name="getMfaStatusService">The Service to get the multi-factor authentication of the User.</param>
 /// <param name="getUserConsentsService">The Service to get the Consents of the User.</param>
 /// <param name="getUserGroupsService">The Service to get the Groups of the User.</param>
 /// <param name="getUserRolesService">The Service to get the Roles of the User.</param>
@@ -53,6 +56,7 @@ namespace Authora.Api.Controllers;
 /// <param name="markEmailVerifiedService">The Service to mark the Email of the User as verified.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
 /// <param name="revokeConsentService">The Service to revoke a Consent of the User.</param>
+/// <param name="resetMfaService">The Service to reset the multi-factor authentication of the User.</param>
 /// <param name="revokeUserSessionsService">The Service to revoke all Sessions of the User.</param>
 /// <param name="sendEmailVerificationService">The Service to send the User an email verification link.</param>
 /// <param name="sendPasswordResetService">The Service to send the User a password reset link.</param>
@@ -71,6 +75,7 @@ public sealed class UsersController(
     DeleteUserService deleteUserService,
     GetAllUsersService getAllUsersService,
     GetEffectivePermissionsService getEffectivePermissionsService,
+    GetMfaStatusService getMfaStatusService,
     GetUserConsentsService getUserConsentsService,
     GetUserGroupsService getUserGroupsService,
     GetUserRolesService getUserRolesService,
@@ -78,6 +83,7 @@ public sealed class UsersController(
     MarkEmailVerifiedService markEmailVerifiedService,
     RemoveRoleService removeRoleService,
     RevokeConsentService revokeConsentService,
+    ResetMfaService resetMfaService,
     RevokeUserSessionsService revokeUserSessionsService,
     SendEmailVerificationService sendEmailVerificationService,
     SendPasswordResetService sendPasswordResetService,
@@ -686,6 +692,66 @@ public sealed class UsersController(
         var consents = await getUserConsentsService.ExecuteAsync(id, cancellationToken);
 
         return Ok(consents);
+    }
+
+    /// <summary>
+    ///     Gets the multi-factor authentication of the User: the authenticator app and the recovery codes.
+    /// </summary>
+    /// <remarks>
+    ///     Neither the secret of the app nor the recovery codes are ever returned; only when they were set up and last
+    ///     used, and how many codes are left. An unfinished setup does not count as an authenticator app.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>200 OK with the multi-factor authentication of the User.</returns>
+    /// <response code="200">Responds with the multi-factor authentication of the User; <c>enabled</c> is <c>false</c> if the User signs in with the password only.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpGet("{id:guid}/mfa")]
+    [ProducesResponseType<MfaStatusResponse>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
+    public async Task<IActionResult> GetMfa(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var status = await getMfaStatusService.ExecuteAsync(id, cancellationToken);
+
+        return Ok(status);
+    }
+
+    /// <summary>
+    ///     Resets the multi-factor authentication of the User.
+    /// </summary>
+    /// <remarks>
+    ///     Removes the authenticator app and the recovery codes, e.g. after the User lost both; the password alone then
+    ///     signs the User in until they set up a new app. All Sessions and tokens of the User are revoked.
+    ///     This operation is idempotent: resetting a User without multi-factor authentication also succeeds and changes
+    ///     nothing.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the multi-factor authentication is reset.</returns>
+    /// <response code="204">Responds with no content once the multi-factor authentication was reset.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="409">Responds with problem details if the User is deleted, or was changed by another request at the same time.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/mfa")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ResetMfa)]
+    public async Task<IActionResult> ResetMfa(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await resetMfaService.ExecuteAsync(id, cancellationToken);
+
+        return NoContent();
     }
 
     /// <summary>

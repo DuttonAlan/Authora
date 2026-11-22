@@ -17,12 +17,14 @@ namespace Authora.Core.Application.Users.Delete;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to delete a User.</param>
 /// <param name="consentRepository">An Instance of a IConsentRepository to delete the Consents of the User.</param>
+/// <param name="mfaRepository">An Instance of a IMfaRepository to delete the authenticator app and recovery codes of the User.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteUserService(
     IUserRepository userRepository,
     IConsentRepository consentRepository,
+    IMfaRepository mfaRepository,
     PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<DeleteUserService> logger)
@@ -34,7 +36,7 @@ public sealed class DeleteUserService(
     ///     This is a soft delete: the User is set to <see cref="UserState.Deleted"/> and kept for history, with the
     ///     Email and Name anonymized, so the Email can be used by a new User.
     ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid.
-    ///     The Consents of the User are deleted.
+    ///     The Consents, the authenticator app and the recovery codes of the User are deleted.
     ///     Does nothing if the User does not exist or is already deleted.
     /// </remarks>
     /// <param name="id">Id of the User.</param>
@@ -62,6 +64,17 @@ public sealed class DeleteUserService(
 
         // In the transaction of the guard, so the Consents are only deleted together with the User.
         await consentRepository.DeleteConsentsOfUser(user.Id, cancellationToken);
+
+        // The secret of the authenticator app and the recovery codes are of no use any more. The lock joins the
+        // transaction of the guard, so no setup or new recovery codes are saved meanwhile.
+        await using var mfaTransaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
+        if (await mfaRepository.GetTotpAuthenticator(user.Id, cancellationToken) is { } authenticator)
+        {
+            mfaRepository.RemoveTotpAuthenticator(authenticator);
+        }
+
+        mfaRepository.RemoveRecoveryCodes(await mfaRepository.GetRecoveryCodes(user.Id, cancellationToken));
 
         user.MarkDeleted();
         auditLog.Record(entry);

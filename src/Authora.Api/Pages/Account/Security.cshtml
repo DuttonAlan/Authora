@@ -16,16 +16,24 @@
         <a href="/account/password">Change password</a>
         <span class="description">Signs you out everywhere else.</span>
     </li>
-    @if (Model.SecondFactors.Count > 0)
-    {
-        <li>
-            <strong>Two-step verification</strong>
-            @foreach (var factor in Model.SecondFactors)
-            {
-                <span class="description">@factor.DisplayName: @(factor.IsEnrolled ? "on" : "off")</span>
-            }
-        </li>
-    }
+    <li>
+        <strong>Two-step verification</strong>
+        @if (Model.Mfa.AuthenticatorApp is { } authenticatorApp)
+        {
+            <span class="description">Authenticator app: on since @authenticatorApp.EnrolledAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture). You enter a code of the app after your password.</span>
+            <span class="description">Recovery codes: @(Model.Mfa.RecoveryCodes?.Remaining ?? 0) of @(Model.Mfa.RecoveryCodes?.Total ?? 0) left.</span>
+            <span class="description links"><a href="/account/security/recovery-codes">Recovery codes</a> <a href="/account/security/authenticator/remove">Remove authenticator app</a></span>
+        }
+        else
+        {
+            <span class="description">Authenticator app: off. Protect your account with a code from your phone in addition to your password.</span>
+            <span class="description"><a href="/account/security/authenticator">Set up an authenticator app</a></span>
+        }
+        @foreach (var factor in Model.SecondFactors.Where(factor => factor.Method != Authora.Core.Domain.AuthenticationMethods.OneTimeCode))
+        {
+            <span class="description">@factor.DisplayName: @(factor.IsEnrolled ? "on" : "off")</span>
+        }
+    </li>
     <li>
         <a href="/account/consents">Connected applications</a>
         <span class="description">Applications you allowed to access your account.</span>
