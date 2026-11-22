@@ -231,8 +231,9 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// </summary>
     /// <param name="userId">The Id of the User.</param>
     /// <param name="signedInAt">When the User signed in, now by default. The Session lasts one hour from then.</param>
+    /// <param name="authenticationMethods">How the User signed in, the password only by default.</param>
     /// <returns>The plain-text Session token, the value of the Session cookie.</returns>
-    public async Task<string> CreateSessionAsync(Guid userId, DateTime? signedInAt = null)
+    public async Task<string> CreateSessionAsync(Guid userId, DateTime? signedInAt = null, IReadOnlyList<string>? authenticationMethods = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
@@ -242,7 +243,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         var user = await context.Users.SingleAsync(user => user.Id == userId);
 
         var token = secretGenerator.Generate();
-        context.Sessions.Add(Session.Create(user, secretHasher.Hash(token), [AuthenticationMethods.Password], signedInAt ?? DateTime.UtcNow, TimeSpan.FromHours(1)));
+        context.Sessions.Add(Session.Create(user, secretHasher.Hash(token), authenticationMethods ?? [AuthenticationMethods.Password], signedInAt ?? DateTime.UtcNow, TimeSpan.FromHours(1)));
         await context.SaveChangesAsync();
 
         return token;

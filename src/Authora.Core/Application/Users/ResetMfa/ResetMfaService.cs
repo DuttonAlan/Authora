@@ -56,6 +56,9 @@ public sealed class ResetMfaService(
 
         await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
 
+        // Joins the transaction of the guard, so a setup or new recovery codes cannot be saved during the reset.
+        await using var mfaTransaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
         var authenticator = await mfaRepository.GetTotpAuthenticator(user.Id, cancellationToken);
         var codes = await mfaRepository.GetRecoveryCodes(user.Id, cancellationToken);
 

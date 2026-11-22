@@ -65,7 +65,10 @@ public sealed class DeleteUserService(
         // In the transaction of the guard, so the Consents are only deleted together with the User.
         await consentRepository.DeleteConsentsOfUser(user.Id, cancellationToken);
 
-        // The secret of the authenticator app and the recovery codes are of no use any more.
+        // The secret of the authenticator app and the recovery codes are of no use any more. The lock joins the
+        // transaction of the guard, so no setup or new recovery codes are saved meanwhile.
+        await using var mfaTransaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
         if (await mfaRepository.GetTotpAuthenticator(user.Id, cancellationToken) is { } authenticator)
         {
             mfaRepository.RemoveTotpAuthenticator(authenticator);

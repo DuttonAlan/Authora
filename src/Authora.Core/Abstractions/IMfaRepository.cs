@@ -18,6 +18,18 @@ namespace Authora.Core.Abstractions;
 public interface IMfaRepository
 {
     /// <summary>
+    ///     Starts the transaction for changing the multi-factor authentication of a User, and locks it until the
+    ///     transaction ends, so that a setup, its confirmation, new recovery codes, a removal and a reset of the same
+    ///     User run one after the other. Load the authenticator and the codes after this call. Joins the transaction of
+    ///     the request if there is one, e.g. that of <see cref="IUserRepository.BeginPrivilegeChangeAsync"/>; the lock
+    ///     is then held until that transaction ends.
+    /// </summary>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The transaction. Committing a joined transaction is left to its owner.</returns>
+    public Task<ITransaction> BeginMfaChangeAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Get the authenticator app of a User, confirmed or not, tracked so it can be changed or removed.
     /// </summary>
     /// <param name="userId">Id of the User.</param>

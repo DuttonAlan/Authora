@@ -37,4 +37,7 @@ internal static partial class MfaLog
 
     [LoggerMessage(EventId = 16009, Level = LogLevel.Error, Message = "The authenticator secret of User {UserId} cannot be decrypted. Was the Data Protection key ring lost or replaced?")]
     public static partial void TotpSecretUnreadable(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 16010, Level = LogLevel.Information, Message = "User {UserId} must complete the authenticator app in Session {SessionId} before generating new recovery codes.")]
+    public static partial void RecoveryCodesNeedStepUp(this ILogger logger, Guid userId, Guid sessionId);
 }

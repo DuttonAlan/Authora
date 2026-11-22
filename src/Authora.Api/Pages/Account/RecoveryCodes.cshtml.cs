@@ -8,6 +8,7 @@ using Authora.Api.RateLimiting;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Application.Mfa.GetStatus;
 using Authora.Core.Application.Mfa.RegenerateRecoveryCodes;
+using Authora.Core.Domain;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,8 @@ namespace Authora.Api.Pages.Account;
 ///     is shown once and replaces the previous codes.
 /// </summary>
 /// <remarks>
-///     Requires a recent authentication, since new codes sign in as well as the authenticator app.
+///     Requires a recent authentication, and a Session in which the User completed the authenticator app: new codes
+///     sign in as well as the app. A Session signed in with the password alone is sent to the step-up first.
 /// </remarks>
 /// <param name="getMfaStatusService">The Service to count the remaining codes.</param>
 /// <param name="regenerateRecoveryCodesService">The Service to generate a new set.</param>
@@ -57,6 +59,17 @@ public sealed class RecoveryCodesModel(
     public string? ErrorMessage { get; private set; }
 
     /// <summary>
+    ///     Whether the Session lacks the authenticator app, so the User must confirm with it before generating codes.
+    /// </summary>
+    public bool NeedsStepUp => !User.FindAll(SessionClaimTypes.AuthenticationMethod)
+        .Any(claim => claim.Value == AuthenticationMethods.OneTimePassword);
+
+    /// <summary>
+    ///     The step-up that adds the authenticator app to the Session and returns here.
+    /// </summary>
+    public static string StepUpUrl => $"{StepUpModel.PagePath}?returnUrl={Uri.EscapeDataString(PagePath)}";
+
+    /// <summary>
     ///     Shows how many codes are left.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -70,23 +83,41 @@ public sealed class RecoveryCodesModel(
     ///     Generates a new set of codes.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns>The page with the new codes, or with an error.</returns>
+    /// <returns>The page with the new codes or an error, the step-up, or the sign-in page if the Session ended.</returns>
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
+        // Both claims are always set by SessionAuthenticationHandler, the only scheme that signs Users in here.
         var userId = GetUserId();
+        var sessionId = Guid.Parse(User.FindFirst(SessionClaimTypes.SessionId)!.Value);
+
+        RegenerateRecoveryCodesResult result;
 
         try
         {
-            NewCodes = await regenerateRecoveryCodesService.ExecuteAsync(userId, cancellationToken);
+            result = await regenerateRecoveryCodesService.ExecuteAsync(userId, sessionId, cancellationToken);
         }
         catch (ConflictException)
         {
+            result = RegenerateRecoveryCodesResult.NotEnrolled;
             ErrorMessage = ConflictMessage;
         }
 
-        Status = await getMfaStatusService.ExecuteAsync(userId, cancellationToken);
+        switch (result.Status)
+        {
+            case RegenerateRecoveryCodesStatus.StepUpRequired:
+                return LocalRedirect(StepUpUrl);
 
-        return Page();
+            case RegenerateRecoveryCodesStatus.SessionEnded:
+                SessionCookie.Delete(Response);
+
+                return Redirect($"{Request.PathBase}{SessionAuthenticationHandler.SignInPath}?returnUrl={Uri.EscapeDataString($"{Request.PathBase}{PagePath}")}");
+
+            default:
+                NewCodes = result.RecoveryCodes;
+                Status = await getMfaStatusService.ExecuteAsync(userId, cancellationToken);
+
+                return Page();
+        }
     }
 
     private Guid GetUserId()

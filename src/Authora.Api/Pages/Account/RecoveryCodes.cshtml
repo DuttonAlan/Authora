@@ -41,11 +41,20 @@ else
     </p>
     <p>Generate new codes when only a few are left or someone may have seen them. The previous codes then stop working.</p>
 
-    <form method="post">
-        <div class="actions">
-            <button type="submit" class="primary">Generate new codes</button>
-        </div>
-    </form>
+    @if (Model.NeedsStepUp)
+    {
+        @* New codes sign in like the app, so a Session signed in with the password alone confirms with the app first. *@
+        <p class="muted">You signed in without your authenticator app. Confirm with a code of the app first.</p>
+        <p><a href="@Authora.Api.Pages.Account.RecoveryCodesModel.StepUpUrl">Confirm with authenticator app</a></p>
+    }
+    else
+    {
+        <form method="post">
+            <div class="actions">
+                <button type="submit" class="primary">Generate new codes</button>
+            </div>
+        </form>
+    }
 
     <p class="muted"><a href="/account/security">Back</a></p>
 }

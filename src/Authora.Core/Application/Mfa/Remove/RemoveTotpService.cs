@@ -88,14 +88,20 @@ public sealed class RemoveTotpService(
             return await RecordWrongCodeAsync(user.Id, session.Id, cancellationToken);
         }
 
+        // Locked only after verifying, so the failed attempts counted for a wrong code are not rolled back with the
+        // transaction. Held until the commit, so new recovery codes cannot be saved while the app is removed.
+        await using var transaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
         // Loaded after verifying, which may have used up a recovery code in the database.
         var authenticator = await mfaRepository.GetTotpAuthenticator(user.Id, cancellationToken);
 
-        if (authenticator is not null)
+        // An administrator may have reset it in the meantime.
+        if (authenticator is not { IsConfirmed: true })
         {
-            mfaRepository.RemoveTotpAuthenticator(authenticator);
+            return RemoveTotpResult.NotEnrolled;
         }
 
+        mfaRepository.RemoveTotpAuthenticator(authenticator);
         mfaRepository.RemoveRecoveryCodes(await mfaRepository.GetRecoveryCodes(user.Id, cancellationToken));
 
         user.RotateSecurityStamp();
@@ -106,6 +112,7 @@ public sealed class RemoveTotpService(
         // User, Session, authenticator and codes share the request's DbContext, so all are saved together with the
         // audit event. Throws a ConflictException if the User was changed since it was loaded.
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.TotpRemoved(user.Id, session.Id);
 

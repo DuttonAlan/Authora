@@ -43,7 +43,7 @@ Start with the administrators: an administrator account is the most valuable one
 
 ## Help a User who lost their phone
 
-1. **The User still has recovery codes:** they enter one instead of the code on the second step of the sign-in. Each code works once. Afterwards they remove the old app on their account page (with another recovery code) and set up the new phone, or generate a fresh set of codes under **Recovery codes** if they keep the app.
+1. **The User still has recovery codes:** they enter one instead of the code on the second step of the sign-in. Each code works once. Afterwards they remove the old app on their account page (with another recovery code) and set up the new phone, or generate a fresh set of codes under **Recovery codes** if they keep the app (a sign-in with a recovery code counts as having the app).
 2. **The User has no recovery code left:** reset their multi-factor authentication (`users.reset-mfa`). Open the User → **Two-step verification** → **Reset two-step verification**, or call:
 
    ```sh

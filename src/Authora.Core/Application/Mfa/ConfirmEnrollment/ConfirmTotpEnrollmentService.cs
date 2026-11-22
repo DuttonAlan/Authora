@@ -49,6 +49,10 @@ public sealed class ConfirmTotpEnrollmentService(
         string? code,
         CancellationToken cancellationToken = default)
     {
+        // Held until the commit: the secret checked below is the one that is confirmed, not one that a restart of the
+        // setup replaced in the meantime.
+        await using var transaction = await mfaRepository.BeginMfaChangeAsync(userId, cancellationToken);
+
         var now = timeProvider.GetUtcNow();
         var authenticator = await mfaRepository.GetTotpAuthenticator(userId, cancellationToken);
 
@@ -97,8 +101,8 @@ public sealed class ConfirmTotpEnrollmentService(
             userId,
             $"Authenticator app, {recoveryCodes.Count} recovery codes"));
 
-        // Throws a ConflictException if another request confirmed or restarted it since it was loaded.
         await mfaRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.TotpEnrolled(userId, recoveryCodes.Count);
 

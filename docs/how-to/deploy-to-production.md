@@ -81,7 +81,7 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out signing-key.pe
 
 Store it as a secret (Docker or Kubernetes secret, or a file readable only by the user that runs Authora, `chmod 600`). The image runs as the non-root user `app` (UID `1654`), so the file must be readable by that user. Authora logs event 9004 when other users can read or write the file. Never put the key into the image or the database, and back it up separately from the database; together they would allow forging ID Tokens.
 
-**Data Protection certificate**, if you run several instances or the container has no persistent home directory: see [Persist Data Protection keys](persist-data-protection-keys.md).
+**Data Protection certificate**, so the keys that encrypt the admin cookies and the secrets of authenticator apps are encrypted at rest: see [Persist Data Protection keys](persist-data-protection-keys.md).
 
 ## 4. Configure Authora
 

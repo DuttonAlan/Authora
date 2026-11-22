@@ -109,16 +109,4 @@ public sealed class ConsentRepository(AuthoraContext context) : IConsentReposito
 
         return key;
     }
-
-    /// <summary>
-    ///     Stands for the transaction of the caller that the lock joined; its owner commits it.
-    /// </summary>
-    private sealed class JoinedTransaction : ITransaction
-    {
-        public static readonly JoinedTransaction Instance = new();
-
-        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 }

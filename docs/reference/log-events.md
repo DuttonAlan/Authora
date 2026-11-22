@@ -21,7 +21,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 13001 | Admin API changes denied because they exceed the caller's rights |
 | 14001 – 14006, 14011 – 14014, 14021 – 14026 | Email delivery; one-time tokens of email links; background delivery and background handling of reset requests |
 | 15001 – 15002 | Consents granted on the consent screen and revoked by the User or an administrator |
-| 16001 – 16009 | Multi-factor authentication: authenticator app and recovery codes, see below |
+| 16001 – 16010 | Multi-factor authentication: authenticator app and recovery codes, see below |
 
 ## Email
 
@@ -94,6 +94,7 @@ Codes, recovery codes and secrets are never logged.
 | 16007 | Information | User … removed their authenticator app in Session … | All other Sessions and all tokens of the User were revoked. |
 | 16008 | Warning | Removing the authenticator app of User … failed: … | Wrong code, or the User is locked out. |
 | 16009 | Error | The authenticator secret of User … cannot be decrypted | The Data Protection key ring was lost or replaced, see [Persist Data Protection keys](../how-to/persist-data-protection-keys.md). The User can only sign in with a recovery code or after a reset. |
+| 16010 | Information | User … must complete the authenticator app in Session … before generating new recovery codes | The Session was signed in with the password alone, e.g. before the app was set up; the User is sent to the step-up. |
 | 1014 | Information | The multi-factor authentication of User … was reset by an administrator | `DELETE /api/users/{id}/mfa`. All Sessions and tokens of the User were revoked. |
 
 ## Events worth alerting on

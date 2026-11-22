@@ -35,9 +35,9 @@ public sealed class TotpAuthenticatorConfiguration : IEntityTypeConfiguration<To
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
-        // Saving an authenticator whose confirmation changed since it was loaded fails, so two concurrent
-        // confirmations cannot both issue recovery codes, and a reset cannot miss a confirmation. The uses of codes
-        // (LastUsedTimeStep) are atomic updates of their own and do not conflict with it.
+        // Changes are serialized per User by IMfaRepository.BeginMfaChangeAsync. As a second line of defense, saving an
+        // authenticator whose confirmation changed since it was loaded fails. The uses of codes (LastUsedTimeStep) are
+        // atomic updates of their own and do not conflict with it.
         builder.Property(x => x.ConfirmedAt)
             .IsConcurrencyToken();
 

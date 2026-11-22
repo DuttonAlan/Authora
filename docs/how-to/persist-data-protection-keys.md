@@ -35,10 +35,10 @@ Authora does not start if the certificate cannot be loaded with its private key,
 
 ## Things to know
 
-- **Existing keys stay unencrypted.** The certificate only encrypts keys created after it was set. Older keys stay readable until they expire after 90 days. To start over at once, delete the files in the directory; administrators then sign in again.
-- **Replacing the certificate** makes the keys encrypted with the old one unreadable. Authora creates new keys, and administrators sign in again. No other data is lost.
+- **Existing keys stay unencrypted.** The certificate only encrypts keys created after it was set; older keys stay in the directory in plain text, because Data Protection keeps every key to decrypt what it once encrypted. Do not delete them to start over: that also makes the authenticator apps of Users who set them up with those keys unusable. Set the certificate before Users set up authenticator apps.
+- **Replacing the certificate** makes the keys encrypted with the old one unreadable: Authora creates new keys, administrators sign in again, and every authenticator app set up before stops working (Users sign in with a recovery code and set it up again, or an administrator resets them). Authora cannot read keys with a previous certificate, so keep the certificate for as long as you keep the keys; a long validity, as in step 1, avoids a forced replacement.
 - **Without a certificate**, the keys are stored in plain text, and whoever can read them can decrypt a stolen admin cookie.
-- **Backups:** do not store the keys or the certificate together with the database backup. Losing them only signs administrators out.
+- **Backups:** back up the keys and the certificate, but not together with the database backup: together they decrypt the secrets of the authenticator apps. Losing them signs administrators out and makes every authenticator app unusable.
 
 ## Keep the keys
 

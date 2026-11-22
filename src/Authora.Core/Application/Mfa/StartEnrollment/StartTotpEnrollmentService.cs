@@ -58,6 +58,10 @@ public sealed class StartTotpEnrollmentService(
             throw new NotFoundException($"User '{userId}' was not found.");
         }
 
+        // Held until the commit, so a confirmation in another tab sees either the old secret or the new one, never a
+        // secret that is replaced after it was checked.
+        await using var transaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var authenticator = await mfaRepository.GetTotpAuthenticator(user.Id, cancellationToken);
 
@@ -86,6 +90,7 @@ public sealed class StartTotpEnrollmentService(
         }
 
         await mfaRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.TotpEnrollmentStarted(user.Id);
 

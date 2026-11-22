@@ -284,11 +284,63 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
     }
 
     [Fact]
+    public async Task RegenerateRecoveryCodes_InSessionWithPasswordOnly_RequiresStepUp()
+    {
+        // E.g. a Session that signed in before the app was set up: it must not get codes that would let it remove the
+        // app without ever having it.
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        await factory.EnrollTotpAsync(userId);
+        var sessionToken = await factory.CreateSessionAsync(userId);
+        var hashesBefore = (await GetRecoveryCodesAsync(userId)).Select(code => code.CodeHash).ToHashSet();
+
+        var page = await GetPageAsync(RecoveryCodesModel.PagePath, sessionToken);
+        Assert.Contains(RecoveryCodesModel.StepUpUrl.Replace("&", "&amp;", StringComparison.Ordinal), page, StringComparison.Ordinal);
+        Assert.DoesNotContain("Generate new codes</button>", page, StringComparison.Ordinal);
+
+        using var response = await PostAsync(RecoveryCodesModel.PagePath, sessionToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(RecoveryCodesModel.StepUpUrl, response.Headers.Location?.OriginalString);
+        Assert.Equal(hashesBefore, (await GetRecoveryCodesAsync(userId)).Select(code => code.CodeHash).ToHashSet());
+        Assert.Empty(await GetEventsAsync(AuditEventTypes.Mfa.RecoveryCodesRegenerated, userId));
+    }
+
+    [Fact]
+    public async Task RegenerateRecoveryCodes_AfterStepUp_Succeeds()
+    {
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        var (secret, _) = await factory.EnrollTotpAsync(userId);
+
+        // A Session that signed in with the password alone, then completes the app in a step-up.
+        var sessionToken = await factory.CreateSessionAsync(userId);
+        string pendingToken;
+
+        using (var stepUp = await GetAsync(RecoveryCodesModel.StepUpUrl, sessionToken))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, stepUp.StatusCode);
+            pendingToken = ReadCookie(stepUp, PendingSignInCookie.Name)!;
+        }
+
+        using (var completed = await SubmitCodeAsync(pendingToken, CurrentCode(secret), sessionToken))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, completed.StatusCode);
+            sessionToken = ReadCookie(completed, SessionCookie.Name)!;
+        }
+
+        using var response = await PostAsync(RecoveryCodesModel.PagePath, sessionToken);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(RecoveryCodeFormat.CountPerSet, RecoveryCodePattern().Matches(html).Count);
+        Assert.Single(await GetEventsAsync(AuditEventTypes.Mfa.RecoveryCodesRegenerated, userId));
+    }
+
+    [Fact]
     public async Task RegenerateRecoveryCodes_ReplacesTheSet()
     {
         var (userId, email) = await factory.CreateUserWithPasswordAsync(Password);
         var (_, oldCodes) = await factory.EnrollTotpAsync(userId);
-        var sessionToken = await factory.CreateSessionAsync(userId);
+        var sessionToken = await factory.CreateSessionAsync(userId, authenticationMethods: [AuthenticationMethods.Password, AuthenticationMethods.OneTimePassword]);
 
         Assert.Contains("10 of 10", await GetPageAsync(RecoveryCodesModel.PagePath, sessionToken), StringComparison.Ordinal);
 
@@ -336,6 +388,27 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         // The password alone signs in again.
         using var signIn = await SignInAsync(email, Password);
         Assert.NotNull(ReadCookie(signIn, SessionCookie.Name));
+    }
+
+    [Fact]
+    public async Task Remove_AtTheSameTimeAsNewRecoveryCodes_LeavesNoCodesWithoutTheApp()
+    {
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        var (secret, _) = await factory.EnrollTotpAsync(userId);
+        var removingSession = await factory.CreateSessionAsync(userId);
+        var regeneratingSession = await factory.CreateSessionAsync(userId, authenticationMethods: [AuthenticationMethods.Password, AuthenticationMethods.OneTimePassword]);
+
+        // Whichever runs first, codes must never outlive the app they stand in for.
+        var removal = PostAsync(RemoveAuthenticatorModel.PagePath, removingSession, ("Code", CurrentCode(secret)));
+        var regeneration = PostAsync(RecoveryCodesModel.PagePath, regeneratingSession);
+        await Task.WhenAll(removal, regeneration);
+
+        using (await removal)
+        using (await regeneration)
+        {
+            Assert.Null(await GetAuthenticatorAsync(userId));
+            Assert.Empty(await GetRecoveryCodesAsync(userId));
+        }
     }
 
     [Fact]
@@ -599,9 +672,10 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);
     }
 
-    private async Task<HttpResponseMessage> SubmitCodeAsync(string pendingToken, string code)
+    // With a Session token for a step-up, which must be completed in its Session.
+    private async Task<HttpResponseMessage> SubmitCodeAsync(string pendingToken, string code, string? sessionToken = null)
     {
-        var (antiforgeryToken, antiforgeryCookie) = await GetAntiforgeryAsync(sessionToken: null);
+        var (antiforgeryToken, antiforgeryCookie) = await GetAntiforgeryAsync(sessionToken);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, SecondFactorModel.PagePath)
         {
@@ -612,7 +686,8 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
                 new("__RequestVerificationToken", antiforgeryToken)
             ])
         };
-        request.Headers.Add("Cookie", $"{PendingSignInCookie.Name}={pendingToken}; {antiforgeryCookie}");
+        var cookies = $"{PendingSignInCookie.Name}={pendingToken}; {antiforgeryCookie}";
+        request.Headers.Add("Cookie", sessionToken is null ? cookies : $"{cookies}; {SessionCookie.Name}={sessionToken}");
 
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);
     }

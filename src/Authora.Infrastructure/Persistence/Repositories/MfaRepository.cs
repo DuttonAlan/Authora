@@ -16,6 +16,34 @@ namespace Authora.Infrastructure.Persistence.Repositories;
 public sealed class MfaRepository(AuthoraContext context) : IMfaRepository
 {
     /// <inheritdoc/>
+    public async Task<ITransaction> BeginMfaChangeAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        // Without the lock, e.g. a confirmation could save a secret that a restart replaced in the meantime, or new
+        // recovery codes could be saved after a removal deleted the authenticator they stand in for.
+        var transaction = context.Database.CurrentTransaction is null
+            ? await context.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        try
+        {
+            await context.Database.ExecuteSqlAsync(
+                $"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.Mfa}, {LockKey(userId)})",
+                cancellationToken);
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+
+            throw;
+        }
+
+        return transaction is null ? JoinedTransaction.Instance : new EfTransaction(transaction);
+    }
+
+    /// <inheritdoc/>
     public async Task<TotpAuthenticator?> GetTotpAuthenticator(Guid userId, CancellationToken cancellationToken = default)
     {
         return await context.TotpAuthenticators
@@ -126,5 +154,21 @@ public sealed class MfaRepository(AuthoraContext context) : IMfaRepository
         {
             throw new ConflictException("The multi-factor authentication of the User was changed by another request. Try again.", exception);
         }
+    }
+
+    // Folds the Id into the second key of the lock. Two Users may share a key; they then only wait for each other.
+    private static int LockKey(Guid userId)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        userId.TryWriteBytes(bytes);
+
+        var key = 17;
+
+        for (var offset = 0; offset < bytes.Length; offset += sizeof(int))
+        {
+            key = (key * 31) ^ BitConverter.ToInt32(bytes[offset..]);
+        }
+
+        return key;
     }
 }
