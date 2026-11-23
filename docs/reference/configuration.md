@@ -34,6 +34,19 @@ Lifetimes of Access and Refresh Tokens are set per Client, in the admin interfac
 | `Authora:Oidc:IdTokenLifetime` | `00:05:00` | at most 1 hour | Lifetime of ID Tokens. |
 | `Authora:Oidc:KeyReloadInterval` | `00:01:00` | 10 seconds to 1 hour | How often the key files are checked for changes. Changing it needs a restart. |
 
+## Back-channel logout
+
+How Logout Tokens are sent to the Back-Channel Logout URIs of Clients, see [Back-channel logout](openid-connect.md#back-channel-logout).
+
+| Setting | Default | Limits | Description |
+|---|---|---|---|
+| `Authora:BackchannelLogout:AllowHttp` | `false` | `false` outside `Development` | Whether Back-Channel Logout URIs may use plain HTTP. `appsettings.Development.json` sets it to `true` for local Clients. Authora does not start with `true` in any other environment, because a Logout Token identifies the User. |
+| `Authora:BackchannelLogout:Timeout` | `00:00:05` | 1 to 30 seconds | How long a Client may take to answer before the delivery counts as failed. |
+| `Authora:BackchannelLogout:MaxAttempts` | `10` | 1 to 50 | Attempts per notification before Authora gives up. Retries wait 10 seconds, then twice as long each time, at most one hour. |
+| `Authora:BackchannelLogout:MaxAge` | `1.00:00:00` | 1 minute to 7 days | How long after the Session ended a notification is still sent; afterwards Authora gives up, even with attempts left. |
+| `Authora:BackchannelLogout:PollInterval` | `00:00:05` | 1 second to 5 minutes | How often each instance looks for due notifications. Changing it needs a restart. |
+| `Authora:BackchannelLogout:BatchSize` | `20` | 1 to 100 | Notifications an instance sends at the same time. An instance claims them for `Timeout` plus one minute; if it stops while sending, another instance sends them after that. |
+
 ## Sign-in and Sessions
 
 | Setting | Default | Limits | Description |

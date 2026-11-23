@@ -57,6 +57,12 @@ Redirect URIs must match a registered URI exactly; there are no wildcards or pre
 
 A code or Refresh Token used twice revokes the whole Grant, because Authora cannot tell the attacker from the legitimate application. Losing a sign-in is a smaller harm than letting a thief keep access.
 
+### Signing out ends what the sign-in gave
+
+When a Session is ended on purpose (signing out, a new password, a removed second factor, an administrator), the Grants approved in it are revoked in the same transaction, and applications with a Back-Channel Logout URI are told. A User who signs out on a shared computer therefore also leaves no working token behind in the applications they used there. Sessions that only expire keep their Grants, as usual in OAuth.
+
+The notifications are Authora's only outgoing HTTP requests to addresses that administrators choose. They carry nothing but a signed Logout Token, use HTTPS outside development, do not follow redirects and time out after a few seconds; only administrators with `clients.update` can set the URI. Still, a URI can point into the network Authora runs in, so restrict Authora's outgoing traffic if that network has services that trust any request from inside it.
+
 ### Sign-in does not leak who has an account
 
 Every failed sign-in shows the same message, and unknown Emails still go through a password check, so neither the message nor the response time reveals whether an account exists. The lockout after repeated failures is short (15 minutes by default, at most 1 hour), because anyone who knows an Email can trigger it.
@@ -118,6 +124,7 @@ Every change is recorded in the same transaction as the change itself, and event
 
 - Multi-factor authentication is up to each User: Authora cannot require it, and applications cannot tell from the ID Token whether a sign-in used it. Ask administrators to set up an authenticator app, see [Require multi-factor authentication](../how-to/require-multi-factor-authentication.md). TOTP codes can still be phished in real time by a proxy that relays them at once; passkeys cannot, because the browser only uses them on Authora's own origin. With email delivery configured, the mailbox is a second way in through the password reset: protect it as well as the password, or turn the self-service reset off (`Authora:PasswordReset:SelfServiceEnabled`).
 - Reset requests from the sign-in page and the emails sent in the background are kept in memory and lost if the server stops before they are handled; the User asks again.
+- A back-channel logout that cannot be delivered within `Authora:BackchannelLogout:MaxAge` is given up (audit event `client.backchannel-logout-failed`); the application keeps its own session until it ends. Its tokens are revoked either way.
 - `prompt=login` and `max_age` travel through the browser and can be stripped. Clients that need a recent sign-in must check `auth_time` themselves.
 - A script running on the admin interface could act as the signed-in administrator while the page is open, like on any web application. The Content Security Policy is what keeps such scripts out.
 - Someone with write access to the database can change audit events in the few seconds before they are sealed, or rebuild the whole chain. Only the checkpoints in a separate log system reveal a rebuilt chain.

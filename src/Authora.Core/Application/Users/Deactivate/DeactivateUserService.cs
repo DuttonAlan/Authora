@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
@@ -16,12 +17,16 @@ namespace Authora.Core.Application.Users.Deactivate;
 ///     The Service to deactivate a User.
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to deactivate a User.</param>
+/// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
+/// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deactivation.</param>
 public sealed class DeactivateUserService(
     IUserRepository userRepository,
+    SessionRevoker sessionRevoker,
     PrivilegeGuard privilegeGuard,
+    TimeProvider timeProvider,
     IAuditLog auditLog,
     ILogger<DeactivateUserService> logger)
 {
@@ -29,7 +34,8 @@ public sealed class DeactivateUserService(
     ///     Deactivates a User, so the User can no longer sign in.
     /// </summary>
     /// <remarks>
-    ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid.
+    ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid. The Sessions
+    ///     and their Grants are revoked, and their Clients notified (back-channel logout).
     ///     Does nothing if the User is already deactivated.
     /// </remarks>
     /// <param name="id">Id of the User.</param>
@@ -64,6 +70,10 @@ public sealed class DeactivateUserService(
         await AdministratorGuard.EnsureNotLastAdministratorAsync(userRepository, user, cancellationToken);
 
         user.Deactivate();
+
+        // Joins the transaction of the guard.
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, exceptSessionId: null, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
         auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);

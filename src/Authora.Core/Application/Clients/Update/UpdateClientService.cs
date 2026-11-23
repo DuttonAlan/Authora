@@ -4,10 +4,13 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
+using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Authora.Core.Application.Clients.Update;
 
@@ -15,28 +18,32 @@ namespace Authora.Core.Application.Clients.Update;
 ///     The Service to update an existing Client.
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to update a Client.</param>
+/// <param name="backchannelLogoutOptions">The back-channel logout settings, whether HTTP is allowed.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateClientService(
     IClientRepository clientRepository,
+    IOptions<BackchannelLogoutOptions> backchannelLogoutOptions,
     IAuditLog auditLog,
     ILogger<UpdateClientService> logger)
 {
     /// <summary>
-    ///     Updates the Name, Grant Types and token lifetimes of an existing Client.
+    ///     Updates the Name, Grant Types, token lifetimes and back-channel logout settings of an existing Client.
     /// </summary>
     /// <param name="id">Id of the Client.</param>
     /// <param name="request">The request to update the Client.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the Client is updated.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
-    /// <exception cref="ArgumentException">Thrown when a value is invalid.</exception>
+    /// <exception cref="DomainValidationException">Thrown when a value is invalid.</exception>
     /// <exception cref="ConflictException">Thrown when client_credentials should be allowed for a first-party Client.</exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateClientRequest request,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         var client = await clientRepository.GetClientById(id, cancellationToken)
             ?? throw new NotFoundException($"Client '{id}' was not found.");
 
@@ -68,7 +75,22 @@ public sealed class UpdateClientService(
             request.AccessTokenTTL ?? client.AccessTokenTTL,
             request.RefreshTokenTTL ?? client.RefreshTokenTTL);
 
-        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Updated, client.Id, $"Name '{client.Name}'"));
+        // An empty string removes the URI; null leaves it unchanged.
+        if (request.BackchannelLogoutUri is not null)
+        {
+            client.SetBackchannelLogoutUri(request.BackchannelLogoutUri, backchannelLogoutOptions.Value.AllowHttp);
+        }
+
+        if (request.BackchannelLogoutSessionRequired is { } sessionRequired)
+        {
+            client.SetBackchannelLogoutSessionRequired(sessionRequired);
+        }
+
+        var backchannelLogout = client.BackchannelLogoutUri is null
+            ? "no Back-Channel Logout URI"
+            : $"Back-Channel Logout URI '{client.BackchannelLogoutUri}'";
+
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Updated, client.Id, $"Name '{client.Name}', {backchannelLogout}"));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await clientRepository.SaveChangesAsync(cancellationToken);

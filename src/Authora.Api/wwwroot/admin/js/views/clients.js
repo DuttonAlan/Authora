@@ -161,6 +161,11 @@ export async function detail(context, id) {
                     ['Grant Types', h('span', { class: 'badge-row' }, client.grantTypes.map(grantType => h('code', { class: 'token', text: grantType })))],
                     ['Access Token lifetime', duration(client.accessTokenTTL)],
                     ['Refresh Token lifetime', duration(client.refreshTokenTTL)],
+                    ['Back-channel logout', client.backchannelLogoutUri
+                        ? h('span', { class: 'badge-row' },
+                            h('code', { text: client.backchannelLogoutUri }),
+                            client.backchannelLogoutSessionRequired ? badge('sid required') : null)
+                        : 'Not notified'],
                     ['Created', formatDate(client.createdAt)],
                     ['Modified', formatDate(client.modifiedAt)]
                 ]),
@@ -169,7 +174,23 @@ export async function detail(context, id) {
                 { name: 'name', label: 'Name', required: true, value: client.name, maxLength: 100 },
                 { name: 'grantTypes', label: 'Grant Types', type: 'checks', options: grantTypesFor(client), value: client.grantTypes },
                 { name: 'accessTokenTTL', label: 'Access Token lifetime (seconds)', type: 'number', min: 1, max: 86400, value: client.accessTokenTTL },
-                { name: 'refreshTokenTTL', label: 'Refresh Token lifetime (seconds)', type: 'number', min: 1, max: 7776000, value: client.refreshTokenTTL }
+                { name: 'refreshTokenTTL', label: 'Refresh Token lifetime (seconds)', type: 'number', min: 1, max: 7776000, value: client.refreshTokenTTL },
+                {
+                    name: 'backchannelLogoutUri',
+                    label: 'Back-Channel Logout URI',
+                    type: 'url',
+                    maxLength: 2048,
+                    placeholder: 'https://app.example.com/backchannel-logout',
+                    value: client.backchannelLogoutUri,
+                    help: 'Receives a Logout Token when a Session ends in which the Client got tokens. Leave empty to not notify the Client.'
+                },
+                {
+                    name: 'backchannelLogoutSessionRequired',
+                    label: 'The Client requires sid in Logout Tokens',
+                    type: 'checkbox',
+                    value: client.backchannelLogoutSessionRequired,
+                    help: 'Authora always sends sid; this records what the Client expects.'
+                }
             ], 'Save', values => run(() => api('PUT', `/clients/${id}`, values), 'The Client was saved.', context))) : null),
         redirectUrisPanel(context, client, canUpdate),
         postLogoutRedirectUrisPanel(context, client, canUpdate),

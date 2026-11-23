@@ -6,6 +6,7 @@ import { withBase } from 'vitepress'
 const plans = [
   { name: 'Basic OP', modules: 35 },
   { name: 'RP-Initiated Logout OP', modules: 11 },
+  { name: 'Back-Channel Logout OP', modules: 2 },
 ]
 
 const specifications = [
@@ -20,6 +21,7 @@ const specifications = [
   { id: 'OIDC Core 1.0', name: 'ID Tokens and UserInfo' },
   { id: 'OIDC Discovery 1.0', name: 'openid-configuration' },
   { id: 'OIDC RP-Initiated Logout 1.0', name: 'Sign-out from apps' },
+  { id: 'OIDC Back-Channel Logout 1.0', name: 'Sign-out notifications' },
 ]
 </script>
 

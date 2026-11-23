@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
@@ -19,7 +20,9 @@ namespace Authora.Core.Application.Users.Delete;
 /// <param name="consentRepository">An Instance of a IConsentRepository to delete the Consents of the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to delete the authenticator app and recovery codes of the User.</param>
 /// <param name="passkeyRepository">An Instance of a IPasskeyRepository to delete the passkeys of the User.</param>
+/// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
+/// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the deletion.</param>
 public sealed class DeleteUserService(
@@ -27,7 +30,9 @@ public sealed class DeleteUserService(
     IConsentRepository consentRepository,
     IMfaRepository mfaRepository,
     IPasskeyRepository passkeyRepository,
+    SessionRevoker sessionRevoker,
     PrivilegeGuard privilegeGuard,
+    TimeProvider timeProvider,
     IAuditLog auditLog,
     ILogger<DeleteUserService> logger)
 {
@@ -37,7 +42,8 @@ public sealed class DeleteUserService(
     /// <remarks>
     ///     This is a soft delete: the User is set to <see cref="UserState.Deleted"/> and kept for history, with the
     ///     Email and Name anonymized, so the Email can be used by a new User.
-    ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid.
+    ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid. The Sessions
+    ///     and their Grants are revoked, and their Clients notified (back-channel logout).
     ///     The Consents, the authenticator app, the recovery codes and the passkeys of the User are deleted.
     ///     Does nothing if the User does not exist or is already deleted.
     /// </remarks>
@@ -80,6 +86,10 @@ public sealed class DeleteUserService(
         passkeyRepository.RemovePasskeys(await passkeyRepository.GetPasskeys(user.Id, cancellationToken));
 
         user.MarkDeleted();
+
+        // Joins the transaction of the guard.
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, exceptSessionId: null, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
         auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);

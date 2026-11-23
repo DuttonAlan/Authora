@@ -83,7 +83,14 @@ internal sealed record DiscoveryDocument
 
     [JsonPropertyName("claims_supported")]
     public IReadOnlyList<string> ClaimsSupported { get; } =
-        ["iss", "aud", "exp", "iat", "auth_time", "nonce", "at_hash", "amr", "acr", .. IdentityClaims.All];
+        ["iss", "aud", "exp", "iat", "auth_time", "nonce", "at_hash", "amr", "acr", "sid", .. IdentityClaims.All];
+
+    // OpenID Connect Back-Channel Logout 1.0, Section 2.1. Logout Tokens always contain sid.
+    [JsonPropertyName("backchannel_logout_supported")]
+    public bool BackchannelLogoutSupported { get; } = true;
+
+    [JsonPropertyName("backchannel_logout_session_supported")]
+    public bool BackchannelLogoutSessionSupported { get; } = true;
 
     // Only the levels a User can reach with the registered factors: phr needs a passkey.
     [JsonPropertyName("acr_values_supported")]

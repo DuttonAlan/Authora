@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
@@ -19,20 +20,24 @@ namespace Authora.Core.Application.Users.ResetMfa;
 /// </summary>
 /// <remarks>
 ///     Rotates the Security Stamp, so all Sessions and Grants of the User end: whoever signed in with the lost factor
-///     is signed out. The caller must be allowed to act on the User (<see cref="PrivilegeGuard"/>), so only an
+///     is signed out. The Sessions are revoked explicitly, so their Clients are notified (back-channel logout). The caller must be allowed to act on the User (<see cref="PrivilegeGuard"/>), so only an
 ///     administrator can reset an administrator.
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to remove the authenticator and the codes.</param>
 /// <param name="passkeyRepository">An Instance of a IPasskeyRepository to remove the passkeys.</param>
+/// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
+/// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the reset.</param>
 /// <param name="logger">The Logger to record the reset.</param>
 public sealed class ResetMfaService(
     IUserRepository userRepository,
     IMfaRepository mfaRepository,
     IPasskeyRepository passkeyRepository,
+    SessionRevoker sessionRevoker,
     PrivilegeGuard privilegeGuard,
+    TimeProvider timeProvider,
     IAuditLog auditLog,
     ILogger<ResetMfaService> logger)
 {
@@ -79,6 +84,9 @@ public sealed class ResetMfaService(
         mfaRepository.RemoveRecoveryCodes(codes);
         passkeyRepository.RemovePasskeys(passkeys);
         user.RotateSecurityStamp();
+
+        // Joins the transaction of the guard.
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, exceptSessionId: null, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
 
         auditLog.Record(entry with { Details = DescribeRemoved(authenticator, codes.Count, passkeys.Count) });
 

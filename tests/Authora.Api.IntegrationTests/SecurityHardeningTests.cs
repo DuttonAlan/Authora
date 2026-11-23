@@ -142,6 +142,26 @@ public sealed class SecurityHardeningTests(AuthoraApiFactory factory) : IClassFi
         Assert.Empty(failures);
     }
 
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("True", true)]
+    [InlineData("false", false)]
+    public void ProductionCheck_RejectsHttpBackchannelLogoutUris(string allowHttp, bool rejected)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Authora:OAuth:Issuer"] = "https://auth.example.com",
+                ["AllowedHosts"] = "auth.example.com",
+                ["Authora:BackchannelLogout:AllowHttp"] = allowHttp
+            })
+            .Build();
+
+        var failures = ProductionSettingsCheck.Validate(configuration);
+
+        Assert.Equal(rejected, failures.Any(failure => failure.Contains("Authora:BackchannelLogout:AllowHttp", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public void ForwardedHeaders_RejectInvalidProxies()
     {

@@ -6,6 +6,7 @@ using Authora.Core.Abstractions;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.ValueObjects;
+using Authora.Infrastructure.Persistence.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -48,6 +49,51 @@ public sealed class SessionRepository(AuthoraContext context) : ISessionReposito
             .ExecuteUpdateAsync(setters => setters.SetProperty(session => session.RevokedAt, now), cancellationToken);
 
         return revoked > 0;
+    }
+
+    /// <inheritdoc/>
+    public async Task<ITransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (context.Database.CurrentTransaction is not null)
+        {
+            return JoinedTransaction.Instance;
+        }
+
+        return new EfTransaction(await context.Database.BeginTransactionAsync(cancellationToken));
+    }
+
+    /// <inheritdoc/>
+    public async Task LockSession(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Outside a transaction, the lock would end with the statement.
+        if (context.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("A Session can only be locked in a transaction.");
+        }
+
+        await context.Database.ExecuteSqlRawAsync(SessionConfiguration.LockSql, [id], cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> RevokeSession(Guid id, DateTime now, CancellationToken cancellationToken = default)
+    {
+        var revoked = await context.Database
+            .SqlQueryRaw<Guid>(SessionConfiguration.RevokeSql, id, now)
+            .ToListAsync(cancellationToken);
+
+        return revoked.Count > 0;
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Guid>> RevokeSessionsOfUser(
+        Guid userId,
+        Guid? exceptSessionId,
+        DateTime now,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Database
+            .SqlQueryRaw<Guid>(SessionConfiguration.RevokeOfUserSql, userId, now, exceptSessionId ?? Guid.Empty)
+            .ToListAsync(cancellationToken);
     }
 
     /// <inheritdoc/>

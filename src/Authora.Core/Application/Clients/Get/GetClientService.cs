@@ -68,6 +68,8 @@ public sealed class GetClientService(
             client.RefreshTokenTTL,
             client.RedirectUris.Select(redirectUri => redirectUri.Value).Order(StringComparer.Ordinal).ToList(),
             client.PostLogoutRedirectUris.Select(redirectUri => redirectUri.Value).Order(StringComparer.Ordinal).ToList(),
+            client.BackchannelLogoutUri,
+            client.BackchannelLogoutSessionRequired,
             scopes,
             servedScopes,
             secrets,

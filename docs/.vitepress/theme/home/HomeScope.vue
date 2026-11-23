@@ -7,7 +7,7 @@ const notSupported = [
   'Multi-factor authentication and passkeys',
   'Self-registration and password reset by users',
   'Sign-in through Google or other identity providers',
-  'Front- and back-channel logout',
+  'Front-channel logout and session management',
   'Dynamic Client registration',
 ]
 </script>

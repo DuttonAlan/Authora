@@ -10,6 +10,7 @@ using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Core.Domain.Mfa;
+using Authora.Infrastructure.BackchannelLogout;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 using Testcontainers.PostgreSql;
 
@@ -70,6 +72,25 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     ///     the password.
     /// </summary>
     public FakeSecondFactor SecondFactor { get; } = new();
+
+    /// <summary>
+    ///     Receives the Logout Tokens the Api sends to Back-Channel Logout URIs. The background delivery does not run in
+    ///     the tests; they send due notifications with <see cref="DeliverBackchannelLogoutsAsync"/>.
+    /// </summary>
+    public FakeBackchannelLogoutHandler BackchannelLogoutHandler { get; } = new();
+
+    /// <summary>
+    ///     Sends one batch of due back-channel logout notifications, like the background delivery does.
+    /// </summary>
+    /// <param name="now">The point in time of the run, now by default.</param>
+    /// <returns>The number of notifications claimed.</returns>
+    public async Task<int> DeliverBackchannelLogoutsAsync(DateTime? now = null)
+    {
+        await using var scope = Services.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<BackchannelLogoutDeliverer>()
+            .DeliverDueAsync(now ?? DateTime.UtcNow, TestContext.Current.CancellationToken);
+    }
 
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
@@ -341,6 +362,14 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             // Only Users enrolled in the fake or in an authenticator app need a second factor; all others sign in with
             // the password only.
             services.AddSingleton<ISecondFactor>(SecondFactor);
+
+            // Logout Tokens go to the fake, and only when a test sends them, so the tests decide when and how often.
+            services.Remove(services.Single(descriptor =>
+                descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(BackchannelLogoutDeliveryService)));
+            services.AddHttpClient(BackchannelLogoutDeliverer.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => BackchannelLogoutHandler)
+                .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
         });
     }
 

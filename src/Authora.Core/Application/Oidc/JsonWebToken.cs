@@ -21,6 +21,11 @@ internal static class JsonWebToken
     public const string IdTokenType = "JWT";
 
     /// <summary>
+    ///     The <c>typ</c> header of Logout Tokens (OpenID Connect Back-Channel Logout 1.0, Section 2.4).
+    /// </summary>
+    public const string LogoutTokenType = "logout+jwt";
+
+    /// <summary>
     ///     Creates a JWT signed with <see cref="SigningKey.Algorithm"/>.
     /// </summary>
     /// <param name="claims">The claims of the payload, with string, number or boolean values.</param>

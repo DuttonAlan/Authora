@@ -1,7 +1,7 @@
 name: Conformance
 
-# Runs the OpenID Foundation conformance suite's Basic OP and RP-Initiated Logout OP certification test plans against
-# the container built from this commit (tests/conformance/run.sh). Fails if a test fails, warns or is skipped that is not listed in
+# Runs the OpenID Foundation conformance suite's Basic OP, RP-Initiated Logout OP and Back-Channel Logout OP
+# certification test plans against the container built from this commit (tests/conformance/run.sh). Fails if a test fails, warns or is skipped that is not listed in
 # tests/conformance/expected-*.json, or if a listed one no longer does. See docs/how-to/run-the-conformance-tests.md.
 
 on:
@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Run the Basic OP and RP-Initiated Logout OP test plans
+      - name: Run the Basic OP, RP-Initiated Logout OP and Back-Channel Logout OP test plans
         run: bash tests/conformance/run.sh
 
       - name: Upload the results

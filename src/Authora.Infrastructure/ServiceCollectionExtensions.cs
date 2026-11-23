@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Email;
 using Authora.Core.Application.Oidc;
 using Authora.Infrastructure.Auditing;
+using Authora.Infrastructure.BackchannelLogout;
 using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.Email;
 using Authora.Infrastructure.HealthChecks;
@@ -103,6 +105,17 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<BootstrapOptions>, BootstrapOptionsValidator>());
         serviceCollection.AddTransient<IdentitySeeder>();
+
+        // OpenID Connect Back-Channel Logout 1.0: the outbox is written by SessionRevoker and sent from here.
+        serviceCollection.AddTransient<IBackchannelLogoutRepository, BackchannelLogoutRepository>();
+        serviceCollection.AddTransient<BackchannelLogoutDeliverer>();
+        serviceCollection.AddHostedService<BackchannelLogoutDeliveryService>();
+        serviceCollection.AddHttpClient(BackchannelLogoutDeliverer.HttpClientName)
+            .ConfigureHttpClient((serviceProvider, http) =>
+                http.Timeout = serviceProvider.GetRequiredService<IOptions<BackchannelLogoutOptions>>().Value.Timeout)
+
+            // A redirect is a failed delivery: the Logout Token must only reach the registered URI.
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false });
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<CleanupOptions>, CleanupOptionsValidator>());
         serviceCollection.AddTransient<ExpiredDataCleaner>();

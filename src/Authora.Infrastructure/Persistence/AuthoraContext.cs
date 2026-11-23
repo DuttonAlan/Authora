@@ -99,6 +99,11 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<Consent> Consents => Set<Consent>();
 
     /// <summary>
+    ///     The outbox of back-channel logout notifications in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<BackchannelLogoutNotification> BackchannelLogoutNotifications => Set<BackchannelLogoutNotification>();
+
+    /// <summary>
     ///     The one-time tokens of email links in the <c>auth</c> schema.
     /// </summary>
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();

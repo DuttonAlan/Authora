@@ -36,6 +36,7 @@ public sealed class IdTokenIssuer(
     /// </summary>
     /// <param name="user">The User who signed in.</param>
     /// <param name="authorizationCode">The exchanged code, with the <c>nonce</c> and the time of the sign-in.</param>
+    /// <param name="sid">The <see cref="Session.Sid"/> of the Session the code was issued in.</param>
     /// <param name="scopes">The Scope Names of the issued Access Token. They decide which identity claims are added.</param>
     /// <param name="accessToken">The plain-text Access Token issued together with the ID Token, for <c>at_hash</c>.</param>
     /// <param name="now">The current point in time (UTC).</param>
@@ -43,12 +44,14 @@ public sealed class IdTokenIssuer(
     public string Issue(
         User user,
         AuthorizationCode authorizationCode,
+        string sid,
         IReadOnlyCollection<string> scopes,
         string accessToken,
         DateTime now)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(authorizationCode);
+        ArgumentException.ThrowIfNullOrEmpty(sid);
         ArgumentException.ThrowIfNullOrEmpty(accessToken);
 
         var claims = IdentityClaims.Get(user, scopes);
@@ -62,6 +65,9 @@ public sealed class IdTokenIssuer(
         // the sign-in page.
         claims["auth_time"] = ToUnixTime(authorizationCode.AuthenticatedAt);
         claims["at_hash"] = ComputeAccessTokenHash(accessToken);
+
+        // OpenID Connect Back-Channel Logout 1.0, Section 2.1: the Session, so the Client can match a Logout Token.
+        claims["sid"] = sid;
 
         // How the User signed in (RFC 8176) and the level it reached, so the Client can decide whether that is enough.
         var methods = authorizationCode.AuthenticationMethods;

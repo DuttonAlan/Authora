@@ -32,6 +32,7 @@ Running Authora:
 Using Authora:
 
 - [Connect an application](how-to/connect-an-application.md)
+- [Receive back-channel logout](how-to/receive-back-channel-logout.md)
 - [Protect an API with introspection](how-to/protect-an-api.md)
 - [Manage users and access](how-to/manage-users-and-access.md)
 - [Require multi-factor authentication](how-to/require-multi-factor-authentication.md)

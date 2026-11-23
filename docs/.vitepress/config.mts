@@ -93,6 +93,7 @@ export default defineConfig({
         text: 'How-to: using Authora',
         items: [
           { text: 'Connect an application', link: '/how-to/connect-an-application' },
+          { text: 'Receive back-channel logout', link: '/how-to/receive-back-channel-logout' },
           { text: 'Protect an API with introspection', link: '/how-to/protect-an-api' },
           { text: 'Manage users and access', link: '/how-to/manage-users-and-access' },
           { text: 'Require multi-factor authentication', link: '/how-to/require-multi-factor-authentication' },

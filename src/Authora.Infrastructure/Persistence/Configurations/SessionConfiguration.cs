@@ -16,10 +16,44 @@ namespace Authora.Infrastructure.Persistence.Configurations;
 /// </summary>
 public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
 {
+    /// <summary>
+    ///     Name of the table in the <c>auth</c> schema.
+    /// </summary>
+    internal const string TableName = "sessions";
+
+    private const string Table = Schemas.Auth + "." + TableName;
+
+    /// <summary>
+    ///     Revokes the Session <c>{0}</c> at <c>{1}</c> unless it is already revoked, and returns its Id, see
+    ///     <c>SessionRepository.RevokeSession</c>. PostgreSQL checks the condition again after waiting for a concurrent
+    ///     update of the row, so of several concurrent revocations exactly one returns the Session.
+    /// </summary>
+    internal const string RevokeSql =
+        "UPDATE " + Table + " SET \"" + nameof(Session.RevokedAt) + "\" = {1}"
+        + " WHERE \"" + nameof(Session.Id) + "\" = {0} AND \"" + nameof(Session.RevokedAt) + "\" IS NULL"
+        + " RETURNING \"" + nameof(Session.Id) + "\" AS \"Value\"";
+
+    /// <summary>
+    ///     Revokes the Sessions of the User <c>{0}</c> at <c>{1}</c> that are not revoked yet, except the Session
+    ///     <c>{2}</c> (<see cref="Guid.Empty"/> for none), and returns their Ids, like <see cref="RevokeSql"/>.
+    /// </summary>
+    internal const string RevokeOfUserSql =
+        "UPDATE " + Table + " SET \"" + nameof(Session.RevokedAt) + "\" = {1}"
+        + " WHERE \"" + nameof(Session.UserId) + "\" = {0} AND \"" + nameof(Session.RevokedAt) + "\" IS NULL"
+        + " AND \"" + nameof(Session.Id) + "\" <> {2}"
+        + " RETURNING \"" + nameof(Session.Id) + "\" AS \"Value\"";
+
+    /// <summary>
+    ///     Locks the Session <c>{0}</c> until the end of the transaction against updates, e.g. a revocation, see
+    ///     <c>SessionRepository.LockSession</c>.
+    /// </summary>
+    internal const string LockSql =
+        "SELECT 1 FROM " + Table + " WHERE \"" + nameof(Session.Id) + "\" = {0} FOR SHARE";
+
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Session> builder)
     {
-        builder.ToTable("sessions", Schemas.Auth);
+        builder.ToTable(TableName, Schemas.Auth);
 
         builder.HasKey(x => x.Id);
 
@@ -38,6 +72,10 @@ public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
 
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
+
+        builder.Property(x => x.Sid)
+            .IsRequired()
+            .HasMaxLength(Session.SidMaxLength);
 
         builder.Property(x => x.AuthenticationMethod)
             .IsRequired()

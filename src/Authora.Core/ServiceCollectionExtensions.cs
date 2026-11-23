@@ -22,6 +22,7 @@ using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Audit.Search;
 using Authora.Core.Application.Audit.Verify;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Clients;
 using Authora.Core.Application.Clients.AddPostLogoutRedirectUri;
 using Authora.Core.Application.Clients.AddRedirectUri;
@@ -148,6 +149,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<ResetPasswordService>();
         serviceCollection.AddTransient<RevokeOwnConsentService>();
         serviceCollection.AddTransient<SignInService>();
+        serviceCollection.AddTransient<SessionRevoker>();
         serviceCollection.AddTransient<SignOutService>();
         serviceCollection.AddTransient<StartStepUpService>();
         serviceCollection.AddTransient<ValidateSessionService>();
@@ -205,6 +207,9 @@ public static class ServiceCollectionExtensions
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OidcOptions>, OidcOptionsValidator>());
         serviceCollection.AddTransient<GetUserInfoService>();
         serviceCollection.AddTransient<IdTokenIssuer>();
+
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<BackchannelLogoutOptions>, BackchannelLogoutOptionsValidator>());
+        serviceCollection.AddTransient<LogoutTokenIssuer>();
         serviceCollection.AddTransient<IdTokenHintReader>();
         serviceCollection.AddTransient<ValidateEndSessionRequestService>();
 

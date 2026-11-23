@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
-using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Logging;
@@ -14,13 +14,19 @@ namespace Authora.Core.Application.Account.SignOut;
 /// <summary>
 ///     The Service to end the current Session on the server.
 /// </summary>
-/// <param name="sessionRepository">An Instance of a ISessionRepository to revoke the Session.</param>
+/// <remarks>
+///     The Grants approved in the Session are revoked with it, and Clients with a Back-Channel Logout URI that received
+///     tokens in it are notified, see <see cref="SessionRevoker"/>.
+/// </remarks>
+/// <param name="sessionRepository">An Instance of a ISessionRepository to find the Session.</param>
+/// <param name="sessionRevoker">Revokes the Session and its Grants and notifies its Clients.</param>
 /// <param name="secretHasher">The hasher to look up the Session token.</param>
 /// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the sign-out.</param>
 /// <param name="logger">The Logger to record the sign-out.</param>
 public sealed class SignOutService(
     ISessionRepository sessionRepository,
+    SessionRevoker sessionRevoker,
     ISecretHasher secretHasher,
     TimeProvider timeProvider,
     IAuditLog auditLog,
@@ -78,7 +84,14 @@ public sealed class SignOutService(
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
-        session.Revoke(now);
+        await using var transaction = await sessionRevoker.BeginAsync(cancellationToken);
+
+        // Revoked by its Id, so the User also signs out if a step-up gave the Session a new token meanwhile. Of
+        // concurrent sign-outs, only one revokes it and records the event.
+        if (!await sessionRevoker.RevokeSessionAsync(session.UserId, session.Id, now, cancellationToken))
+        {
+            return;
+        }
 
         var sessionDetails = details is null ? $"Session {session.Id}" : $"Session {session.Id}, {details}";
         auditLog.Record(AuditEntry.ForUser(
@@ -86,24 +99,9 @@ public sealed class SignOutService(
             session.UserId,
             sessionDetails));
 
-        try
-        {
-            await sessionRepository.SaveChangesAsync(cancellationToken);
-        }
-        catch (ConflictException)
-        {
-            // A step-up gave the Session a new token meanwhile. The User still signs out of it: it is revoked by its
-            // Id, together with the staged audit event.
-            var current = await sessionRepository.GetSessionById(session.Id, cancellationToken);
-
-            if (current is null)
-            {
-                return;
-            }
-
-            current.Revoke(now);
-            await sessionRepository.SaveChangesAsync(cancellationToken);
-        }
+        // Only the audit event is new: the loaded Session itself is not changed, so this cannot conflict with a step-up.
+        await sessionRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         if (client is null)
         {

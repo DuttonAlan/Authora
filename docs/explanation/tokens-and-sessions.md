@@ -7,7 +7,7 @@ This page explains the objects Authora creates when someone signs in, how they r
 ```mermaid
 erDiagram
     accTitle: Objects created when someone signs in
-    accDescr: A User has Sessions and at most one Consent per Client. A User and a Client have Authorization Codes. An Authorization Code is issued in a Session. An Authorization Code is exchanged for at most one Grant, and a Grant has Access Tokens and Refresh Tokens.
+    accDescr: A User has Sessions and at most one Consent per Client. A User and a Client have Authorization Codes. An Authorization Code is issued in a Session. An Authorization Code is exchanged for at most one Grant, which belongs to the same Session, and a Grant has Access Tokens and Refresh Tokens.
     User ||--o{ Session : "signs in at Authora"
     User ||--o{ Consent : "approves"
     Client ||--o{ Consent : ""
@@ -15,6 +15,7 @@ erDiagram
     User ||--o{ AuthorizationCode : ""
     Session ||--o{ AuthorizationCode : "approved in"
     AuthorizationCode ||--o| Grant : "exchanged for"
+    Session ||--o{ Grant : "approved in"
     Grant ||--o{ AccessToken : ""
     Grant ||--o{ RefreshToken : ""
 ```
@@ -28,7 +29,7 @@ erDiagram
 | **Access Token** | What the application presents to APIs. Short-lived (1 hour by default). |
 | **Refresh Token** | What the application uses to get new Access Tokens without the user. Longer-lived (1 day by default) and single-use. |
 
-A Session and a Grant are independent. Signing out of Authora ends the Session but not the application's Grant; revoking a Grant does not sign the User out of Authora. Only an Authorization Code that has not been exchanged yet depends on its Session, see [Sessions](#sessions).
+A Grant remembers the Session it was approved in. Ending that Session on purpose (signing out, or one of the other ways in [Ending a Session](#ending-a-session)) revokes the Grant too, and tells the application if it asked to be told. A Session that simply expires leaves its Grants alone, and revoking a Grant never signs the User out of Authora.
 
 ## Why Access Tokens are opaque
 
@@ -91,7 +92,25 @@ The Grant's lifetime is absolute. Refreshing does not extend it, so a stolen Ref
 
 The Session cookie holds a random token; the database holds its hash. Authora checks the idle timeout, the absolute lifetime and the User's security stamp on every request, so ending a Session on the server takes effect immediately, even though the cookie itself has no expiry. Every sign-in creates a new Session and ends the previous one in that browser, which prevents session fixation.
 
-An Authorization Code remembers the Session in which the User approved the request, and can only be exchanged while that Session is still active (not signed out, not expired, not idle for too long). Otherwise a code issued just before the User signed out, e.g. on a shared computer, could still be redeemed until it expires and start a new Grant for a User who has left. Such a code gets `invalid_grant` and is logged as event 6015. The Grant created from a code does not depend on the Session afterwards.
+An Authorization Code remembers the Session in which the User approved the request, and can only be exchanged while that Session is still active (not signed out, not expired, not idle for too long). Otherwise a code issued just before the User signed out, e.g. on a shared computer, could still be redeemed until it expires and start a new Grant for a User who has left. Such a code gets `invalid_grant` and is logged as event 6015. The exchange holds a lock on the Session while it creates the Grant, so a sign-out at the same moment either comes first and the code is rejected, or waits and then revokes the new Grant as well.
+
+### Ending a Session
+
+A Session ends in two ways, and they are treated differently on purpose.
+
+**It runs out.** The absolute lifetime passes, or the User is idle for too long. Nothing happens at that moment: the next request with the cookie is simply refused. The Grants approved in the Session keep working until they expire, as they always have in OAuth, because the User did not ask to leave and applications may legitimately keep refreshing tokens. No one is notified; applications see their own tokens expire.
+
+**It is ended on purpose.** The User signs out at `/account/logout` or through an application (`/oauth/logout`), changes or resets the password, removes a second factor, or an administrator signs the User out, deactivates or deletes them, sets their password or resets their second factors. Then Authora, in one database transaction:
+
+1. marks the Sessions as revoked (for a password change or a removed second factor, all except the one the User is using),
+2. revokes every Grant approved in those Sessions, so their Access and Refresh Tokens stop working at once, and
+3. writes a notification for every application that received tokens in those Sessions and registered a Back-Channel Logout URI.
+
+A background service on each instance then sends each notification as a signed Logout Token ([OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html)) and retries with a growing delay if the application does not answer. Because the notifications are rows in the database rather than a queue in memory, they survive a restart and any instance can send them; a claim on each row keeps two instances from sending the same one at once.
+
+The Logout Token names the User (`sub`) and the Session (`sid`). Every ID Token carries the same `sid`, a random value that is not the Session's database Id (whose time-ordered Guid would reveal when the User signed in). An application that stored the `sid` from the ID Token can end exactly the local session that belongs to it; see [Receive back-channel logout](../how-to/receive-back-channel-logout.md).
+
+Revoking the Grants also covers applications without a Back-Channel Logout URI: they are not told, but their Refresh Token stops working, and introspection reports their Access Token as inactive.
 
 ### How a User signs in
 

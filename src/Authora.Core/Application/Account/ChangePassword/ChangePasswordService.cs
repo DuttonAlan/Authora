@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Email;
 using Authora.Core.Application.Exceptions;
@@ -26,6 +27,7 @@ namespace Authora.Core.Application.Account.ChangePassword;
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to keep the current Session valid.</param>
+/// <param name="sessionRevoker">Revokes the other Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="passwordHasher">The hasher to verify the current and hash the new password.</param>
 /// <param name="emailSender">Sends the notification about the change, if email delivery is configured.</param>
 /// <param name="timeProvider">The TimeProvider for the lockout and the Session checks.</param>
@@ -35,6 +37,7 @@ namespace Authora.Core.Application.Account.ChangePassword;
 public sealed class ChangePasswordService(
     IUserRepository userRepository,
     ISessionRepository sessionRepository,
+    SessionRevoker sessionRevoker,
     IPasswordHasher passwordHasher,
     IEmailSender emailSender,
     TimeProvider timeProvider,
@@ -94,11 +97,17 @@ public sealed class ChangePasswordService(
         user.SetPasswordHash(passwordHasher.Hash(request.NewPassword));
         session.RenewSecurityStamp(user);
 
+        // Started after the password was checked, so the failed attempts counted for a wrong one are not rolled back.
+        await using var transaction = await sessionRevoker.BeginAsync(cancellationToken);
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, session.Id, now, cancellationToken);
+
         auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.PasswordChanged, user.Id, $"Session {session.Id}"));
 
         // User and Session share the request's DbContext, so both are saved together with the audit event. Throws a
-        // ConflictException if the User was changed since it was loaded, e.g. by a concurrent password change.
+        // ConflictException if the User was changed since it was loaded, e.g. by a concurrent password change; the
+        // revocation of the other Sessions is rolled back then.
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.PasswordChanged(user.Id, session.Id);
 

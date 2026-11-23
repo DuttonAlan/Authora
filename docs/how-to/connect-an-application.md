@@ -88,6 +88,8 @@ await HttpContext.SignOutAsync(
 
 To sign out of the application only and keep the Authora Session, sign out of the cookie scheme alone.
 
+To also be told when the User signs out at Authora or in another application, see [Receive back-channel logout](receive-back-channel-logout.md).
+
 ## Example: single-page application
 
 With [`oidc-client-ts`](https://github.com/authts/oidc-client-ts):

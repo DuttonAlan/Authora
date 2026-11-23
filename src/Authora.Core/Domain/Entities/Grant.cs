@@ -12,7 +12,8 @@ namespace Authora.Core.Domain.Entities;
 /// </summary>
 /// <remarks>
 ///     The Grant groups the tokens into one family, so they can be revoked together: when a Refresh Token is revoked
-///     or reused, when an Authorization Code is used twice, or when the Client is disabled.
+///     or reused, when an Authorization Code is used twice, when the Client is disabled, or when the Session the Grant
+///     was approved in ends.
 ///     A token is only valid while its Grant is neither revoked nor expired. The Grant has an absolute lifetime, so
 ///     rotating Refresh Tokens cannot keep it alive forever: no token of the Grant outlives <see cref="ExpiresAt"/>.
 /// </remarks>
@@ -59,6 +60,16 @@ public sealed class Grant
     ///     Grant of the Client itself.
     /// </summary>
     public Guid? AuthorizationCodeId { get; private set; }
+
+    /// <summary>
+    ///     Id of the <see cref="Session"/> in which the User approved the request, or <see langword="null"/> for a Grant
+    ///     of the Client itself and for Grants from before it was recorded. When the Session ends, the Grant is revoked
+    ///     and its Client notified (OpenID Connect Back-Channel Logout 1.0).
+    /// </summary>
+    /// <remarks>
+    ///     Not a foreign key: the cleanup may delete an ended Session before the Grant.
+    /// </remarks>
+    public Guid? SessionId { get; private set; }
 
     /// <summary>
     ///     The authentication methods the User completed in the Session the Grant was approved in
@@ -129,6 +140,7 @@ public sealed class Grant
             SecurityStamp = authorizationCode.SecurityStamp,
             Scope = authorizationCode.Scope,
             AuthorizationCodeId = authorizationCode.Id,
+            SessionId = authorizationCode.SessionId,
             AuthenticationMethod = authorizationCode.AuthenticationMethod,
             CreatedAt = now,
             ExpiresAt = now + lifetime
