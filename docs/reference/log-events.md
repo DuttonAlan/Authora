@@ -131,7 +131,7 @@ See [Back-channel logout](openid-connect.md#back-channel-logout).
 | 18001 | Information | Revoked … Sessions of User … and … Grants approved in them; queued … back-channel logout notifications | A sign-out, a password change or reset, removing a second factor, or an administrator ended Sessions. Written once per change, also without Clients to notify. |
 | 18011 | Information | Sent the Logout Token of notification … for User … to Client … | The Client answered with `2xx`. |
 | 18012 | Warning | Sending the Logout Token of notification … to Client … failed in attempt …: … Retried at … | Status code, network error or timeout; retried with a growing delay. |
-| 18013 | Warning | Gave up sending the Logout Token of notification … for User … to Client … after … attempts | After `Authora:BackchannelLogout:MaxAttempts` or `MaxAge`; also recorded as `client.backchannel-logout-failed`. The Client may still consider the User signed in. |
+| 18013 | Warning | Gave up sending the Logout Token of notification … for User … to Client … after … attempts | After `Authora:BackchannelLogout:MaxAttempts`; or without sending, once older than `MaxAge` or for an HTTP URI while `AllowHttp` is off. Also recorded as `client.backchannel-logout-failed`. The Client may still consider the User signed in. |
 | 18014 | Information | Dropped notification …, because Client … no longer has a Back-Channel Logout URI | The URI was removed after the Session ended. |
 | 18015 | Error | Sending back-channel logout notifications failed | E.g. the database was unavailable; retried with the next run. |
 

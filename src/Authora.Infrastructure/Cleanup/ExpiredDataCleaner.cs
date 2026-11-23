@@ -21,6 +21,8 @@ namespace Authora.Infrastructure.Cleanup;
 ///     than <see cref="CleanupOptions.AuditRetention"/> with their links of the hash chain.
 /// </summary>
 /// <remarks>
+///     Grants approved in a Session that is not revoked are kept until it is, even without tokens, so the Clients that
+///     received tokens in the Session are still notified when it ends (back-channel logout).
 ///     Rows are deleted in batches of <see cref="CleanupOptions.BatchSize"/>, each in its own statement, so a large
 ///     backlog does not lock a table for long. The audit events are deleted in one transaction under the lock of
 ///     <see cref="Auditing.AuditChainSealer"/>. Safe to run on several instances at the same time.
@@ -75,13 +77,18 @@ public sealed class ExpiredDataCleaner(
             ids => context.RefreshTokens.Where(token => ids.Contains(token.Id)),
             cancellationToken);
 
-        // After the tokens: a Grant without tokens can no longer be used, and a revoked Grant has none left.
+        // After the tokens: a Grant without tokens can no longer be used, and a revoked Grant has none left. A Grant
+        // approved in a Session that has not been revoked is kept nonetheless: it is the only record that its Client
+        // received tokens in the Session, and the Client must get a back-channel logout notification when the Session
+        // is revoked. It goes once the Session is revoked or deleted below, at most the Session lifetime later.
         var grants = await DeleteInBatchesAsync(
             context.Grants
                 .Where(grant => grant.RevokedAt < cutoff
                     || (grant.CreatedAt < cutoff
                         && !context.AccessTokens.Any(token => token.GrantId == grant.Id)
                         && !context.RefreshTokens.Any(token => token.GrantId == grant.Id)))
+                .Where(grant => grant.SessionId == null
+                    || !context.Sessions.Any(session => session.Id == grant.SessionId && session.RevokedAt == null))
                 .Select(grant => grant.Id),
             ids => context.Grants.Where(grant => ids.Contains(grant.Id)),
             cancellationToken);

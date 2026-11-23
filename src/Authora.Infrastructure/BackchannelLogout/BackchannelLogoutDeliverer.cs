@@ -31,8 +31,9 @@ namespace Authora.Infrastructure.BackchannelLogout;
 ///     <para>
 ///         A failed delivery is retried with a delay that doubles each time
 ///         (<see cref="BackchannelLogoutOptions.GetRetryDelay"/>). After <see cref="BackchannelLogoutOptions.MaxAttempts"/>
-///         attempts, or once the notification is older than <see cref="BackchannelLogoutOptions.MaxAge"/>, it is dropped
-///         and recorded as <see cref="AuditEventTypes.Clients.BackchannelLogoutFailed"/>.
+///         attempts it is dropped and recorded as <see cref="AuditEventTypes.Clients.BackchannelLogoutFailed"/>. A
+///         notification older than <see cref="BackchannelLogoutOptions.MaxAge"/>, or for a URI that does not use HTTPS
+///         while <see cref="BackchannelLogoutOptions.AllowHttp"/> is off, is given up the same way without being sent.
 ///     </para>
 /// </remarks>
 /// <param name="context">The DbContext of the outbox.</param>
@@ -54,6 +55,14 @@ public sealed class BackchannelLogoutDeliverer(
     ///     automatic redirects.
     /// </summary>
     public const string HttpClientName = "Authora.BackchannelLogout";
+
+    private enum OutcomeKind
+    {
+        Delivered,
+        Failed,
+        GivenUp,
+        Dropped
+    }
 
     /// <summary>
     ///     Claims and sends one batch of due notifications.
@@ -85,12 +94,12 @@ public sealed class BackchannelLogoutDeliverer(
             .ToDictionaryAsync(client => client.Id, client => client.BackchannelLogoutUri, cancellationToken);
 
         // Sent at the same time, so one slow Client does not hold up the others for the whole batch.
-        var errors = await Task.WhenAll(claimed.Select(notification =>
-            SendAsync(notification, uris.GetValueOrDefault(notification.ClientId), now, cancellationToken)));
+        var outcomes = await Task.WhenAll(claimed.Select(notification =>
+            DeliverAsync(notification, uris.GetValueOrDefault(notification.ClientId), now, settings, cancellationToken)));
 
         for (var i = 0; i < claimed.Count; i++)
         {
-            HandleOutcome(claimed[i], uris.GetValueOrDefault(claimed[i].ClientId), errors[i], now, settings);
+            HandleOutcome(claimed[i], outcomes[i], now, settings);
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -98,51 +107,98 @@ public sealed class BackchannelLogoutDeliverer(
         return claimed.Count;
     }
 
-    private void HandleOutcome(
+    /// <summary>
+    ///     Checks whether a notification may still be sent, and sends it.
+    /// </summary>
+    private async Task<Outcome> DeliverAsync(
         BackchannelLogoutNotification notification,
         string? uri,
-        string? error,
         DateTime now,
-        BackchannelLogoutOptions settings)
+        BackchannelLogoutOptions settings,
+        CancellationToken cancellationToken)
     {
         if (uri is null)
         {
-            context.BackchannelLogoutNotifications.Remove(notification);
-            logger.LogoutTokenDropped(notification.Id, notification.ClientId);
-            return;
+            return Outcome.Dropped;
         }
 
-        if (error is null)
+        // Checked before sending, so a notification that waited too long, e.g. during an outage, is never sent late.
+        if (now - notification.CreatedAt >= settings.MaxAge)
         {
-            context.BackchannelLogoutNotifications.Remove(notification);
-            logger.LogoutTokenDelivered(notification.Id, notification.UserId, notification.ClientId);
-            return;
+            return Outcome.GiveUp(notification.LastError is null
+                ? $"Older than {settings.MaxAge}"
+                : $"Older than {settings.MaxAge}, last error: {notification.LastError}");
+        }
+
+        // Checked again, not only when the URI was saved: an HTTP URI saved while HTTP was allowed, e.g. in a database
+        // copied from development, must not receive Logout Tokens in plain text once that is no longer allowed.
+        if (!IsAllowedScheme(uri, settings))
+        {
+            return Outcome.GiveUp("The Back-Channel Logout URI does not use HTTPS");
+        }
+
+        var error = await SendAsync(notification, uri, now, cancellationToken);
+
+        return error is null ? Outcome.Delivered : Outcome.Failed(error);
+    }
+
+    private void HandleOutcome(BackchannelLogoutNotification notification, Outcome outcome, DateTime now, BackchannelLogoutOptions settings)
+    {
+        switch (outcome.Kind)
+        {
+            case OutcomeKind.Dropped:
+                context.BackchannelLogoutNotifications.Remove(notification);
+                logger.LogoutTokenDropped(notification.Id, notification.ClientId);
+                return;
+
+            case OutcomeKind.Delivered:
+                context.BackchannelLogoutNotifications.Remove(notification);
+                logger.LogoutTokenDelivered(notification.Id, notification.UserId, notification.ClientId);
+                return;
+
+            case OutcomeKind.GivenUp:
+                GiveUp(notification, notification.Attempts, outcome.Error!);
+                return;
+
+            case OutcomeKind.Failed:
+            default:
+                break;
         }
 
         var attempts = notification.Attempts + 1;
 
-        if (attempts >= settings.MaxAttempts || now - notification.CreatedAt >= settings.MaxAge)
+        if (attempts >= settings.MaxAttempts)
         {
-            context.BackchannelLogoutNotifications.Remove(notification);
-            logger.LogoutTokenGivenUp(notification.Id, notification.UserId, notification.ClientId, attempts, error);
-
-            // Staged in this context, so it is saved together with the removal.
-            auditLog.Record(AuditEntry.ForClient(
-                AuditEventTypes.Clients.BackchannelLogoutFailed,
-                notification.ClientId,
-                $"User {notification.UserId}, {attempts} attempts, last error: {error}") with
-            {
-                Outcome = AuditOutcome.Failed,
-                Actor = AuditActor.System
-            });
-
+            GiveUp(notification, attempts, outcome.Error!);
             return;
         }
 
         var nextAttemptAt = now + BackchannelLogoutOptions.GetRetryDelay(attempts);
 
-        notification.RecordFailure(error, nextAttemptAt);
-        logger.LogoutTokenRetryScheduled(notification.Id, notification.ClientId, attempts, error, nextAttemptAt);
+        notification.RecordFailure(outcome.Error!, nextAttemptAt);
+        logger.LogoutTokenRetryScheduled(notification.Id, notification.ClientId, attempts, outcome.Error!, nextAttemptAt);
+    }
+
+    private void GiveUp(BackchannelLogoutNotification notification, int attempts, string error)
+    {
+        context.BackchannelLogoutNotifications.Remove(notification);
+        logger.LogoutTokenGivenUp(notification.Id, notification.UserId, notification.ClientId, attempts, error);
+
+        // Staged in this context, so it is saved together with the removal.
+        auditLog.Record(AuditEntry.ForClient(
+            AuditEventTypes.Clients.BackchannelLogoutFailed,
+            notification.ClientId,
+            $"User {notification.UserId}, {attempts} attempts, last error: {error}") with
+        {
+            Outcome = AuditOutcome.Failed,
+            Actor = AuditActor.System
+        });
+    }
+
+    private static bool IsAllowedScheme(string uri, BackchannelLogoutOptions settings)
+    {
+        return Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
+            && (parsed.Scheme == Uri.UriSchemeHttps || (settings.AllowHttp && parsed.Scheme == Uri.UriSchemeHttp));
     }
 
     /// <summary>
@@ -151,15 +207,10 @@ public sealed class BackchannelLogoutDeliverer(
     /// <returns>Null if the Client accepted it, otherwise why not. Never contains the token.</returns>
     private async Task<string?> SendAsync(
         BackchannelLogoutNotification notification,
-        string? uri,
+        string uri,
         DateTime now,
         CancellationToken cancellationToken)
     {
-        if (uri is null)
-        {
-            return null;
-        }
-
         using var content = new FormUrlEncodedContent([new("logout_token", logoutTokenIssuer.Issue(notification, now))]);
         using var http = httpClientFactory.CreateClient(HttpClientName);
 
@@ -178,5 +229,21 @@ public sealed class BackchannelLogoutDeliverer(
         {
             return $"No response within {options.Value.Timeout}";
         }
+    }
+
+    /// <summary>
+    ///     What happened to a notification in this run.
+    /// </summary>
+    /// <param name="Kind">Delivered, failed (retried unless it was the last attempt), given up without sending, or dropped.</param>
+    /// <param name="Error">Why it failed or was given up, never the token.</param>
+    private sealed record Outcome(OutcomeKind Kind, string? Error = null)
+    {
+        public static readonly Outcome Delivered = new(OutcomeKind.Delivered);
+
+        public static readonly Outcome Dropped = new(OutcomeKind.Dropped);
+
+        public static Outcome Failed(string error) => new(OutcomeKind.Failed, error);
+
+        public static Outcome GiveUp(string error) => new(OutcomeKind.GivenUp, error);
     }
 }

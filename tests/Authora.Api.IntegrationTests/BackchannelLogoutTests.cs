@@ -19,6 +19,7 @@ using Authora.Core.Application.Clients.Get;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
+using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -372,17 +373,88 @@ public sealed class BackchannelLogoutTests(AuthoraApiFactory factory) : IClassFi
     }
 
     [Fact]
-    public async Task FailedDelivery_IsGivenUpAfterMaxAge()
+    public async Task NotificationOlderThanMaxAge_IsGivenUpWithoutSending()
     {
         var setup = await SetUpSessionWithGrantsAsync();
         factory.BackchannelLogoutHandler.Respond(setup.LogoutUri, HttpStatusCode.BadGateway);
 
         await EndSessionAsync(setup);
-        await factory.DeliverBackchannelLogoutsAsync(DateTime.UtcNow + new BackchannelLogoutOptions().MaxAge + TimeSpan.FromMinutes(1));
+        var now = DateTime.UtcNow;
+
+        // One failed attempt, then no delivery until the maximum age has passed, e.g. during an outage.
+        await factory.DeliverBackchannelLogoutsAsync(now);
+        factory.BackchannelLogoutHandler.Respond(setup.LogoutUri, HttpStatusCode.OK);
+        await factory.DeliverBackchannelLogoutsAsync(now + new BackchannelLogoutOptions().MaxAge + TimeSpan.FromMinutes(1));
 
         Assert.Single(factory.BackchannelLogoutHandler.ReceivedFor(setup.LogoutUri));
         Assert.Empty(await GetNotificationsAsync(setup.ClientWithUri));
-        Assert.Single(await GetAuditEventsAsync(setup.ClientWithUri, AuditEventTypes.Clients.BackchannelLogoutFailed));
+
+        var auditEvent = Assert.Single(await GetAuditEventsAsync(setup.ClientWithUri, AuditEventTypes.Clients.BackchannelLogoutFailed));
+        Assert.Contains("1 attempts", auditEvent.Details, StringComparison.Ordinal);
+        Assert.Contains("HTTP 502", auditEvent.Details, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HttpUriSavedWhileAllowed_IsGivenUpWithoutSending()
+    {
+        var setup = await SetUpSessionWithGrantsAsync();
+        var httpUri = setup.LogoutUri.Replace("https://", "http://", StringComparison.Ordinal);
+
+        await EndSessionAsync(setup);
+
+        // E.g. saved in development, where HTTP is allowed; the tests run without AllowHttp.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var client = await context.Clients.SingleAsync(client => client.Id == setup.ClientWithUri, TestContext.Current.CancellationToken);
+            client.SetBackchannelLogoutUri(httpUri, allowHttp: true);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await factory.DeliverBackchannelLogoutsAsync();
+
+        Assert.Empty(factory.BackchannelLogoutHandler.ReceivedFor(httpUri));
+        Assert.Empty(await GetNotificationsAsync(setup.ClientWithUri));
+
+        var auditEvent = Assert.Single(await GetAuditEventsAsync(setup.ClientWithUri, AuditEventTypes.Clients.BackchannelLogoutFailed));
+        Assert.Contains("does not use HTTPS", auditEvent.Details, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Cleanup_KeepsGrantsOfActiveSession_SoItsClientsAreStillNotified()
+    {
+        var setup = await SetUpSessionWithGrantsAsync();
+
+        // The Grants of the Client are long gone in effect: revoked and without tokens, beyond the retention.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            var grantIds = await context.Grants.Where(grant => grant.SessionId == setup.SessionId).Select(grant => grant.Id).ToListAsync(TestContext.Current.CancellationToken);
+
+            await context.AccessTokens.Where(token => grantIds.Contains(token.GrantId)).ExecuteDeleteAsync(TestContext.Current.CancellationToken);
+            await context.Grants
+                .Where(grant => grantIds.Contains(grant.Id))
+                .ExecuteUpdateAsync(setters => setters.SetProperty(grant => grant.RevokedAt, DateTime.UtcNow.AddDays(-30)), TestContext.Current.CancellationToken);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ExpiredDataCleaner>().CleanAsync(DateTime.UtcNow, TestContext.Current.CancellationToken);
+        }
+
+        await EndSessionAsync(setup);
+        await factory.DeliverBackchannelLogoutsAsync();
+
+        Assert.Single(factory.BackchannelLogoutHandler.ReceivedFor(setup.LogoutUri));
+
+        // Once the Session is revoked, the cleanup may delete them.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ExpiredDataCleaner>().CleanAsync(DateTime.UtcNow, TestContext.Current.CancellationToken);
+
+            var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+            Assert.False(await context.Grants.AnyAsync(grant => grant.SessionId == setup.SessionId, TestContext.Current.CancellationToken));
+        }
     }
 
     [Fact]

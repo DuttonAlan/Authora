@@ -206,7 +206,8 @@ Notifications are written to a database outbox in the same transaction that ends
 
 - Any `2xx` response counts as delivered. Redirects are not followed and count as failed, like other status codes, network errors and no response within `Authora:BackchannelLogout:Timeout` (5 seconds).
 - A failed delivery is retried after 10 seconds, then with a delay that doubles every time, up to one hour.
-- Authora gives up after `Authora:BackchannelLogout:MaxAttempts` attempts (10), or once the Session ended more than `Authora:BackchannelLogout:MaxAge` (1 day) ago, and records the audit event `client.backchannel-logout-failed` and the log event 18013.
+- Authora gives up after `Authora:BackchannelLogout:MaxAttempts` attempts (10), and records the audit event `client.backchannel-logout-failed` and the log event 18013. It also gives up, without sending, a notification whose Session ended more than `Authora:BackchannelLogout:MaxAge` (1 day) ago, e.g. after an outage, and one for a URI that does not use HTTPS while `Authora:BackchannelLogout:AllowHttp` is off (e.g. saved in development).
+- The Grants of a Session that is not revoked are kept by the cleanup, even when they have no tokens left, so every Client that received tokens in the Session is notified when it ends.
 - If the Client is deleted or its URI removed before the notification is sent, the notification is dropped. The current URI of the Client is used, not the one it had when the Session ended.
 
 All settings: [Configuration](configuration.md#back-channel-logout).
