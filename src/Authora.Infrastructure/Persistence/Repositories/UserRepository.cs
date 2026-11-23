@@ -177,6 +177,14 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
+    public async Task ReloadUser(User user, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        await context.Entry(user).ReloadAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         try

@@ -112,7 +112,7 @@ flowchart LR
 - A wrong second factor counts towards the same lockout as a wrong password. A correct password does not reset the failed attempts while a second factor is pending, so knowing the password does not allow guessing the second factor endlessly; only a complete sign-in resets them.
 - A password reset by email sets the password and nothing else: it never signs in and never skips the second factor.
 
-The second factor is an authenticator app (TOTP), with single-use recovery codes for a lost phone; Users without one sign in with the password alone. See [Authenticator app and recovery codes](#authenticator-app-and-recovery-codes).
+The second factor is an authenticator app (TOTP), with single-use recovery codes for a lost phone, or a passkey; Users without one sign in with the password alone. See [Authenticator app and recovery codes](#authenticator-app-and-recovery-codes) and [Passkeys](#passkeys).
 
 ### What a Session knows about the sign-in
 
@@ -131,3 +131,14 @@ Users set up an authenticator app themselves at `/account/security/authenticator
 - **Recovery codes are the fallback.** Ten random 80-bit codes are shown once, stored only as SHA-256 hashes, and each works once. They stand in for the app, so a sign-in with one also records `otp`, and its use is audited separately (`mfa.recovery-code-used`). New codes can only be generated in a Session that completed the app, so a Session signed in with the password alone, e.g. from before the setup, cannot obtain codes and use one to remove the app.
 - **Removing the app is a sensitive change.** It needs a recent authentication *and* a current code or recovery code, and it ends every other Session and Grant of the User, like a password change. A taken-over Session alone therefore cannot turn the second factor off, and wrong codes count towards the lockout.
 - **Administrators can reset it** (`users.reset-mfa`), which ends all Sessions and Grants of the User. Like every action on a User, it follows the rule that nobody acts on a User with more rights than their own, so only an administrator can reset an administrator.
+
+### Passkeys
+
+A passkey is a key pair the User's device or password manager keeps; Authora stores only the public key, so unlike the secret of an authenticator app there is nothing on the server worth stealing, and the Data Protection keys play no part. The browser uses a passkey only on the site it was created for (the WebAuthn relying party, the Issuer's host), which is what makes it *phishing-resistant*: a proxy that relays a code cannot relay a passkey, because the browser would sign for the proxy's origin, and Authora rejects that.
+
+- **Second factor, not passwordless.** Authora asks for the password first and the passkey second, like the app. Passwordless sign-in would change what a stolen device is worth and needs its own recovery story; it is not part of this.
+- **`hwk` or `swk`.** A passkey that never leaves its device (e.g. on a security key) records `hwk`, one that may be synced to other devices records `swk`, decided by the backup-eligible flag the authenticator reports. Both reach the level `phr`. Applications that must exclude synced passkeys can check `amr`.
+- **Challenges are single-use.** Every ceremony gets a fresh random challenge, bound to the User and to registration or sign-in, valid for 5 minutes and consumed before the response is checked. A captured response cannot be replayed, and a challenge of a registration cannot complete a sign-in.
+- **The signature counter detects clones.** Authenticators that count their signatures must report a higher number every time; a response with a counter that did not increase is rejected, because it may come from a copy of the key. Synced passkeys usually report 0, which says nothing and is accepted.
+- **No attestation.** Authora does not ask which authenticator model the User has, nor restrict it: any passkey of the browser is fine. The AAGUID is stored only to show it.
+- **Changes need the second factor.** Adding or removing a passkey needs a recent authentication and, for a User who already has a second factor, a Session that completed one. Removing a passkey ends every other Session and Grant, so whoever signed in with it elsewhere is signed out. There are no recovery codes for passkeys; Users register more than one, and administrators can remove a single lost passkey or reset everything.

@@ -27,7 +27,7 @@ All URLs in the document are built from `Authora:OAuth:Issuer`, so they always m
 | `subject_types_supported` | `public` |
 | `scopes_supported` | `openid`, `profile`, `email` |
 | `prompt_values_supported` | `none`, `login`, `consent`, `select_account` |
-| `acr_values_supported` | `urn:authora:acr:pwd`, `urn:authora:acr:mfa`; `phr` only once a passkey factor is available |
+| `acr_values_supported` | `urn:authora:acr:pwd`, `urn:authora:acr:mfa`, `phr` (passkeys) |
 | `request_parameter_supported`, `request_uri_parameter_supported`, `claims_parameter_supported` | `false` |
 | `authorization_response_iss_parameter_supported` | `true` |
 | `end_session_endpoint` | `{Issuer}/oauth/logout` |

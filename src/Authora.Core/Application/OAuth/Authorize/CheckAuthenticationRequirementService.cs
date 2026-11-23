@@ -66,8 +66,8 @@ public sealed class CheckAuthenticationRequirementService(
         }
 
         var missing = (await secondFactors.GetEnrolledAsync(userId, cancellationToken))
+            .Where(factor => !SecondFactorRegistry.IsCompleted(factor, authenticationMethods))
             .Select(factor => factor.Method)
-            .Where(method => !authenticationMethods.Contains(method, StringComparer.Ordinal))
             .ToList();
 
         if (mfaRequired)

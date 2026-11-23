@@ -94,14 +94,15 @@ public sealed class CompleteSignInService(
             return CompleteSignInResult.Expired;
         }
 
-        var verified = !string.IsNullOrEmpty(request.Response)
-            && await factor.VerifyAsync(user.Id, request.Response, cancellationToken);
+        var method = string.IsNullOrEmpty(request.Response)
+            ? null
+            : await factor.VerifyAsync(user.Id, request.Response, cancellationToken);
 
         // Read again: verifying may take a while, e.g. for a passkey, and must not extend the pending sign-in beyond
         // its expiry, nor date the authentication back.
         now = timeProvider.GetUtcNow().UtcDateTime;
 
-        if (!verified)
+        if (method is null || !factor.Methods.Contains(method, StringComparer.Ordinal))
         {
             return await RecordWrongResponseAsync(eventType, challenge, user.Id, factor.Method, now, cancellationToken);
         }
@@ -116,8 +117,8 @@ public sealed class CompleteSignInService(
         try
         {
             return session is null
-                ? await StartSessionAsync(challenge, user, factor.Method, now, cancellationToken)
-                : await StepUpAsync(session, user, factor.Method, now, cancellationToken);
+                ? await StartSessionAsync(challenge, user, method, now, cancellationToken)
+                : await StepUpAsync(session, user, method, now, cancellationToken);
         }
         catch (ConflictException)
         {

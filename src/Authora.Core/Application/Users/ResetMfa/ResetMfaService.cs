@@ -6,6 +6,7 @@ using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Domain.Entities;
 
 using Microsoft.Extensions.Logging;
 
@@ -13,8 +14,8 @@ namespace Authora.Core.Application.Users.ResetMfa;
 
 /// <summary>
 ///     The Service for an administrator to reset the multi-factor authentication of a User, e.g. after they lost
-///     their phone and their recovery codes: the authenticator app and the recovery codes are removed, so the password
-///     alone signs the User in until they set up a new app.
+///     their phone and their recovery codes: the authenticator app, the recovery codes and the passkeys are removed, so the password
+///     alone signs the User in until they set up a new second factor.
 /// </summary>
 /// <remarks>
 ///     Rotates the Security Stamp, so all Sessions and Grants of the User end: whoever signed in with the lost factor
@@ -23,19 +24,21 @@ namespace Authora.Core.Application.Users.ResetMfa;
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to remove the authenticator and the codes.</param>
+/// <param name="passkeyRepository">An Instance of a IPasskeyRepository to remove the passkeys.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the reset.</param>
 /// <param name="logger">The Logger to record the reset.</param>
 public sealed class ResetMfaService(
     IUserRepository userRepository,
     IMfaRepository mfaRepository,
+    IPasskeyRepository passkeyRepository,
     PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<ResetMfaService> logger)
 {
     /// <summary>
-    ///     Removes the authenticator app and the recovery codes of a User and signs the User out everywhere. Does
-    ///     nothing if the User has neither.
+    ///     Removes the authenticator app, the recovery codes and the passkeys of a User and signs the User out everywhere. Does
+    ///     nothing if the User has none of them.
     /// </summary>
     /// <param name="id">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -56,13 +59,14 @@ public sealed class ResetMfaService(
 
         await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
 
-        // Joins the transaction of the guard, so a setup or new recovery codes cannot be saved during the reset.
+        // Joins the transaction of the guard, so a setup, new recovery codes or a passkey cannot be saved during the reset.
         await using var mfaTransaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
 
         var authenticator = await mfaRepository.GetTotpAuthenticator(user.Id, cancellationToken);
         var codes = await mfaRepository.GetRecoveryCodes(user.Id, cancellationToken);
+        var passkeys = await passkeyRepository.GetPasskeys(user.Id, cancellationToken);
 
-        if (authenticator is null && codes.Count == 0)
+        if (authenticator is null && codes.Count == 0 && passkeys.Count == 0)
         {
             return;
         }
@@ -73,15 +77,30 @@ public sealed class ResetMfaService(
         }
 
         mfaRepository.RemoveRecoveryCodes(codes);
+        passkeyRepository.RemovePasskeys(passkeys);
         user.RotateSecurityStamp();
 
-        var removed = authenticator is { IsConfirmed: true } ? "Authenticator app" : "Unfinished setup of an authenticator app";
-        auditLog.Record(entry with { Details = authenticator is null ? $"{codes.Count} recovery codes removed" : $"{removed} and {codes.Count} recovery codes removed" });
+        auditLog.Record(entry with { Details = DescribeRemoved(authenticator, codes.Count, passkeys.Count) });
 
         // User, authenticator and codes share the request's DbContext, so all are saved together with the audit event.
         await userRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         logger.MfaReset(user.Id);
+    }
+
+    private static string DescribeRemoved(TotpAuthenticator? authenticator, int recoveryCodes, int passkeys)
+    {
+        var parts = new List<string>();
+
+        if (authenticator is not null)
+        {
+            parts.Add(authenticator.IsConfirmed ? "Authenticator app" : "Unfinished setup of an authenticator app");
+        }
+
+        parts.Add($"{recoveryCodes} recovery codes");
+        parts.Add($"{passkeys} passkeys");
+
+        return $"{string.Join(", ", parts)} removed";
     }
 }

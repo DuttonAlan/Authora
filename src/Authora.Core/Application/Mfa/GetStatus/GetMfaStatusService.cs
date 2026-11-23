@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Application.Passkeys;
 
 namespace Authora.Core.Application.Mfa.GetStatus;
 
@@ -13,10 +14,11 @@ namespace Authora.Core.Application.Mfa.GetStatus;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to check that the User exists.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to load the authenticator and the codes.</param>
-public sealed class GetMfaStatusService(IUserRepository userRepository, IMfaRepository mfaRepository)
+/// <param name="passkeyRepository">An Instance of a IPasskeyRepository to load the passkeys.</param>
+public sealed class GetMfaStatusService(IUserRepository userRepository, IMfaRepository mfaRepository, IPasskeyRepository passkeyRepository)
 {
     /// <summary>
-    ///     Gets the authenticator app and the recovery codes of a User.
+    ///     Gets the authenticator app, the recovery codes and the passkeys of a User.
     /// </summary>
     /// <param name="userId">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -44,6 +46,8 @@ public sealed class GetMfaStatusService(IUserRepository userRepository, IMfaRepo
                 codes.Max(code => code.UsedAt))
             : null;
 
-        return new MfaStatusResponse(authenticatorApp is not null, authenticatorApp, recoveryCodes);
+        var passkeys = (await passkeyRepository.GetPasskeys(userId, cancellationToken)).Select(PasskeyResponse.From).ToList();
+
+        return new MfaStatusResponse(authenticatorApp is not null || passkeys.Count > 0, authenticatorApp, recoveryCodes, passkeys);
     }
 }

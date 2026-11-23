@@ -14,9 +14,9 @@ namespace Authora.Api.IntegrationTests;
 public sealed class FakeSecondFactor : ISecondFactor
 {
     /// <summary>
-    ///     The method the fake records, a hardware-secured key (RFC 8176), so it does not collide with the <c>otp</c> of the authenticator app.
+    ///     The method the fake records, a smart card (RFC 8176), so it does not collide with the <c>otp</c> of the authenticator app nor the <c>hwk</c> and <c>swk</c> of passkeys.
     /// </summary>
-    public const string MethodName = "hwk";
+    public const string MethodName = "sc";
 
     private readonly ConcurrentDictionary<Guid, string> _codes = new();
 
@@ -55,13 +55,13 @@ public sealed class FakeSecondFactor : ISecondFactor
     }
 
     /// <inheritdoc/>
-    public async Task<bool> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
+    public async Task<string?> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
     {
         if (_whileVerifying.TryGetValue(userId, out var action))
         {
             await action();
         }
 
-        return _codes.TryGetValue(userId, out var code) && code == response;
+        return _codes.TryGetValue(userId, out var code) && code == response ? MethodName : null;
     }
 }

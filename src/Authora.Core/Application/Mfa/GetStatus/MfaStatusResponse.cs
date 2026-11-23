@@ -2,18 +2,22 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.Passkeys;
+
 namespace Authora.Core.Application.Mfa.GetStatus;
 
 /// <summary>
 ///     The multi-factor authentication of a User.
 /// </summary>
-/// <param name="Enabled">Whether the User must enter a code after the password.</param>
+/// <param name="Enabled">Whether the User must complete a second factor after the password: they have an authenticator app or a passkey.</param>
 /// <param name="AuthenticatorApp">The authenticator app, or null if none is set up (an unfinished setup does not count).</param>
 /// <param name="RecoveryCodes">The recovery codes, or null if the User has none.</param>
+/// <param name="Passkeys">The passkeys, oldest first; empty if the User has none.</param>
 public sealed record MfaStatusResponse(
     bool Enabled,
     AuthenticatorAppStatusResponse? AuthenticatorApp,
-    RecoveryCodesStatusResponse? RecoveryCodes);
+    RecoveryCodesStatusResponse? RecoveryCodes,
+    IReadOnlyList<PasskeyResponse> Passkeys);
 
 /// <summary>
 ///     The authenticator app of a User.

@@ -71,7 +71,7 @@ public sealed class StartStepUpService(
 
         var completed = session.AuthenticationMethods;
         var missing = (await secondFactors.GetEnrolledAsync(user.Id, cancellationToken))
-            .Any(factor => !completed.Contains(factor.Method, StringComparer.Ordinal));
+            .Any(factor => !SecondFactorRegistry.IsCompleted(factor, completed));
 
         if (!missing)
         {

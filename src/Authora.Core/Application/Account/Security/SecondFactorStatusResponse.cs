@@ -10,4 +10,5 @@ namespace Authora.Core.Application.Account.Security;
 /// <param name="Method">The Authentication Method Reference value (RFC 8176), e.g. <c>otp</c>.</param>
 /// <param name="DisplayName">The name shown to the User.</param>
 /// <param name="IsEnrolled">Whether the User enrolled in it.</param>
-public sealed record SecondFactorStatusResponse(string Method, string DisplayName, bool IsEnrolled);
+/// <param name="Methods">Every method the Session may record for it, see <see cref="SecondFactors.ISecondFactor.Methods"/>.</param>
+public sealed record SecondFactorStatusResponse(string Method, string DisplayName, bool IsEnrolled, IReadOnlyList<string> Methods);

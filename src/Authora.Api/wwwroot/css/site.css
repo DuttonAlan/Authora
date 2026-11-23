@@ -227,3 +227,25 @@ a {
     flex-wrap: wrap;
     gap: 4px 16px;
 }
+
+/* Elements the passkey script shows or hides with the hidden attribute. */
+[hidden] {
+    display: none !important;
+}
+
+.passkeys form {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.passkeys input[type="text"] {
+    margin-bottom: 0;
+    padding: 6px 10px;
+}
+
+.passkeys button {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+}

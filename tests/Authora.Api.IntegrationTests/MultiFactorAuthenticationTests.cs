@@ -473,7 +473,11 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         using (var noneResponse = await SendAsync(HttpMethod.Get, $"/api/users/{withoutMfa}/mfa", token))
         {
             var none = await noneResponse.Content.ReadFromJsonAsync<MfaStatusResponse>(TestContext.Current.CancellationToken);
-            Assert.Equal(new MfaStatusResponse(false, null, null), none);
+            Assert.NotNull(none);
+            Assert.False(none.Enabled);
+            Assert.Null(none.AuthenticatorApp);
+            Assert.Null(none.RecoveryCodes);
+            Assert.Empty(none.Passkeys);
         }
 
         using var unknown = await SendAsync(HttpMethod.Get, $"/api/users/{Guid.NewGuid()}/mfa", token);
@@ -504,7 +508,7 @@ public sealed partial class MultiFactorAuthenticationTests(AuthoraApiFactory fac
         }
 
         var reset = Assert.Single(await GetEventsAsync(AuditEventTypes.Users.MfaReset, userId));
-        Assert.Equal("Authenticator app and 10 recovery codes removed", reset.Details);
+        Assert.Equal("Authenticator app, 10 recovery codes, 0 passkeys removed", reset.Details);
 
         // The password alone signs in again, and a second reset changes nothing.
         using (var signIn = await SignInAsync(email, Password))

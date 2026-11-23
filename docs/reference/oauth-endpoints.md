@@ -10,12 +10,13 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `POST /oauth/revoke` | Client | Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)). |
 | `POST /oauth/introspect` | Resource server | Introspection ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)). |
 | `GET/POST /account/login` | Browser | Sign-in page. |
-| `GET/POST /account/second-factor` | Browser | Second step of the sign-in for Users with a second factor, and of a step-up. See [Sign-in](#sign-in). |
+| `GET/POST /account/second-factor` | Browser | Second step of the sign-in for Users with a second factor (a code of the authenticator app, a recovery code or a passkey), and of a step-up. See [Sign-in](#sign-in). |
 | `GET /account/step-up` | Browser | A signed-in User completes an additional factor for the current Session. See [Sign-in](#sign-in). |
-| `GET /account/security` | Browser | *Account and security*: overview of a signed-in User, with how they signed in, whether an authenticator app is set up and how many recovery codes are left, and links to the password change, the connected applications and two-step verification. |
+| `GET /account/security` | Browser | *Account and security*: overview of a signed-in User, with how they signed in, whether an authenticator app is set up, how many recovery codes are left and how many passkeys are registered, and links to the password change, the connected applications and two-step verification. |
 | `GET/POST /account/security/authenticator` | Browser | A signed-in User sets up an authenticator app. Needs a recent authentication. See [Authenticator app and recovery codes](#authenticator-app-and-recovery-codes). |
 | `GET/POST /account/security/authenticator/remove` | Browser | A signed-in User removes their authenticator app with a current code or a recovery code. Needs a recent authentication. |
 | `GET/POST /account/security/recovery-codes` | Browser | A signed-in User sees how many recovery codes are left and generates a new set. Needs a recent authentication. |
+| `GET/POST /account/security/passkeys` | Browser | A signed-in User registers, renames and removes passkeys. Needs a recent authentication and JavaScript. See [Passkeys](#passkeys). |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
 | `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
 | `GET/POST /account/forgot-password` | Browser | A User who forgot their password asks for a reset link by email. See [Password reset](#password-reset). |
@@ -180,12 +181,12 @@ A User who has enrolled a second factor gets no Session for the password alone. 
 
 - The pending sign-in lasts `Authora:SignIn:PendingSignInLifetime` (5 minutes), can be completed only once, and only while the User's security stamp is unchanged. Otherwise the page asks the User to sign in again.
 - A wrong second factor counts towards the same lockout as a wrong password; the failed attempts are only reset once the sign-in is complete. Submissions share the sign-in rate limit.
-- Once the factor is correct, the Session starts with both methods, e.g. `pwd otp`, and the browser returns to `returnUrl`.
+- Once the factor is correct, the Session starts with both methods, e.g. `pwd otp` or `pwd hwk`, and the browser returns to `returnUrl`.
 - A password reset by email never signs in and never skips the second factor.
 
 `/account/step-up` starts the same second step for a signed-in User whose Session lacks one of their enrolled factors, and returns to a local `returnUrl` afterwards. Completing it adds the method to the Session, sets its authentication time to now and gives it a new Session token; the old token stops working. Without a missing factor, the page says there is nothing to confirm.
 
-Account changes that need a recent authentication (setting up or removing the authenticator app, generating recovery codes) send a User who authenticated longer than `Authora:SignIn:RecentAuthenticationWindow` (10 minutes) ago to the sign-in page and back.
+Account changes that need a recent authentication (setting up or removing the authenticator app, generating recovery codes, registering, renaming or removing passkeys) send a User who authenticated longer than `Authora:SignIn:RecentAuthenticationWindow` (10 minutes) ago to the sign-in page and back.
 
 ### Authenticator app and recovery codes
 
@@ -197,6 +198,17 @@ The second factor is an authenticator app with time-based one-time passwords (TO
 - **Removal** at `/account/security/authenticator/remove` needs a current code or a recovery code; a wrong one counts towards the lockout. It deletes the app and the recovery codes and ends every other Session and every Grant of the User; the Session it was removed in stays valid.
 - Administrators see the state and reset it through the [admin API](admin-api.md#users) (`users.reset-mfa`).
 - The secret is stored encrypted with ASP.NET Core Data Protection, so the key ring must be kept and backed up, see [Persist Data Protection keys](../how-to/persist-data-protection-keys.md).
+
+### Passkeys
+
+Passkeys ([WebAuthn Level 2](https://www.w3.org/TR/webauthn-2/)) are a second factor next to the authenticator app, not a replacement for the password. The relying party Id is the host of `Authora:OAuth:Issuer`, and responses are only accepted from the Issuer's origin, so a passkey works only on Authora's own pages over HTTPS and stops working if the Issuer moves to another host. The browser calls run in `/js/passkeys.js`; the pages that load it allow scripts of their own origin, see [HTTP security](http-security.md#headers).
+
+- **Registration** at `/account/security/passkeys`: the User names the passkey (1 to 64 characters), the script fetches the options (`POST ?handler=RegistrationOptions`), the browser creates the passkey, and the page verifies the response (`POST ?handler=Register`). User verification and discoverable credentials are *preferred*, no attestation is requested, and the User's existing passkeys are excluded. Stored: credential Id, COSE public key, signature counter, AAGUID, transports, backup flags, name, and when it was created and last used. A User has at most 20 passkeys.
+- **Challenges** are 32 random bytes, stored only as SHA-256 hashes, bound to the User and the ceremony (registration or sign-in), valid for 5 minutes and consumed before the response is verified, so a response is accepted at most once. Expired challenges are deleted by the cleanup.
+- **Sign-in**: `/account/second-factor` offers *Use a passkey* when the User has one; the script fetches the options for the pending sign-in (`POST ?handler=PasskeyOptions`, only the User's passkeys allowed) and posts the response as the second factor (`Method=hwk`). The Session records `hwk` for a device-bound passkey and `swk` for one that may be synced (the backup-eligible flag), both reaching `acr` `phr`. A rejected response counts towards the lockout like a wrong code.
+- **Signature counter**: a response whose counter did not increase is rejected, since it may come from a cloned authenticator (log event 17007); authenticators that do not count report 0, which is accepted.
+- **Changes**: renaming, and removing (which ends every other Session and every Grant of the User) happen on the same page. If the User has a second factor, the Session must have completed one, otherwise the User steps up first; a Session signed in with the password alone, e.g. from before the first passkey, therefore cannot add or remove passkeys.
+- Administrators see the passkeys and remove one or all through the [admin API](admin-api.md#users) (`users.reset-mfa`). There are no recovery codes for passkeys: Users register more than one.
 
 `/account/logout` revokes the Session on the server and deletes the cookie. Applications sign Users out through the end-session endpoint `/oauth/logout` instead, see [Logout](openid-connect.md#logout).
 

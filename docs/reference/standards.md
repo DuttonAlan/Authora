@@ -15,6 +15,7 @@
 | [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517) JWK / [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) JWK Thumbprint | JWKS, `kid` as thumbprint. |
 | [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details | Errors of the admin API. |
 | [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238) TOTP / [RFC 4226](https://www.rfc-editor.org/rfc/rfc4226) HOTP | Authenticator apps as a second factor: HMAC-SHA-1, 6 digits, 30-second steps, one step of drift either way, 160-bit secrets; a used time step is rejected. Set up with an `otpauth://totp/` URI ([Key Uri Format](https://github.com/google/google-authenticator/wiki/Key-Uri-Format)) as QR code. No SHA-256/SHA-512, other lengths or periods, no HOTP counters. |
+| [WebAuthn Level 2](https://www.w3.org/TR/webauthn-2/) | Passkeys as a second factor after the password (with [Fido2NetLib](https://github.com/passwordless-lib/fido2-net-lib)): relying party Id = host of the Issuer, only the Issuer's origin, user verification and discoverable credentials *preferred*, attestation `none` (no metadata service, every authenticator is accepted), algorithms ES256, ES384, ES512, RS256 – RS512, PS256 – PS512, EdDSA. Challenges are 32 random bytes, stored as hashes, single-use and valid for 5 minutes. A signature counter that does not increase is rejected (possible clone). The backup flags (BE, BS) of WebAuthn Level 3 decide between `hwk` and `swk`. Not supported: passwordless sign-in, conditional UI (autofill), attestation and authenticator allow lists, `largeBlob`, `prf` and other extensions. |
 | [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176) Authentication Method Reference Values | `amr` in ID Tokens: `pwd`, `otp` (authenticator app or recovery code), `hwk`/`swk` for passkeys, and `mfa` for two or more factors. |
 | [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) `acr` / [OpenID EAP ACR Values 1.0](https://openid.net/specs/openid-connect-eap-acr-values-1_0.html) | `acr` in ID Tokens with the levels `urn:authora:acr:pwd` and `urn:authora:acr:mfa`, and `phr` for passkeys; `acr_values` with step-up. |
 | [RFC 9470](https://www.rfc-editor.org/rfc/rfc9470) Step-up Authentication Challenge | The admin API answers a token without a required second factor with `insufficient_user_authentication` and `acr_values`. `max_age` in the challenge is not used. |
@@ -50,7 +51,8 @@ Authora deliberately keeps a small feature set. Not supported today:
 
 - Self-registration. Administrators create Users; Users change their own password at `/account/password`, reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)) and confirm their address with a link (see [Email verification](oauth-endpoints.md#email-verification)).
 - Requesting a new email verification link without an administrator. Users who miss the link sent when their account was created or their Email changed ask an administrator to send another one.
-- Passkeys, and second factors other than an authenticator app (TOTP) with recovery codes, e.g. SMS or email codes.
+- Passwordless sign-in with a passkey: passkeys are a second factor after the password. Second factors other than an authenticator app (TOTP) with recovery codes and passkeys, e.g. SMS or email codes.
+- Recovery codes for Users who have only passkeys: they register several passkeys, or an administrator resets their second factors.
 - Sign-in through external identity providers (e.g. Google).
 
 **Protocols**

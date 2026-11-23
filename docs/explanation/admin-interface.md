@@ -46,7 +46,7 @@ A cookie that grants API access invites cross-site request forgery. The admin AP
 
 The admin interface's tokens are tied to the Authora Session the administrator signed in with. A refresh only works while that Session is valid; otherwise Authora revokes the admin interface's Grant and the administrator signs in again.
 
-When multi-factor authentication is required for administrators (`Authora:Mfa:RequireForAdministrators`), the API answers a token from a password-only sign-in with `403` and `insufficient_user_authentication`. The interface treats that like a `401` and signs in again; the authorization request asks for `authora.admin`, so Authora steps up the Session first, or has the administrator set up an authenticator app.
+When multi-factor authentication is required for administrators (`Authora:Mfa:RequireForAdministrators`), the API answers a token from a password-only sign-in with `403` and `insufficient_user_authentication`. The interface treats that like a `401` and signs in again; the authorization request asks for `authora.admin`, so Authora steps up the Session first, or has the administrator set up an authenticator app or a passkey.
 
 This does not cut off access at once in every case:
 

@@ -1,0 +1,104 @@
+@page "/account/security/passkeys"
+@model Authora.Api.Pages.Account.PasskeysModel
+@{
+    ViewData["Title"] = "Passkeys";
+}
+
+@section Scripts {
+    <script type="module" src="~/js/passkeys.js" asp-append-version="true"></script>
+}
+
+<h1>Passkeys</h1>
+
+@if (Model.SafeReturnUrl is not null && Model.Passkeys.Count == 0)
+{
+    <p><strong>To continue, your account needs a second step after the password.</strong></p>
+}
+
+@if (Model.StatusMessage is not null)
+{
+    <p class="success" role="status">@Model.StatusMessage</p>
+}
+
+@if (Model.ErrorMessage is not null)
+{
+    <p class="error" role="alert">@Model.ErrorMessage</p>
+}
+
+<p>After your password, a passkey confirms it is you with your fingerprint, face, screen lock or a security key. It only works on this site, so it cannot be phished.</p>
+
+@if (Model.NeedsStepUp)
+{
+    @* Read-only: changing the passkeys needs a Session in which the User completed a second factor. *@
+    @if (Model.Passkeys.Count > 0)
+    {
+        <ul class="scopes" aria-label="Your passkeys">
+            @foreach (var passkey in Model.Passkeys)
+            {
+                <li>
+                    <strong>@passkey.Name</strong>
+                    <span class="description">Added @passkey.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture).</span>
+                </li>
+            }
+        </ul>
+    }
+
+    <p>To add, rename or remove passkeys, first confirm it is you with your second factor.</p>
+    <p><a href="@Model.StepUpUrl">Continue</a></p>
+}
+else
+{
+    @if (Model.Passkeys.Count > 0)
+    {
+        <ul class="scopes passkeys" aria-label="Your passkeys">
+            @foreach (var passkey in Model.Passkeys)
+            {
+                <li>
+                    <strong>@passkey.Name</strong>
+                    <span class="description">
+                        Added @passkey.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                        @(passkey.LastUsedAt is { } lastUsedAt ? $"last used {lastUsedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}" : "not used yet").
+                        @(passkey.IsSynced ? "Synced across your devices." : "Stored on one device.")
+                    </span>
+                    <form method="post" asp-page-handler="Rename">
+                        <input type="hidden" name="PasskeyId" value="@passkey.Id" />
+                        <input type="hidden" asp-for="ReturnUrl" />
+                        <input type="text" name="NewName" value="@passkey.Name" maxlength="64" required aria-label="New name for @passkey.Name" />
+                        <button type="submit">Rename</button>
+                    </form>
+                    <form method="post" asp-page-handler="Remove">
+                        <input type="hidden" name="PasskeyId" value="@passkey.Id" />
+                        <input type="hidden" asp-for="ReturnUrl" />
+                        <button type="submit">Remove</button>
+                    </form>
+                </li>
+            }
+        </ul>
+        <p class="muted">Removing a passkey signs you out everywhere else. Also delete it from your device or password manager.</p>
+    }
+
+    @if (Model.CanRegister)
+    {
+        @* js/passkeys.js gets the options, lets the browser create the passkey and submits the response as the Credential. *@
+        <form method="post" asp-page-handler="Register" data-passkey="create" data-passkey-options="RegistrationOptions">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <input type="hidden" name="Credential" value="" data-passkey-response />
+
+            <label asp-for="Name">Name of the new passkey</label>
+            <input asp-for="Name" type="text" maxlength="64" placeholder="e.g. Phone or Security key" autocomplete="off" required />
+
+            <p class="error" role="alert" data-passkey-error hidden></p>
+            <p class="muted" data-passkey-unsupported hidden>This browser does not support passkeys.</p>
+
+            <div class="actions">
+                <button type="submit" class="primary" data-passkey-start disabled>Add a passkey</button>
+            </div>
+        </form>
+    }
+    else
+    {
+        <p>@Authora.Api.Pages.Account.PasskeysModel.LimitReachedMessage</p>
+    }
+}
+
+<p class="muted"><a href="@Model.ContinueUrl">@(Model.SafeReturnUrl is null ? "Back" : "Continue")</a></p>

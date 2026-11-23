@@ -81,6 +81,40 @@ public static class AuditEventTypes
     }
 
     /// <summary>
+    ///     Passkeys (WebAuthn) of a User as a second factor. The Target is the User; the Details name the passkey by its
+    ///     Id. A removal by an administrator is <see cref="Users.PasskeyRemoved"/>, a reset <see cref="Users.MfaReset"/>.
+    /// </summary>
+    public static class Passkeys
+    {
+        /// <summary>
+        ///     A User registered a passkey. From now on they can use it after the password.
+        /// </summary>
+        public const string Registered = "passkey.registered";
+
+        /// <summary>
+        ///     A User renamed a passkey.
+        /// </summary>
+        public const string Renamed = "passkey.renamed";
+
+        /// <summary>
+        ///     A User removed a passkey; all other Sessions and all tokens of the User were revoked.
+        /// </summary>
+        public const string Removed = "passkey.removed";
+
+        /// <summary>
+        ///     A passkey was accepted for the second step of a sign-in or a step-up; the sign-in records its own outcome as
+        ///     well.
+        /// </summary>
+        public const string Used = "passkey.used";
+
+        /// <summary>
+        ///     A passkey response was rejected, with the reason in the Details, e.g. an expired challenge, a wrong
+        ///     signature, or a signature counter that did not increase (a sign of a cloned authenticator).
+        /// </summary>
+        public const string Failed = "passkey.failed";
+    }
+
+    /// <summary>
     ///     Multi-factor authentication of a User with an authenticator app and recovery codes. The Target is the User.
     ///     A reset by an administrator is <see cref="Users.MfaReset"/>.
     /// </summary>
@@ -201,10 +235,16 @@ public static class AuditEventTypes
         public const string EmailMarkedVerified = "user.email-marked-verified";
 
         /// <summary>
-        ///     An administrator reset the multi-factor authentication of a User: the authenticator app and the recovery
-        ///     codes were removed, and all Sessions and tokens of the User were revoked.
+        ///     An administrator reset the multi-factor authentication of a User: the authenticator app, the recovery
+        ///     codes and the passkeys were removed, and all Sessions and tokens of the User were revoked.
         /// </summary>
         public const string MfaReset = "user.mfa-reset";
+
+        /// <summary>
+        ///     An administrator removed a passkey of a User; all Sessions and tokens of the User were revoked. The Details
+        ///     name the passkey.
+        /// </summary>
+        public const string PasskeyRemoved = "user.passkey-removed";
 
         /// <summary>A Role was assigned to a User.</summary>
         public const string RoleAssigned = "user.role-assigned";

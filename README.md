@@ -17,7 +17,7 @@ Your applications let users sign in through Authora instead of each building the
 
 - 🔐 **OAuth 2.1 and OpenID Connect**: Authorization Code flow with PKCE required by default, rotating Refresh Tokens with reuse detection, ID Tokens, UserInfo, discovery, revocation and introspection
 - 👤 **Users, Groups and Roles**: manage who may administer Authora, with fine-grained Permissions
-- 📱 **Two-step verification**: Users protect their account with an authenticator app (TOTP), with single-use recovery codes as a fallback
+- 📱 **Two-step verification**: Users protect their account with an authenticator app (TOTP), with single-use recovery codes as a fallback, or with phishing-resistant passkeys (WebAuthn)
 - 🔑 **Applications**: register public and confidential Clients with exact Redirect URIs, allowed Scopes and expiring Secrets
 - 🖥️ **Admin interface** at `/admin`, which never exposes tokens to the browser
 - 📜 **Tamper-evident audit log** of sign-ins and every administrative change

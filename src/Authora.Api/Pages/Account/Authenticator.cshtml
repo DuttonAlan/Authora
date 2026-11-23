@@ -32,6 +32,7 @@ else
     @if (Model.SafeReturnUrl is not null)
     {
         <p><strong>To continue, your account needs a second step after the password.</strong></p>
+        <p>Set up an authenticator app below, or <a href="/account/security/passkeys?returnUrl=@Uri.EscapeDataString(Model.SafeReturnUrl)">add a passkey</a> instead.</p>
     }
 
     @if (Model.ErrorMessage is not null)

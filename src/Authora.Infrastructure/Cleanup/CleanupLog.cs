@@ -25,6 +25,9 @@ internal static partial class CleanupLog
     [LoggerMessage(EventId = 8005, Level = LogLevel.Information, Message = "Deleted {PendingSignIns} pending sign-ins that expired before {Now:O}.")]
     public static partial void PendingSignInsDeleted(this ILogger logger, int pendingSignIns, DateTime now);
 
+    [LoggerMessage(EventId = 8006, Level = LogLevel.Information, Message = "Deleted {PasskeyChallenges} passkey challenges that expired before {Now:O}.")]
+    public static partial void PasskeyChallengesDeleted(this ILogger logger, int passkeyChallenges, DateTime now);
+
     [LoggerMessage(EventId = 8003, Level = LogLevel.Information, Message = "Deleted {AuditEvents} audit events that occurred before {Cutoff:O}.")]
     public static partial void AuditEventsDeleted(this ILogger logger, int auditEvents, DateTime cutoff);
 

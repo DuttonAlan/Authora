@@ -22,10 +22,17 @@ namespace Authora.Core.Application.Account.SecondFactors;
 public interface ISecondFactor
 {
     /// <summary>
-    ///     The Authentication Method Reference value (RFC 8176) the Session records once the factor is completed,
-    ///     e.g. <c>otp</c>. Distinct among the registered factors.
+    ///     The Authentication Method Reference value (RFC 8176) that identifies the factor, e.g. <c>otp</c>: the value
+    ///     the User chooses it by, and the one that decides the level (<c>acr</c>) it reaches. Distinct among the
+    ///     registered factors.
     /// </summary>
     public string Method { get; }
+
+    /// <summary>
+    ///     Every Authentication Method Reference value the Session may record once the factor is completed, including
+    ///     <see cref="Method"/>, e.g. <c>hwk</c> and <c>swk</c> for a passkey. Distinct among the registered factors.
+    /// </summary>
+    public IReadOnlyList<string> Methods => [Method];
 
     /// <summary>
     ///     The name shown to the User, e.g. "Authenticator app".
@@ -46,6 +53,9 @@ public interface ISecondFactor
     /// <param name="userId">Id of the User.</param>
     /// <param name="response">The response the User entered.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns><see langword="true"/> if the response is correct.</returns>
-    public Task<bool> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default);
+    /// <returns>
+    ///     The method of <see cref="Methods"/> the Session records if the response is correct, e.g. <c>swk</c> for a
+    ///     synced passkey; otherwise <see langword="null"/>.
+    /// </returns>
+    public Task<string?> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default);
 }

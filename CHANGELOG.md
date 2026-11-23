@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Upgrading
 
-- Stop all instances before applying the four new migrations `TwoStepSignIn`, `SessionTokenConcurrency`, `MultiFactorAuthentication` and `MfaRequirements`.
+- Stop all instances before applying the five new migrations `TwoStepSignIn`, `SessionTokenConcurrency`, `MultiFactorAuthentication`, `MfaRequirements` and `Passkeys`.
+- Passkeys are bound to the host of `Authora:OAuth:Issuer`: settle on the final host before Users add them.
 - Grants from before the upgrade have no recorded authentication methods and count as a sign-in with the password only; if you turn on `Authora:Mfa:RequireForAdministrators`, administrators sign in again.
 - The Data Protection keys now also encrypt the secrets of authenticator apps: persist them (`Authora:DataProtection:KeysPath`) and include them in your backups, or every authenticator app stops working when they are lost. See [Persist Data Protection keys](docs/how-to/persist-data-protection-keys.md).
 - Sessions started before the upgrade end; Users sign in again.
@@ -28,6 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Client setting *Require MFA* (`PUT`/`DELETE /api/clients/{id}/mfa-required`, `clients.update`, in the admin interface): Users step up or set up an authenticator app before the Client gets a code, and codes issued without a second factor can no longer be exchanged. Audit events `client.mfa-required` and `client.mfa-no-longer-required`.
 - Setting `Authora:Mfa:RequireForAdministrators` (off by default): Users who hold a Permission set up an authenticator app right after the password, authorization requests with `authora.admin` step up their Sessions, and the admin API rejects their Access Tokens from sign-ins without a second factor with `403` and `insufficient_user_authentication` (RFC 9470). Grants now record the authentication methods of their sign-in.
 - The authenticator setup page takes a `returnUrl` to continue at once the app is set up. Log events 4021, 4022, 5024 and 6017 – 6019.
+- Passkeys (WebAuthn Level 2, with Fido2NetLib) as a phishing-resistant second factor ([#50](https://github.com/DuttonAlan/Authora/issues/50)). Users register several at `/account/security/passkeys` (recent authentication, and a step-up if they have a second factor but the Session lacks it), name, rename and remove them; removing one ends all other Sessions. The second step of the sign-in offers *Use a passkey* next to the code of the app; the Session records `hwk` (device-bound) or `swk` (may be synced) and reaches `acr` `phr`. Challenges are random, stored as hashes, single-use and valid for 5 minutes; a signature counter that did not increase is rejected as a possible clone, and rejected passkeys count towards the lockout. The relying party Id is the host of the Issuer.
+- Admin API and interface: `GET /api/users/{id}/mfa` lists the passkeys of a User, `DELETE /api/users/{id}/passkeys/{passkeyId}` removes one (`users.reset-mfa`) and ends all Sessions and Grants of the User; the MFA reset and deleting a User remove the passkeys too.
+- Audit events `passkey.registered`, `passkey.renamed`, `passkey.removed`, `passkey.used`, `passkey.failed` and `user.passkey-removed`, log events 8006 and 17001 – 17009.
+- The sign-in pages that use passkeys (`/account/second-factor`, `/account/security/passkeys`) load the static module `/js/passkeys.js` and allow `script-src 'self'` and `connect-src 'self'`; inline scripts stay forbidden.
 
 ### Changed
 
