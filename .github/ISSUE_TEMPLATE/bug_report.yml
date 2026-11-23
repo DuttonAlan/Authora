@@ -33,7 +33,7 @@ body:
     attributes:
       label: Authora version
       description: Release, image tag or commit.
-      placeholder: e.g. 0.2.0, ghcr.io/duttonalan/authora:0.2.0 or a commit SHA
+      placeholder: e.g. 0.3.0, ghcr.io/duttonalan/authora:0.3.0 or a commit SHA
     validations:
       required: true
   - type: dropdown
