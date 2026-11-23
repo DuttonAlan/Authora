@@ -7,6 +7,11 @@
 <h1>Account and security</h1>
 <p>Signed in as <strong>@Model.SignedInEmail</strong>.</p>
 
+@if (Model.CanRequestEmailVerification)
+{
+    <partial name="_EmailVerificationNotice" />
+}
+
 <ul class="scopes">
     <li>
         <strong>This session</strong>

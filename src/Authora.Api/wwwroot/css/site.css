@@ -249,3 +249,15 @@ a {
     padding: 6px 12px;
     font-size: 0.9rem;
 }
+
+.notice {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 8px;
+}
+
+.notice p {
+    margin: 0 0 8px;
+}

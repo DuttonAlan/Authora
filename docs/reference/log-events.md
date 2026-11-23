@@ -10,7 +10,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
 | 4001 – 4022 | Clients |
-| 5001 – 5024 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below), second factor and step-up (5019 – 5024, see below) |
+| 5001 – 5026 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018 and 5025 – 5026, see below), second factor and step-up (5019 – 5024, see below) |
 | 6001 – 6019 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016), required multi-factor authentication and `acr_values` (6017 – 6019, see below) |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8006 | Cleanup of expired data (including email tokens and, as 8005 and 8006, pending sign-ins and passkey challenges) and audit events |
@@ -68,6 +68,8 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 1013 | Information | The Email of User … was marked as verified by an administrator | `POST /api/users/{id}/email-verified`. |
 | 5017 | Information | User … confirmed their Email with a verification link | `email_verified` is `true` from now on. |
 | 5018 | Warning | An email verification link was not accepted: … | 14013 or 14014 has the reason. |
+| 5025 | Information | User … asked for a new email verification link, which was sent | At `/account/email-verification`; logged once the mail server accepted the email. |
+| 5026 | Warning | No email verification link was sent to User … at their request: … | Too many links in the last hour (`Authora:EmailVerification:MaxEmailsPerHour`), or the email could not be sent (14004 has the reason). |
 
 ## Second factor and step-up
 

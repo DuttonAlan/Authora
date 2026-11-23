@@ -34,6 +34,11 @@ public sealed class RateLimitOptionsValidator : IValidateOptions<RateLimitOption
             failures.Add($"'{section}:{nameof(RateLimitOptions.PasswordResetPermitsPerMinute)}' must be between 1 and {RateLimitOptions.MaxPermitsPerMinute}.");
         }
 
+        if (options.EmailVerificationPermitsPerMinute is < 1 or > RateLimitOptions.MaxPermitsPerMinute)
+        {
+            failures.Add($"'{section}:{nameof(RateLimitOptions.EmailVerificationPermitsPerMinute)}' must be between 1 and {RateLimitOptions.MaxPermitsPerMinute}.");
+        }
+
         return failures.Count > 0 ? ValidateOptionsResult.Fail(failures) : ValidateOptionsResult.Success;
     }
 }

@@ -5,6 +5,7 @@
 using System.Globalization;
 
 using Authora.Api.Authentication;
+using Authora.Core.Application.Account.RequestEmailVerification;
 using Authora.Core.Application.Account.Security;
 using Authora.Core.Application.Mfa.GetStatus;
 
@@ -14,13 +15,17 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace Authora.Api.Pages.Account;
 
 /// <summary>
-///     The account overview of a signed-in User: how they signed in, and links to change the password, the connected
-///     applications and the second factors. Users who are not signed in are sent to the sign-in page first.
+///     The account overview of a signed-in User: how they signed in, a new email verification link while their Email is
+///     not verified, and links to change the password, the connected applications and the second factors. Users who are not signed in are sent to the sign-in page first.
 /// </summary>
 /// <param name="getAccountSecurityService">The Service to list the second factors of the User.</param>
 /// <param name="getMfaStatusService">The Service to get the authenticator app, the recovery codes and the passkeys of the User.</param>
+/// <param name="requestEmailVerificationService">Tells whether the page offers a new email verification link.</param>
 [Authorize]
-public sealed class SecurityModel(GetAccountSecurityService getAccountSecurityService, GetMfaStatusService getMfaStatusService) : PageModel
+public sealed class SecurityModel(
+    GetAccountSecurityService getAccountSecurityService,
+    GetMfaStatusService getMfaStatusService,
+    RequestEmailVerificationService requestEmailVerificationService) : PageModel
 {
     /// <summary>
     ///     Path of the page.
@@ -53,6 +58,11 @@ public sealed class SecurityModel(GetAccountSecurityService getAccountSecuritySe
     public MfaStatusResponse Mfa { get; private set; } = new(false, null, null, []);
 
     /// <summary>
+    ///     Whether the Email of the User is not verified and a new link can be requested, so the page offers one.
+    /// </summary>
+    public bool CanRequestEmailVerification { get; private set; }
+
+    /// <summary>
     ///     Shows the overview.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -66,6 +76,7 @@ public sealed class SecurityModel(GetAccountSecurityService getAccountSecuritySe
         AuthenticatedAt = DateTimeOffset.FromUnixTimeSeconds(authenticationTime).UtcDateTime;
         SecondFactors = await getAccountSecurityService.ExecuteAsync(userId, cancellationToken);
         Mfa = await getMfaStatusService.ExecuteAsync(userId, cancellationToken);
+        CanRequestEmailVerification = await requestEmailVerificationService.CanRequestAsync(userId, cancellationToken);
 
         AuthenticationMethods = [.. User.FindAll(SessionClaimTypes.AuthenticationMethod).Select(claim => DisplayName(claim.Value))];
     }
