@@ -32,6 +32,6 @@ public sealed class TotpSecondFactor(IMfaRepository mfaRepository, MfaVerifier v
         => mfaRepository.HasConfirmedTotpAuthenticator(userId, cancellationToken);
 
     /// <inheritdoc/>
-    public Task<bool> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
-        => verifier.VerifyAsync(userId, response, cancellationToken);
+    public async Task<string?> VerifyAsync(Guid userId, string response, CancellationToken cancellationToken = default)
+        => await verifier.VerifyAsync(userId, response, cancellationToken) ? Method : null;
 }

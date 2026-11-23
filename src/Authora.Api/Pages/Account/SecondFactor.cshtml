@@ -4,6 +4,13 @@
     ViewData["Title"] = "Two-step verification";
 }
 
+@section Scripts {
+    @if (Model.OffersPasskey)
+    {
+        <script type="module" src="~/js/passkeys.js" asp-append-version="true"></script>
+    }
+}
+
 @if (Model.Pending is null)
 {
     <h1>Sign in again</h1>
@@ -28,39 +35,60 @@ else
         <p class="error" role="alert">@Model.ErrorMessage</p>
     }
 
-    <form method="post">
-        <input type="hidden" asp-for="ReturnUrl" />
+    @if (Model.OffersPasskey)
+    {
+        @* js/passkeys.js gets the options, lets the browser sign the challenge and submits the response as the Code. *@
+        <form method="post" data-passkey="get" data-passkey-options="PasskeyOptions">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <input type="hidden" name="Method" value="@Authora.Api.Pages.Account.SecondFactorModel.PasskeyMethod" />
+            <input type="hidden" name="Code" value="" data-passkey-response />
 
-        @if (Model.Pending.Factors.Count == 1)
-        {
-            <input type="hidden" asp-for="Method" />
-            <p>Enter the code of your <strong>@Model.Pending.Factors[0].DisplayName</strong>.</p>
-        }
-        else
-        {
-            <fieldset class="choices">
-                <legend>Verify with</legend>
-                @foreach (var factor in Model.Pending.Factors)
-                {
-                    <label><input type="radio" name="Method" value="@factor.Method" checked="@(factor.Method == Model.Method)" /> @factor.DisplayName</label>
-                }
-            </fieldset>
-        }
+            <p>Use a <strong>passkey</strong> you registered for this account, e.g. on your phone or a security key.</p>
+            <p class="error" role="alert" data-passkey-error hidden></p>
+            <p class="muted" data-passkey-unsupported hidden>This browser does not support passkeys.@(Model.CodeFactors.Count > 0 ? " Enter a code instead." : string.Empty)</p>
 
-        <label asp-for="Code">Code</label>
-        @* Not inputmode="numeric": a recovery code has letters. *@
-        <input asp-for="Code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required autofocus
-               aria-describedby="@(Model.AcceptsRecoveryCodes ? "code-hint" : null)" />
+            <div class="actions">
+                <button type="submit" class="primary" data-passkey-start disabled>Use a passkey</button>
+            </div>
+        </form>
+    }
 
-        @if (Model.AcceptsRecoveryCodes)
-        {
-            <p class="muted hint" id="code-hint">Lost your phone? Enter one of your recovery codes instead.</p>
-        }
+    @if (Model.CodeFactors.Count > 0)
+    {
+        <form method="post">
+            <input type="hidden" asp-for="ReturnUrl" />
 
-        <div class="actions">
-            <button type="submit" class="primary">Verify</button>
-        </div>
-    </form>
+            @if (Model.CodeFactors.Count == 1)
+            {
+                <input type="hidden" asp-for="Method" />
+                <p>@(Model.OffersPasskey ? "Or enter" : "Enter") the code of your <strong>@Model.CodeFactors[0].DisplayName</strong>.</p>
+            }
+            else
+            {
+                <fieldset class="choices">
+                    <legend>@(Model.OffersPasskey ? "Or verify with" : "Verify with")</legend>
+                    @foreach (var factor in Model.CodeFactors)
+                    {
+                        <label><input type="radio" name="Method" value="@factor.Method" checked="@(factor.Method == Model.Method)" /> @factor.DisplayName</label>
+                    }
+                </fieldset>
+            }
+
+            <label asp-for="Code">Code</label>
+            @* Not inputmode="numeric": a recovery code has letters. Not autofocus next to a passkey, which comes first. *@
+            <input asp-for="Code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required autofocus="@(!Model.OffersPasskey)"
+                   aria-describedby="@(Model.AcceptsRecoveryCodes ? "code-hint" : null)" />
+
+            @if (Model.AcceptsRecoveryCodes)
+            {
+                <p class="muted hint" id="code-hint">Lost your phone? Enter one of your recovery codes instead.</p>
+            }
+
+            <div class="actions">
+                <button type="submit" class="@(Model.OffersPasskey ? null : "primary")">Verify</button>
+            </div>
+        </form>
+    }
 
     <p class="muted"><a href="@Model.CancelUrl">Cancel</a></p>
 }

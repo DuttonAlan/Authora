@@ -13,7 +13,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 5001 – 5024 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018, see below), second factor and step-up (5019 – 5024, see below) |
 | 6001 – 6019 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016), required multi-factor authentication and `acr_values` (6017 – 6019, see below) |
 | 7001 – 7009 | Seeding at startup |
-| 8001 – 8005 | Cleanup of expired data (including email tokens and, as 8005, pending sign-ins) and audit events |
+| 8001 – 8006 | Cleanup of expired data (including email tokens and, as 8005 and 8006, pending sign-ins and passkey challenges) and audit events |
 | 9001 – 9005 | Signing keys |
 | 10001 – 10007 | Groups |
 | 11001 – 11011 | Hash chain of the audit log |
@@ -22,6 +22,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 14001 – 14006, 14011 – 14014, 14021 – 14026 | Email delivery; one-time tokens of email links; background delivery and background handling of reset requests |
 | 15001 – 15002 | Consents granted on the consent screen and revoked by the User or an administrator |
 | 16001 – 16010 | Multi-factor authentication: authenticator app and recovery codes, see below |
+| 17001 – 17009 | Passkeys, see below |
 
 ## Email
 
@@ -82,6 +83,7 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 6018 | Information | Authorization request of Client … asks for acr …, so User … is asked for another factor | `acr_values` asks for a level the User can reach with a factor the Session lacks. |
 | 6019 | Information | Authorization Code … was rejected, because Client … requires multi-factor authentication … | The code was issued before *Require MFA* was turned on for the Client. |
 | 8005 | Information | Deleted … pending sign-ins that expired before … | Written by the cleanup, without the retention. |
+| 8006 | Information | Deleted … passkey challenges that expired before … | Written by the cleanup, without the retention. |
 
 ## Multi-factor authentication
 
@@ -101,6 +103,22 @@ Codes, recovery codes and secrets are never logged.
 | 16010 | Information | User … must complete the authenticator app in Session … before generating new recovery codes | The Session was signed in with the password alone, e.g. before the app was set up; the User is sent to the step-up. |
 | 1014 | Information | The multi-factor authentication of User … was reset by an administrator | `DELETE /api/users/{id}/mfa`. All Sessions and tokens of the User were revoked. |
 
+## Passkeys
+
+Challenges, public keys and responses are never logged, only the Ids of passkeys.
+
+| Id | Level | Message | Meaning |
+|---|---|---|---|
+| 17001 | Information | User … registered passkey … | At `/account/security/passkeys`. From now on the User can use it after the password. |
+| 17002 | Warning | Registering a passkey for User … failed: … | Malformed response, unknown, used or expired challenge, wrong origin, already registered, or too many passkeys. |
+| 17003 | Information | User … renamed passkey … | |
+| 17004 | Information | User … removed passkey … in Session … | All other Sessions and all tokens of the User were revoked. |
+| 17005 | Information | User … verified with passkey … | In the second step of a sign-in or step-up. |
+| 17006 | Warning | A passkey response of User … was rejected: … | Malformed response, unknown, used or expired challenge (e.g. a replay), not a passkey of the User, wrong signature or origin. Counts towards the lockout. |
+| 17007 | Warning | The signature counter of passkey … of User … did not increase … | The authenticator may have been cloned. The response is rejected; the passkey stays registered until the User or an administrator removes it. |
+| 17008 | Information | Passkey … of User … was removed by an administrator | `DELETE /api/users/{id}/passkeys/{passkeyId}`. All Sessions and tokens of the User were revoked. |
+| 17009 | Information | User … must complete a second factor in Session … before changing their passkeys | The Session was signed in with the password alone, e.g. before the User had a second factor; the User is sent to the step-up. |
+
 ## Events worth alerting on
 
 | Event Id | Level | Message (shortened) | Meaning |
@@ -109,6 +127,8 @@ Codes, recovery codes and secrets are never logged.
 | 5020 | Warning | Second factor … of User … was wrong … | The password was correct; someone may know it. |
 | 16005 | Warning | User … used a recovery code … | Unexpected for the User if they still have their phone. |
 | 16009 | Error | The authenticator secret of User … cannot be decrypted | The Data Protection key ring is missing; Users with an authenticator app cannot sign in with it. |
+| 17006 | Warning | A passkey response of User … was rejected … | The password was correct; the response was replayed, came from another site, or was signed by another key. |
+| 17007 | Warning | The signature counter of passkey … did not increase … | The authenticator may have been cloned; the sign-in was rejected. |
 | 6004 | Warning | Authorization Code … was used more than once | Possible code theft; the Grant was revoked. |
 | 6005 | Warning | Refresh Token … was used more than once | Possible token theft; the Grant was revoked. |
 | 6006 | Warning | Client … presented a code or token that was issued to Client … | A Client used another Client's token. |

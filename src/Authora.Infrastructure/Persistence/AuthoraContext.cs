@@ -54,6 +54,16 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
 
     /// <summary>
+    ///     The passkeys of Users, with their public keys.
+    /// </summary>
+    public DbSet<Passkey> Passkeys => Set<Passkey>();
+
+    /// <summary>
+    ///     The hashes of the challenges of WebAuthn ceremonies in the <c>auth</c> schema.
+    /// </summary>
+    public DbSet<PasskeyChallenge> PasskeyChallenges => Set<PasskeyChallenge>();
+
+    /// <summary>
     ///     The Sessions Table in the <c>auth</c> schema.
     /// </summary>
     public DbSet<Session> Sessions => Set<Session>();

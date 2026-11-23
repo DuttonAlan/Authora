@@ -21,12 +21,25 @@ namespace Authora.Api.Pages;
 ///         </item>
 ///         <item><c>no-referrer</c> keeps the authorization request out of the Referer header of other sites.</item>
 ///         <item><c>no-store</c> keeps pages with a Session or a pending authorization out of caches.</item>
+///         <item>
+///             No scripts, except on pages marked with <see cref="AllowScriptsAttribute"/>: they may load scripts from
+///             and send requests to the own origin, never inline scripts.
+///         </item>
 ///     </list>
 /// </remarks>
 internal sealed class SecurityHeadersPageFilter : IAsyncPageFilter
 {
-    private const string ContentSecurityPolicy =
+    /// <summary>
+    ///     The Content Security Policy of pages without scripts.
+    /// </summary>
+    public const string ContentSecurityPolicy =
         "default-src 'none'; style-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+    /// <summary>
+    ///     The Content Security Policy of pages marked with <see cref="AllowScriptsAttribute"/>.
+    /// </summary>
+    public const string ScriptContentSecurityPolicy =
+        "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'";
 
     /// <inheritdoc/>
     public Task OnPageHandlerSelectionAsync(PageHandlerSelectedContext context)
@@ -42,7 +55,9 @@ internal sealed class SecurityHeadersPageFilter : IAsyncPageFilter
 
         var headers = context.HttpContext.Response.Headers;
 
-        headers.ContentSecurityPolicy = ContentSecurityPolicy;
+        headers.ContentSecurityPolicy = context.ActionDescriptor.EndpointMetadata.OfType<AllowScriptsAttribute>().Any()
+            ? ScriptContentSecurityPolicy
+            : ContentSecurityPolicy;
         headers.XFrameOptions = "DENY";
         headers.XContentTypeOptions = "nosniff";
         headers["Referrer-Policy"] = "no-referrer";

@@ -8,7 +8,9 @@ using Authora.Api.Authentication;
 using Authora.Api.RateLimiting;
 using Authora.Core.Application.Account.CompleteSignIn;
 using Authora.Core.Application.Account.PendingSignIn;
+using Authora.Core.Application.Account.SecondFactors;
 using Authora.Core.Application.Account.SignOut;
+using Authora.Core.Application.Passkeys.StartAuthentication;
 using Authora.Core.Domain;
 
 using Microsoft.AspNetCore.Mvc;
@@ -22,18 +24,39 @@ namespace Authora.Api.Pages.Account;
 ///     the password on the sign-in page or for a step-up of their Session.
 /// </summary>
 /// <remarks>
-///     It shares the rate limit of the sign-in page, and wrong responses count towards the lockout. Only once the
-///     factor is complete does the browser get a Session cookie (or, for a step-up, a new one).
+///     <para>
+///         It shares the rate limit of the sign-in page, and wrong responses count towards the lockout. Only once the
+///         factor is complete does the browser get a Session cookie (or, for a step-up, a new one).
+///     </para>
+///     <para>
+///         A passkey is used with the script <c>js/passkeys.js</c>: it gets the options from
+///         <see cref="OnPostPasskeyOptionsAsync"/>, lets the browser sign the challenge and posts the response as the
+///         <see cref="Code"/> of the passkey factor. The page therefore allows scripts of its own origin
+///         (<see cref="AllowScriptsAttribute"/>).
+///     </para>
 /// </remarks>
 /// <param name="getPendingSignInService">The Service to load the pending sign-in.</param>
 /// <param name="completeSignInService">The Service to check the factor and complete the sign-in.</param>
+/// <param name="startPasskeyAuthenticationService">The Service to create the options for a passkey.</param>
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
 [EnableRateLimiting(RateLimitPolicies.SignIn)]
+[AllowScripts]
 public sealed class SecondFactorModel(
     GetPendingSignInService getPendingSignInService,
     CompleteSignInService completeSignInService,
+    StartPasskeyAuthenticationService startPasskeyAuthenticationService,
     SignOutService signOutService) : PageModel
 {
+    /// <summary>
+    ///     The method by which the User chooses the passkey factor.
+    /// </summary>
+    public const string PasskeyMethod = AuthenticationMethods.HardwareKey;
+
+    /// <summary>
+    ///     The message for a passkey that was not accepted.
+    /// </summary>
+    public const string WrongPasskeyMessage = "The passkey was not accepted. Use a passkey you registered for this account.";
+
     /// <summary>
     ///     Path of the page.
     /// </summary>
@@ -55,9 +78,9 @@ public sealed class SecondFactorModel(
     public const string LockedOutMessage = "Too many incorrect attempts. Try again later.";
 
     /// <summary>
-    ///     Longest response accepted, e.g. a code.
+    ///     Longest response accepted, e.g. a code or the JSON of a passkey.
     /// </summary>
-    public const int MaxResponseLength = 4096;
+    public const int MaxResponseLength = 16384;
 
     /// <summary>
     ///     The method of the factor the User completes, e.g. <c>otp</c>.
@@ -93,7 +116,19 @@ public sealed class SecondFactorModel(
     /// <summary>
     ///     Whether the User can enter a recovery code: one of the factors is the authenticator app.
     /// </summary>
-    public bool AcceptsRecoveryCodes => Pending?.Factors.Any(factor => factor.Method == AuthenticationMethods.OneTimeCode) == true;
+    public bool AcceptsRecoveryCodes => CodeFactors.Any(factor => factor.Method == AuthenticationMethods.OneTimeCode);
+
+    /// <summary>
+    ///     Whether the User can complete the sign-in with a passkey.
+    /// </summary>
+    public bool OffersPasskey => Pending?.Factors.Any(factor => factor.Method == PasskeyMethod) == true;
+
+    /// <summary>
+    ///     The factors the User completes by entering a code, i.e. all but the passkey.
+    /// </summary>
+    public IReadOnlyList<SecondFactorResponse> CodeFactors => Pending is null
+        ? []
+        : [.. Pending.Factors.Where(factor => factor.Method != PasskeyMethod)];
 
     /// <summary>
     ///     The <see cref="ReturnUrl"/> if it is local, otherwise null.
@@ -122,6 +157,21 @@ public sealed class SecondFactorModel(
         await LoadPendingAsync(cancellationToken);
 
         return Page();
+    }
+
+    /// <summary>
+    ///     Creates the options for <c>navigator.credentials.get</c> with a new challenge, called by the script.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The options as JSON, or 404 Not Found if the pending sign-in cannot be completed with a passkey.</returns>
+    public async Task<IActionResult> OnPostPasskeyOptionsAsync(CancellationToken cancellationToken)
+    {
+        var options = await startPasskeyAuthenticationService.ExecuteAsync(
+            PendingSignInCookie.Read(Request),
+            GetCurrentSessionId(),
+            cancellationToken);
+
+        return options is null ? NotFound() : Content(options, "application/json");
     }
 
     /// <summary>
@@ -161,7 +211,7 @@ public sealed class SecondFactorModel(
                 return LocalRedirect(SafeReturnUrl ?? SessionAuthenticationHandler.SignInPath);
 
             case CompleteSignInStatus.WrongResponse:
-                return await FailedAsync(WrongResponseMessage, cancellationToken);
+                return await FailedAsync(Method == PasskeyMethod ? WrongPasskeyMessage : WrongResponseMessage, cancellationToken);
 
             case CompleteSignInStatus.LockedOut:
                 PendingSignInCookie.Delete(Response);
@@ -202,9 +252,10 @@ public sealed class SecondFactorModel(
             return;
         }
 
-        if (Method is null || !Pending.Factors.Any(factor => factor.Method == Method))
+        // The code form preselects a factor with a code; the passkey has a form of its own.
+        if (Method is null || !CodeFactors.Any(factor => factor.Method == Method))
         {
-            Method = Pending.Factors[0].Method;
+            Method = CodeFactors.Count > 0 ? CodeFactors[0].Method : Pending.Factors[0].Method;
         }
     }
 

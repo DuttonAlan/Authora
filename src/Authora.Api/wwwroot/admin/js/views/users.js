@@ -263,7 +263,9 @@ function accessActions(context, user) {
 function mfaPanel(context, user, mfa, deleted) {
     const app = mfa.authenticatorApp;
     const codes = mfa.recoveryCodes;
-    const canReset = !deleted && context.can('users.reset-mfa') && (app || codes);
+    const passkeys = mfa.passkeys ?? [];
+    const canChange = !deleted && context.can('users.reset-mfa');
+    const canReset = canChange && (app || codes || passkeys.length > 0);
 
     return panel('Two-step verification',
         details([
@@ -272,12 +274,28 @@ function mfaPanel(context, user, mfa, deleted) {
                 : badge('Off', 'neutral')],
             ['Last code', app ? relativeTime(app.lastUsedAt) : '–'],
             ['Recovery codes left', codes ? `${codes.remaining} of ${codes.total}` : '–'],
-            ['Last recovery code', codes ? relativeTime(codes.lastUsedAt) : '–']
+            ['Last recovery code', codes ? relativeTime(codes.lastUsedAt) : '–'],
+            ['Passkeys', passkeys.length > 0 ? badge(`${passkeys.length}`, 'ok') : badge('None', 'neutral')]
         ]),
+        passkeys.length > 0 ? table([
+            { label: 'Passkey', render: passkey => passkey.name },
+            { label: 'Kind', render: passkey => badge(passkey.isSynced ? 'Synced' : 'Device-bound', 'neutral') },
+            { label: 'Added', render: passkey => formatDate(passkey.createdAt) },
+            { label: 'Last used', render: passkey => relativeTime(passkey.lastUsedAt) },
+            {
+                label: '', class: 'actions-cell', render: passkey => canChange
+                    ? button('Remove', async () => {
+                        if (await confirmed('Remove passkey', `Remove the passkey "${passkey.name}" of ${user.email}? The User is signed out everywhere.`)) {
+                            run(() => api('DELETE', `/users/${user.id}/passkeys/${passkey.id}`), 'The passkey was removed.', context);
+                        }
+                    }, 'small destructive')
+                    : null
+            }
+        ], passkeys) : null,
         canReset ? [
-            hint('Resetting removes the authenticator app and the recovery codes, e.g. after the User lost their phone. The password alone then signs them in until they set up a new app.'),
+            hint('Resetting removes the authenticator app, the recovery codes and all passkeys, e.g. after the User lost their phone. The password alone then signs them in until they set up a new second factor.'),
             h('div', { class: 'button-row panel-actions' }, button('Reset two-step verification', async () => {
-                if (await confirmed('Reset two-step verification', `Remove the authenticator app and the recovery codes of ${user.email}? The User is signed out everywhere and can then sign in with the password alone.`)) {
+                if (await confirmed('Reset two-step verification', `Remove the authenticator app, the recovery codes and the passkeys of ${user.email}? The User is signed out everywhere and can then sign in with the password alone.`)) {
                     run(() => api('DELETE', `/users/${user.id}/mfa`), 'Two-step verification was reset.', context);
                 }
             }, 'destructive'))

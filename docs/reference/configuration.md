@@ -11,7 +11,7 @@ Authora reads its settings from `appsettings.json`, `appsettings.{Environment}.j
 | Setting | Description |
 |---|---|
 | `ConnectionStrings:Database` | PostgreSQL connection string, e.g. `Host=db;Database=authora;Username=authora_app;Password=…`. |
-| `Authora:OAuth:Issuer` | The public URL of Authora, e.g. `https://auth.example.com`. HTTPS; HTTP only for loopback hosts in `Development`. No query, no fragment, no trailing `/`. All endpoint URLs and the `iss` claim are built from it. Use a dedicated host without a path: Authora serves its endpoints at the root, so a path prefix is not supported. |
+| `Authora:OAuth:Issuer` | The public URL of Authora, e.g. `https://auth.example.com`. HTTPS; HTTP only for loopback hosts in `Development`. No query, no fragment, no trailing `/`. All endpoint URLs and the `iss` claim are built from it. Use a dedicated host without a path: Authora serves its endpoints at the root, so a path prefix is not supported. Its host is the WebAuthn relying party Id: passkeys stop working when it changes. |
 | `Authora:Oidc:SigningKeyPath` | PEM file with the RSA private key (at least 2048 bits, unencrypted) that signs ID Tokens. Relative paths are resolved against the content root. |
 | `AllowedHosts` | Host names Authora answers to, separated by `;`, e.g. `auth.example.com`. Outside `Development`, it must be set and must not contain `*`. |
 
@@ -49,7 +49,7 @@ Lifetimes of Access and Refresh Tokens are set per Client, in the admin interfac
 
 | Setting | Default | Limits | Description |
 |---|---|---|---|
-| `Authora:Mfa:IssuerName` | `Authora` | 1 to 64 characters, no colon or control characters | The name authenticator apps show next to the User's Email, e.g. the name of your company. Changing it does not change the entries Users already added. |
+| `Authora:Mfa:IssuerName` | `Authora` | 1 to 64 characters, no colon or control characters | The name authenticator apps show next to the User's Email, and the relying party name of passkeys, e.g. the name of your company. Changing it does not change the entries Users already added. |
 | `Authora:Mfa:RequireForAdministrators` | `false` | – | Require multi-factor authentication for every User who holds a Permission of the admin API. Such a User without a second factor sets up an authenticator app right after the password; an authorization request with `authora.admin` steps up a Session without one; and the admin API rejects their Access Tokens unless they come from a sign-in with two factors, also tokens of other Clients (`403`, `insufficient_user_authentication`). Off by default so upgrades keep working; recommended in production. |
 
 The algorithm is fixed to what every authenticator app supports: TOTP with HMAC-SHA-1, 6 digits, 30-second steps, one step of clock drift either way; 10 recovery codes per set. The secrets are encrypted with the Data Protection keys below. See [Require multi-factor authentication](../how-to/require-multi-factor-authentication.md).

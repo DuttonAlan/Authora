@@ -23,6 +23,7 @@ using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.MarkEmailVerified;
+using Authora.Core.Application.Users.RemovePasskey;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.ResetMfa;
 using Authora.Core.Application.Users.RevokeSessions;
@@ -55,6 +56,7 @@ namespace Authora.Api.Controllers;
 /// <param name="getUserService">The Service to get the User.</param>
 /// <param name="markEmailVerifiedService">The Service to mark the Email of the User as verified.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
+/// <param name="removeUserPasskeyService">The Service to remove a passkey of the User.</param>
 /// <param name="revokeConsentService">The Service to revoke a Consent of the User.</param>
 /// <param name="resetMfaService">The Service to reset the multi-factor authentication of the User.</param>
 /// <param name="revokeUserSessionsService">The Service to revoke all Sessions of the User.</param>
@@ -82,6 +84,7 @@ public sealed class UsersController(
     GetUserService getUserService,
     MarkEmailVerifiedService markEmailVerifiedService,
     RemoveRoleService removeRoleService,
+    RemoveUserPasskeyService removeUserPasskeyService,
     RevokeConsentService revokeConsentService,
     ResetMfaService resetMfaService,
     RevokeUserSessionsService revokeUserSessionsService,
@@ -695,11 +698,11 @@ public sealed class UsersController(
     }
 
     /// <summary>
-    ///     Gets the multi-factor authentication of the User: the authenticator app and the recovery codes.
+    ///     Gets the multi-factor authentication of the User: the authenticator app, the recovery codes and the passkeys.
     /// </summary>
     /// <remarks>
-    ///     Neither the secret of the app nor the recovery codes are ever returned; only when they were set up and last
-    ///     used, and how many codes are left. An unfinished setup does not count as an authenticator app.
+    ///     Neither the secret of the app, the recovery codes nor the keys of the passkeys are ever returned; only when they were set up and last
+    ///     used, how many codes are left, and the name and kind of each passkey. An unfinished setup does not count as an authenticator app.
     /// </remarks>
     /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -725,8 +728,8 @@ public sealed class UsersController(
     ///     Resets the multi-factor authentication of the User.
     /// </summary>
     /// <remarks>
-    ///     Removes the authenticator app and the recovery codes, e.g. after the User lost both; the password alone then
-    ///     signs the User in until they set up a new app. All Sessions and tokens of the User are revoked.
+    ///     Removes the authenticator app, the recovery codes and the passkeys, e.g. after the User lost them; the password alone then
+    ///     signs the User in until they set up a new second factor. All Sessions and tokens of the User are revoked.
     ///     This operation is idempotent: resetting a User without multi-factor authentication also succeeds and changes
     ///     nothing.
     /// </remarks>
@@ -750,6 +753,40 @@ public sealed class UsersController(
         CancellationToken cancellationToken)
     {
         await resetMfaService.ExecuteAsync(id, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Removes a passkey of the User.
+    /// </summary>
+    /// <remarks>
+    ///     E.g. one on a lost security key. The other passkeys and the authenticator app stay. All Sessions and tokens of
+    ///     the User are revoked, so whoever signed in with the passkey is signed out. The passkeys of the User are listed
+    ///     in <c>GET /api/users/{id}/mfa</c>.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="passkeyId" example="0199d1a2-7c3e-7b4a-9f10-1c963f66afa6">Id of the passkey.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the passkey is removed.</returns>
+    /// <response code="204">Responds with no content once the passkey was removed.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists, or the User has no passkey with the given Id.</response>
+    /// <response code="409">Responds with problem details if the User is deleted, or was changed by another request at the same time.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/passkeys/{passkeyId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ResetMfa)]
+    public async Task<IActionResult> RemovePasskey(
+        Guid id,
+        Guid passkeyId,
+        CancellationToken cancellationToken)
+    {
+        await removeUserPasskeyService.ExecuteAsync(id, passkeyId, cancellationToken);
 
         return NoContent();
     }

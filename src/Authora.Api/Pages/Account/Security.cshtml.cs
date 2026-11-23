@@ -18,7 +18,7 @@ namespace Authora.Api.Pages.Account;
 ///     applications and the second factors. Users who are not signed in are sent to the sign-in page first.
 /// </summary>
 /// <param name="getAccountSecurityService">The Service to list the second factors of the User.</param>
-/// <param name="getMfaStatusService">The Service to get the authenticator app and the recovery codes of the User.</param>
+/// <param name="getMfaStatusService">The Service to get the authenticator app, the recovery codes and the passkeys of the User.</param>
 [Authorize]
 public sealed class SecurityModel(GetAccountSecurityService getAccountSecurityService, GetMfaStatusService getMfaStatusService) : PageModel
 {
@@ -48,9 +48,9 @@ public sealed class SecurityModel(GetAccountSecurityService getAccountSecuritySe
     public IReadOnlyList<SecondFactorStatusResponse> SecondFactors { get; private set; } = [];
 
     /// <summary>
-    ///     The authenticator app and the recovery codes of the User.
+    ///     The authenticator app, the recovery codes and the passkeys of the User.
     /// </summary>
-    public MfaStatusResponse Mfa { get; private set; } = new(false, null, null);
+    public MfaStatusResponse Mfa { get; private set; } = new(false, null, null, []);
 
     /// <summary>
     ///     Shows the overview.
@@ -77,6 +77,6 @@ public sealed class SecurityModel(GetAccountSecurityService getAccountSecuritySe
             return "Password";
         }
 
-        return SecondFactors.FirstOrDefault(factor => factor.Method == method)?.DisplayName ?? method;
+        return SecondFactors.FirstOrDefault(factor => factor.Methods.Contains(method))?.DisplayName ?? method;
     }
 }

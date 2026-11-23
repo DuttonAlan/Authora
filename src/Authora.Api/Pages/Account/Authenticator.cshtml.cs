@@ -183,7 +183,7 @@ public sealed class AuthenticatorModel(
     {
         var userId = GetUserId();
 
-        if ((await getMfaStatusService.ExecuteAsync(userId, cancellationToken)).Enabled)
+        if ((await getMfaStatusService.ExecuteAsync(userId, cancellationToken)).AuthenticatorApp is not null)
         {
             AlreadyEnrolled = true;
 

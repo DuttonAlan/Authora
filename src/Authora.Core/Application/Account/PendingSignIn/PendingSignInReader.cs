@@ -105,7 +105,7 @@ public sealed class PendingSignInReader(
 
         var completed = challenge.AuthenticationMethods;
         var factors = (await secondFactors.GetEnrolledAsync(user.Id, cancellationToken))
-            .Where(factor => !completed.Contains(factor.Method, StringComparer.Ordinal))
+            .Where(factor => !SecondFactorRegistry.IsCompleted(factor, completed))
             .ToList();
 
         if (factors.Count == 0)

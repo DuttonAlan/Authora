@@ -66,7 +66,7 @@ public sealed class MfaRequirementTests(AuthoraApiFactory factory) : IClassFixtu
     {
         var document = await _client.GetFromJsonAsync<JsonElement>("/.well-known/openid-configuration", TestContext.Current.CancellationToken);
 
-        // The fake second factor of the tests is a hardware key, so phr can be reached.
+        // Passkeys are a second factor, so phr can be reached.
         Assert.Equal([AcrPassword, AcrMfa, "phr"], document.GetProperty("acr_values_supported").EnumerateArray().Select(value => value.GetString()));
 
         var claims = document.GetProperty("claims_supported").EnumerateArray().Select(value => value.GetString()).ToList();
@@ -111,9 +111,9 @@ public sealed class MfaRequirementTests(AuthoraApiFactory factory) : IClassFixtu
 
         var claims = await GetIdTokenClaimsAsync(clientId, redirectUri, parameters, steppedUpToken);
 
-        // The fake factor is a hardware key: phr is stronger than the requested level and satisfies it.
-        Assert.Equal("phr", claims.GetProperty("acr").GetString());
-        Assert.Equal(["pwd", "hwk", "mfa"], claims.GetProperty("amr").EnumerateArray().Select(value => value.GetString()));
+        // The fake factor is a smart card: the Session reaches the requested level.
+        Assert.Equal(AcrMfa, claims.GetProperty("acr").GetString());
+        Assert.Equal(["pwd", FakeSecondFactor.MethodName, "mfa"], claims.GetProperty("amr").EnumerateArray().Select(value => value.GetString()));
     }
 
     [Fact]

@@ -8,7 +8,8 @@
 | `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'` | All responses | No clickjacking. |
 | `Referrer-Policy: no-referrer` | All responses | Codes and Ids in URLs do not leak to other sites. |
 | `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'` | API responses | A response can never run as a page. |
-| Own CSP, `Cache-Control: no-store` | Sign-in, sign-out and consent pages | Only Authora's own styles; pages with a Session or a pending authorization are not cached. |
+| CSP `default-src 'none'; style-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'`, `Cache-Control: no-store` | Sign-in, sign-out, consent and account pages | Only Authora's own styles and no scripts; pages with a Session or a pending authorization are not cached. |
+| CSP `default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'`, `Cache-Control: no-store` | Pages that use passkeys: `/account/second-factor` and `/account/security/passkeys` | The WebAuthn calls run in the static module `/js/passkeys.js`, which fetches the options from the page itself; no inline or foreign scripts. |
 | CSP `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` | Admin interface | No inline or foreign scripts and styles. |
 | `Cross-Origin-Opener-Policy: same-origin` | Admin interface | Other windows cannot reach it through `window.opener`. |
 | `Cache-Control: no-store` | Token, revocation, introspection and UserInfo responses; admin session endpoints | Tokens are never cached. |

@@ -17,7 +17,7 @@ namespace Authora.Infrastructure.Cleanup;
 
 /// <summary>
 ///     Deletes Authorization Codes, Grants, Access and Refresh Tokens, Sessions and email tokens that expired or were revoked more
-///     than <see cref="CleanupOptions.Retention"/> ago, pending sign-ins as soon as they expired, and audit events older
+///     than <see cref="CleanupOptions.Retention"/> ago, pending sign-ins and passkey challenges as soon as they expired, and audit events older
 ///     than <see cref="CleanupOptions.AuditRetention"/> with their links of the hash chain.
 /// </summary>
 /// <remarks>
@@ -104,6 +104,14 @@ public sealed class ExpiredDataCleaner(
             cancellationToken);
 
         logger.PendingSignInsDeleted(pendingSignIns, now);
+
+        // Without the retention as well: a challenge of a passkey ceremony is short-lived and used at most once.
+        var passkeyChallenges = await DeleteInBatchesAsync(
+            context.PasskeyChallenges.Where(challenge => challenge.ExpiresAt < now).Select(challenge => challenge.Id),
+            ids => context.PasskeyChallenges.Where(challenge => ids.Contains(challenge.Id)),
+            cancellationToken);
+
+        logger.PasskeyChallengesDeleted(passkeyChallenges, now);
 
         var auditCutoff = now - options.Value.AuditRetention;
         var auditEvents = await DeleteAuditEventsAsync(auditCutoff, cancellationToken);

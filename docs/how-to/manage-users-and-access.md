@@ -32,7 +32,7 @@ To help a User yourself, open the User (`users.set-password`) and either:
 
 ## Reset two-step verification
 
-Users set up an authenticator app themselves on their account page. If someone lost their phone and has no recovery code left, open the User → **Two-step verification** → **Reset two-step verification** (`users.reset-mfa`). This signs them out everywhere; they then sign in with the password alone and set up the app again. See [Require multi-factor authentication](require-multi-factor-authentication.md).
+Users set up an authenticator app and add passkeys themselves on their account page. If someone lost their phone and has no recovery code left, open the User → **Two-step verification** → **Reset two-step verification** (`users.reset-mfa`). This removes the app, the recovery codes and the passkeys and signs them out everywhere; they then sign in with the password alone and set up a second factor again. For a single lost security key, **Remove** just that passkey in the same panel. See [Require multi-factor authentication](require-multi-factor-authentication.md).
 
 ## Give someone administrative rights
 

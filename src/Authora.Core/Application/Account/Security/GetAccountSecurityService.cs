@@ -23,6 +23,6 @@ public sealed class GetAccountSecurityService(SecondFactorRegistry secondFactors
     {
         var enrolled = await secondFactors.GetEnrolledAsync(userId, cancellationToken);
 
-        return [.. secondFactors.All.Select(factor => new SecondFactorStatusResponse(factor.Method, factor.DisplayName, enrolled.Contains(factor)))];
+        return [.. secondFactors.All.Select(factor => new SecondFactorStatusResponse(factor.Method, factor.DisplayName, enrolled.Contains(factor), factor.Methods))];
     }
 }

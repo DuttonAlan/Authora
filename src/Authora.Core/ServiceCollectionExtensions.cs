@@ -73,6 +73,12 @@ using Authora.Core.Application.Mfa.StartEnrollment;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Application.Oidc.EndSession;
 using Authora.Core.Application.Oidc.UserInfo;
+using Authora.Core.Application.Passkeys;
+using Authora.Core.Application.Passkeys.Register;
+using Authora.Core.Application.Passkeys.Remove;
+using Authora.Core.Application.Passkeys.Rename;
+using Authora.Core.Application.Passkeys.StartAuthentication;
+using Authora.Core.Application.Passkeys.StartRegistration;
 using Authora.Core.Application.Permissions.GetAll;
 using Authora.Core.Application.Roles.Create;
 using Authora.Core.Application.Roles.Delete;
@@ -99,6 +105,7 @@ using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.MarkEmailVerified;
+using Authora.Core.Application.Users.RemovePasskey;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.ResetMfa;
 using Authora.Core.Application.Users.RevokeSessions;
@@ -147,7 +154,7 @@ public static class ServiceCollectionExtensions
         // Second factors register themselves as ISecondFactor; without any, signing in needs the password only.
         serviceCollection.AddScoped<SecondFactorRegistry>();
 
-        // The authenticator app (TOTP) with recovery codes, the second factor of Authora.
+        // The authenticator app (TOTP) with recovery codes.
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<MfaOptions>, MfaOptionsValidator>());
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Scoped<ISecondFactor, TotpSecondFactor>());
         serviceCollection.AddTransient<MfaVerifier>();
@@ -157,6 +164,17 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<RegenerateRecoveryCodesService>();
         serviceCollection.AddTransient<RemoveTotpService>();
         serviceCollection.AddTransient<StartTotpEnrollmentService>();
+
+        // Passkeys (WebAuthn), registered after the authenticator app so the pages list the factors in this order.
+        serviceCollection.TryAddEnumerable(ServiceDescriptor.Scoped<ISecondFactor, PasskeySecondFactor>());
+        serviceCollection.AddTransient<PasskeyChallengeIssuer>();
+        serviceCollection.AddTransient<PasskeyChangeGuard>();
+        serviceCollection.AddTransient<PasskeyVerifier>();
+        serviceCollection.AddTransient<RegisterPasskeyService>();
+        serviceCollection.AddTransient<RemovePasskeyService>();
+        serviceCollection.AddTransient<RenamePasskeyService>();
+        serviceCollection.AddTransient<StartPasskeyAuthenticationService>();
+        serviceCollection.AddTransient<StartPasskeyRegistrationService>();
 
         serviceCollection.AddTransient<PermissionEvaluator>();
         serviceCollection.AddTransient<PrivilegeGuard>();
@@ -258,6 +276,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<MarkEmailVerifiedService>();
         serviceCollection.AddTransient<RemoveRoleService>();
         serviceCollection.AddTransient<ResetMfaService>();
+        serviceCollection.AddTransient<RemoveUserPasskeyService>();
         serviceCollection.AddTransient<RevokeUserSessionsService>();
         serviceCollection.AddTransient<SendEmailVerificationService>();
         serviceCollection.AddTransient<SendPasswordResetService>();

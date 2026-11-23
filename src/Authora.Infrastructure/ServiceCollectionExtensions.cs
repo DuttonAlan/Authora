@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ISecretGenerator, SecretGenerator>();
         serviceCollection.AddSingleton<ISecretHasher, Sha256SecretHasher>();
         serviceCollection.AddSingleton<IPasswordHasher, PasswordHasher>();
+        serviceCollection.AddSingleton<IPasskeyRelyingParty, Fido2PasskeyRelyingParty>();
         serviceCollection.AddSingleton<PemSigningKeyProvider>();
         serviceCollection.AddSingleton<ISigningKeyProvider>(serviceProvider => serviceProvider.GetRequiredService<PemSigningKeyProvider>());
         serviceCollection.AddHostedService<SigningKeyReloadService>();
@@ -91,6 +92,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<IEmailTokenRepository, EmailTokenRepository>();
         serviceCollection.AddTransient<IGroupRepository, GroupRepository>();
         serviceCollection.AddTransient<IMfaRepository, MfaRepository>();
+        serviceCollection.AddTransient<IPasskeyRepository, PasskeyRepository>();
         serviceCollection.AddTransient<IPermissionRepository, PermissionRepository>();
         serviceCollection.AddTransient<IRoleRepository, RoleRepository>();
         serviceCollection.AddTransient<IScopeRepository, ScopeRepository>();

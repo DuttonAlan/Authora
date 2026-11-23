@@ -156,12 +156,12 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
         Assert.NotNull(sessionToken);
 
         var session = Assert.Single(await GetSessionsAsync(userId));
-        Assert.Equal("pwd hwk", session.AuthenticationMethod);
+        Assert.Equal("pwd sc", session.AuthenticationMethod);
         Assert.NotNull(Assert.Single(await GetChallengesAsync(userId)).ConsumedAt);
 
         var signIn = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.SignIn, userId));
         Assert.Equal(AuditOutcome.Succeeded, signIn.Outcome);
-        Assert.StartsWith($"Session {session.Id} (pwd hwk)", signIn.Details, StringComparison.Ordinal);
+        Assert.StartsWith($"Session {session.Id} (pwd sc)", signIn.Details, StringComparison.Ordinal);
 
         // The Session works and the overview shows how the User signed in.
         var html = await GetPageAsync(SecurityModel.PagePath, sessionToken);
@@ -188,7 +188,7 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
 
         var failure = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.SignIn, userId));
         Assert.Equal(AuditOutcome.Failed, failure.Outcome);
-        Assert.StartsWith("Wrong second factor (hwk)", failure.Details, StringComparison.Ordinal);
+        Assert.StartsWith("Wrong second factor (sc)", failure.Details, StringComparison.Ordinal);
         Assert.DoesNotContain("654321", failure.Details, StringComparison.Ordinal);
 
         using (var correct = await SubmitCodeAsync(pendingToken, Code))
@@ -376,7 +376,7 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
         await Assert.ThrowsAsync<ConflictException>(() => outdatedRepository.SaveChangesAsync(cancellationToken));
 
         var stored = Assert.Single(await GetSessionsAsync(userId));
-        Assert.Equal("pwd hwk", stored.AuthenticationMethod);
+        Assert.Equal($"pwd {FakeSecondFactor.MethodName}", stored.AuthenticationMethod);
         Assert.Equal(secretHasher.Hash("token-of-the-first-step-up"), stored.TokenHash);
     }
 
@@ -459,7 +459,7 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
             var authorizationCode = await context.AuthorizationCodes.AsNoTracking()
                 .SingleAsync(authorizationCode => authorizationCode.UserId == userId, TestContext.Current.CancellationToken);
 
-            Assert.Equal("pwd hwk", authorizationCode.AuthenticationMethod);
+            Assert.Equal("pwd sc", authorizationCode.AuthenticationMethod);
             Assert.Equal(session.Id, authorizationCode.SessionId);
         }
 
@@ -506,7 +506,7 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
         // The same Session, with both methods, authenticated just now; the old token no longer works.
         var after = Assert.Single(await GetSessionsAsync(userId));
         Assert.Equal(before.Id, after.Id);
-        Assert.Equal("pwd hwk", after.AuthenticationMethod);
+        Assert.Equal("pwd sc", after.AuthenticationMethod);
         Assert.True(after.AuthenticatedAt > signedInAt.AddMinutes(29));
         Assert.Equal(before.CreatedAt, after.CreatedAt);
         Assert.Equal(before.ExpiresAt, after.ExpiresAt);
@@ -516,7 +516,7 @@ public sealed partial class TwoStepSignInTests(AuthoraApiFactory factory) : ICla
 
         var stepUp = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.StepUp, userId));
         Assert.Equal(AuditOutcome.Succeeded, stepUp.Outcome);
-        Assert.Equal($"Session {after.Id} (pwd hwk)", stepUp.Details);
+        Assert.Equal($"Session {after.Id} (pwd sc)", stepUp.Details);
     }
 
     [Fact]
