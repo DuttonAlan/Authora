@@ -21,6 +21,7 @@ using Authora.Core.Application.Account;
 using Authora.Core.Application.AdminUi;
 using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Email;
 using Authora.Core.Application.Mfa;
 using Authora.Core.Application.OAuth;
@@ -119,6 +120,9 @@ builder.Services.AddOptions<OAuthOptions>()
     .ValidateOnStart();
 builder.Services.AddOptions<OidcOptions>()
     .Bind(builder.Configuration.GetSection(OidcOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<BackchannelLogoutOptions>()
+    .Bind(builder.Configuration.GetSection(BackchannelLogoutOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddOptions<SignInOptions>()
     .Bind(builder.Configuration.GetSection(SignInOptions.SectionName))

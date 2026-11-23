@@ -100,6 +100,15 @@ public interface ITokenRepository
     public Task<int> RevokeGrantsOfClient(Guid clientId, DateTime now, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Revokes the Grants that were approved in the given Sessions, because the Sessions ended.
+    /// </summary>
+    /// <param name="sessionIds">Ids of the Sessions.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The number of Grants that were revoked by this call.</returns>
+    public Task<int> RevokeGrantsOfSessions(IReadOnlyCollection<Guid> sessionIds, DateTime now, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Revokes all Grants of a User for a Client, e.g. because the User revoked the Consent for the Client.
     /// </summary>
     /// <param name="userId">Id of the User.</param>

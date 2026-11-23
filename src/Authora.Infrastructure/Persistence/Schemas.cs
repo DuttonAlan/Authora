@@ -18,7 +18,7 @@ internal static class Schemas
 
     /// <summary>
     ///     The OAuth runtime state: Sessions, Authorization Codes, Consents, Grants, Access Tokens and Refresh Tokens,
-    ///     and the one-time tokens of email links.
+    ///     the one-time tokens of email links, and the outbox of back-channel logout notifications.
     /// </summary>
     public const string Auth = "auth";
 

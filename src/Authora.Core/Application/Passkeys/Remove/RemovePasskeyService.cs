@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,8 @@ namespace Authora.Core.Application.Passkeys.Remove;
 /// <param name="userRepository">An Instance of a IUserRepository to save the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to serialize changes of the User's second factors.</param>
 /// <param name="passkeyRepository">An Instance of a IPasskeyRepository to remove the passkey.</param>
+/// <param name="sessionRevoker">Revokes the other Sessions of the User and their Grants and notifies their Clients.</param>
+/// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the removal.</param>
 /// <param name="logger">The Logger to record the removal.</param>
 public sealed class RemovePasskeyService(
@@ -27,6 +30,8 @@ public sealed class RemovePasskeyService(
     IUserRepository userRepository,
     IMfaRepository mfaRepository,
     IPasskeyRepository passkeyRepository,
+    SessionRevoker sessionRevoker,
+    TimeProvider timeProvider,
     IAuditLog auditLog,
     ILogger<RemovePasskeyService> logger)
 {
@@ -70,6 +75,9 @@ public sealed class RemovePasskeyService(
 
         user.RotateSecurityStamp();
         session.RenewSecurityStamp(user);
+
+        // In the transaction of the lock above.
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, session.Id, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
 
         auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Passkeys.Removed, user.Id, $"Passkey {passkey.Id}, Session {session.Id}"));
 

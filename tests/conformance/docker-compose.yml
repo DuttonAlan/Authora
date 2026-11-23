@@ -1,10 +1,12 @@
-# Authora and the OpenID Foundation conformance suite side by side, for the Basic OP certification test plan.
+# Authora and the OpenID Foundation conformance suite side by side, for the Basic OP, RP-Initiated Logout OP and
+# Back-Channel Logout OP certification test plans.
 # Not for running Authora: start it through run.sh, which creates the keys in .work/ and drives the tests.
 # run.sh sets SUITE_VERSION and the passwords. The defaults below only let "down" work without them, e.g.
 #   docker compose --file tests/conformance/docker-compose.yml --profile runner down --volumes
 #
 #   Authora            https://authora:9443                  (also published on the host)
 #   Conformance suite  https://localhost.emobix.co.uk:8443   (published on the host; the name resolves to 127.0.0.1)
+#   Back-channel proxy https://backchannel-proxy:8443        (forwards Logout Tokens to the suite, see below)
 #
 # Inside this network, localhost.emobix.co.uk is an alias of the suite's nginx, so the suite's headless browser can
 # follow Authora's redirects back to it.
@@ -65,6 +67,10 @@ services:
       # The suite signs in once or more per test, all from one IP address.
       Authora__RateLimiting__SignInPermitsPerMinute: "1000"
       Authora__RateLimiting__TokenPermitsPerMinute: "10000"
+      # Logout Tokens go to backchannel-proxy, whose certificate is the only one Authora trusts here (OpenSSL reads
+      # this instead of the system's CA bundle). Sent every second, so the suite does not wait long.
+      SSL_CERT_FILE: /run/authora/backchannel-proxy.crt
+      Authora__BackchannelLogout__PollInterval: "00:00:01"
     volumes:
       - ./.work/secrets:/run/authora:ro
 
@@ -100,6 +106,18 @@ services:
       - server
     logging: *suite-logging
 
+  # Terminates TLS for the Logout Tokens Authora sends to the suite (Back-Channel Logout OP plan) and forwards them to
+  # the suite's nginx. Needed because that nginx has a self-signed certificate for "localhost", which Authora cannot
+  # verify for localhost.emobix.co.uk; this one is created by run.sh for the name backchannel-proxy.
+  backchannel-proxy:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./backchannel-proxy.conf:/etc/nginx/nginx.conf:ro
+      - ./.work/secrets:/run/backchannel-proxy:ro
+    depends_on:
+      - nginx
+    logging: *suite-logging
+
   # Runs setup.py and the suite's run-test-plan.py inside this network. Started by run.sh only.
   runner:
     image: python:3.13-slim
@@ -121,3 +139,4 @@ services:
     depends_on:
       - authora
       - nginx
+      - backchannel-proxy

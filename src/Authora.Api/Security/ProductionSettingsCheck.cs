@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Email;
 using Authora.Core.Application.OAuth;
 
@@ -73,6 +74,14 @@ internal static class ProductionSettingsCheck
             failures.Add(
                 $"'{EmailOptions.SectionName}:{nameof(EmailOptions.TlsMode)}' must be {nameof(SmtpTlsMode.StartTls)} or "
                 + $"{nameof(SmtpTlsMode.Implicit)} outside Development, not {nameof(SmtpTlsMode.None)}.");
+        }
+
+        // A Logout Token identifies the User and the Session, so it must not travel in plain text.
+        var allowHttp = configuration[$"{BackchannelLogoutOptions.SectionName}:{nameof(BackchannelLogoutOptions.AllowHttp)}"];
+
+        if (bool.TryParse(allowHttp, out var parsedAllowHttp) && parsedAllowHttp)
+        {
+            failures.Add($"'{BackchannelLogoutOptions.SectionName}:{nameof(BackchannelLogoutOptions.AllowHttp)}' must be false outside Development.");
         }
 
         return failures;

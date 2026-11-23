@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Email;
 using Authora.Core.Application.Exceptions;
@@ -24,6 +25,7 @@ namespace Authora.Core.Application.Account.ResetPassword;
 /// </remarks>
 /// <param name="emailTokenRedeemer">Checks and uses up the token.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to save the User.</param>
+/// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="passwordHasher">The hasher for the new password.</param>
 /// <param name="emailQueue">Sends the notification about the change in the background.</param>
 /// <param name="timeProvider">The clock.</param>
@@ -32,6 +34,7 @@ namespace Authora.Core.Application.Account.ResetPassword;
 public sealed class ResetPasswordService(
     EmailTokenRedeemer emailTokenRedeemer,
     IUserRepository userRepository,
+    SessionRevoker sessionRevoker,
     IPasswordHasher passwordHasher,
     IEmailQueue emailQueue,
     TimeProvider timeProvider,
@@ -93,10 +96,15 @@ public sealed class ResetPasswordService(
         user.SetPasswordHash(passwordHasher.Hash(request.NewPassword));
         user.Unlock();
 
+        await using var transaction = await sessionRevoker.BeginAsync(cancellationToken);
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, exceptSessionId: null, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
         auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Account.PasswordReset, user.Id));
 
-        // Throws a ConflictException if the User was changed since it was loaded, e.g. by a concurrent password change.
+        // Throws a ConflictException if the User was changed since it was loaded, e.g. by a concurrent password change;
+        // the revocation of the Sessions is rolled back then.
         await userRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         logger.PasswordReset(user.Id);
 

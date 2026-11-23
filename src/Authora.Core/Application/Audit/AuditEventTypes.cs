@@ -396,6 +396,15 @@ public static class AuditEventTypes
         ///     the Grant, the Scopes and the expiry, never the token.
         /// </summary>
         public const string TokenIssued = "client.token-issued";
+
+        /// <summary>
+        ///     Authora gave up sending a Logout Token to the Back-Channel Logout URI of a Client after the last attempt,
+        ///     or without sending once it was older than <c>Authora:BackchannelLogout:MaxAge</c> or the URI does not use
+        ///     HTTPS while HTTP is not allowed. Recorded with <see cref="Domain.Enums.AuditOutcome.Failed"/>.
+        ///     The Details name the User, the number of attempts and the last error, never the token. The Client may
+        ///     still consider the User signed in.
+        /// </summary>
+        public const string BackchannelLogoutFailed = "client.backchannel-logout-failed";
     }
 
     /// <summary>

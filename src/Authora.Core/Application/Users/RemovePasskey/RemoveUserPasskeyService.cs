@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
@@ -17,20 +18,24 @@ namespace Authora.Core.Application.Users.RemovePasskey;
 /// </summary>
 /// <remarks>
 ///     Rotates the Security Stamp, so all Sessions and Grants of the User end: whoever signed in with the lost passkey is
-///     signed out. The caller must be allowed to act on the User (<see cref="PrivilegeGuard"/>), so only an
+///     signed out, and the Clients of the Sessions are notified (back-channel logout). The caller must be allowed to act on the User (<see cref="PrivilegeGuard"/>), so only an
 ///     administrator can change an administrator.
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to serialize changes of the User's second factors.</param>
 /// <param name="passkeyRepository">An Instance of a IPasskeyRepository to remove the passkey.</param>
+/// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
+/// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the removal.</param>
 /// <param name="logger">The Logger to record the removal.</param>
 public sealed class RemoveUserPasskeyService(
     IUserRepository userRepository,
     IMfaRepository mfaRepository,
     IPasskeyRepository passkeyRepository,
+    SessionRevoker sessionRevoker,
     PrivilegeGuard privilegeGuard,
+    TimeProvider timeProvider,
     IAuditLog auditLog,
     ILogger<RemoveUserPasskeyService> logger)
 {
@@ -65,6 +70,8 @@ public sealed class RemoveUserPasskeyService(
 
         passkeyRepository.RemovePasskeys([passkey]);
         user.RotateSecurityStamp();
+
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, exceptSessionId: null, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
 
         auditLog.Record(entry);
 

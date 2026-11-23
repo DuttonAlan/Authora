@@ -281,6 +281,11 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidGrant, "The Client requires multi-factor authentication, but the User signed in without it.");
         }
 
+        // Locked until the Grant is saved: a sign-out that runs at the same time either ends the Session before the
+        // check below, or waits and then revokes the new Grant and notifies the Client (back-channel logout).
+        await using var transaction = await sessionRepository.BeginTransactionAsync(cancellationToken);
+        await sessionRepository.LockSession(authorizationCode.SessionId, cancellationToken);
+
         // A code issued before the User signed out must not sign them in again.
         var session = await sessionRepository.GetSessionById(authorizationCode.SessionId, cancellationToken);
 
@@ -305,6 +310,7 @@ public sealed class IssueTokenService(
         var tokens = tokenIssuer.Issue(grant, client, scopes, now);
 
         await tokenRepository.CreateGrant(grant, tokens.AccessToken, tokens.RefreshToken, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         // A reuse detected while this request was running found no Grant to revoke, so revoke it here.
         if (await authorizationCodeRepository.IsReused(authorizationCode.Id, cancellationToken))
@@ -347,7 +353,7 @@ public sealed class IssueTokenService(
 
         return tokens.Response with
         {
-            IdToken = idTokenIssuer.Issue(user, authorizationCode, scopes, tokens.Response.AccessToken, now)
+            IdToken = idTokenIssuer.Issue(user, authorizationCode, session.Sid, scopes, tokens.Response.AccessToken, now)
         };
     }
 

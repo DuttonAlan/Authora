@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Upgrading
+
+- Stop all instances before applying the new migration `BackchannelLogout` (see [Upgrade Authora](docs/how-to/upgrade-authora.md)). Sessions started before the upgrade end; Users sign in again.
+- **Signing out now revokes tokens.** Ending a Session on purpose revokes the Grants approved in it, with their Access and Refresh Tokens, for every Client: signing out at `/account/logout` or `/oauth/logout`, and the paths that already ended all Sessions (password change and reset, removing a second factor, and the admin API's revoke sessions, deactivate, delete, set password, reset MFA and remove passkey). Applications that kept using their Refresh Token after the User signed out of Authora have to send the User through Authora again. Grants from before the upgrade are not tied to a Session and are not revoked by a sign-out.
+- Instances now send HTTPS requests to the Back-Channel Logout URIs of Clients: allow that outgoing traffic, and make sure the certificates of those URIs are trusted on the host.
+
+New settings, audit and log events are listed in the [OpenID Connect](docs/reference/openid-connect.md#back-channel-logout), [configuration](docs/reference/configuration.md#back-channel-logout), [audit events](docs/reference/audit-events.md) and [log events](docs/reference/log-events.md#back-channel-logout) references.
+
+### Added
+
+- Back-channel logout ([OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html), [#54](https://github.com/DuttonAlan/Authora/issues/54)): Clients register a Back-Channel Logout URI in the admin API or interface and receive a signed Logout Token when a Session ends in which they got tokens. Notifications are kept in a database outbox, survive restarts, are sent by any instance and retried with a growing delay (`Authora:BackchannelLogout`). Discovery advertises `backchannel_logout_supported` and `backchannel_logout_session_supported`. See [Receive back-channel logout](docs/how-to/receive-back-channel-logout.md).
+- `sid` in ID Tokens: a random Session ID that Logout Tokens repeat.
+- Audit event `client.backchannel-logout-failed`, log events 18001 and 18011 – 18015.
+- The conformance workflow also runs the OpenID Foundation's Back-Channel Logout OP test plan.
+
+### Changed
+
+- The token endpoint holds a lock on the Session while it creates a Grant from a code, so a sign-out at the same time cannot miss the new Grant.
+
 ## [0.3.0] - 2026-11-23
 
 ### Upgrading

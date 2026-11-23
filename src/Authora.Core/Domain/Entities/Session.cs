@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 // See the LICENSE file in the project root for license information.
 
+using System.Buffers.Text;
+using System.Security.Cryptography;
+
 using Authora.Core.Domain.ValueObjects;
 
 namespace Authora.Core.Domain.Entities;
@@ -27,6 +30,26 @@ public sealed class Session
     ///     Id of the Session.
     /// </summary>
     public Guid Id { get; private set; } = Guid.CreateVersion7();
+
+    /// <summary>
+    ///     Maximum length of <see cref="Sid"/>.
+    /// </summary>
+    public const int SidMaxLength = 64;
+
+    /// <summary>
+    ///     Number of random bytes of a new <see cref="Sid"/>.
+    /// </summary>
+    private const int SidBytes = 16;
+
+    /// <summary>
+    ///     The Session ID of OpenID Connect: a random, opaque value, sent as <c>sid</c> in ID Tokens and Logout Tokens
+    ///     (OpenID Connect Back-Channel Logout 1.0), so Clients can tell which of their sessions ended. Not
+    ///     <see cref="Id"/>, whose Guid v7 reveals when the Session started.
+    /// </summary>
+    /// <remarks>
+    ///     Empty for Sessions from before it was introduced. They count as ended, see <see cref="IsActive"/>.
+    /// </remarks>
+    public string Sid { get; private set; } = null!;
 
     /// <summary>
     ///     Id of the signed-in <see cref="User"/>.
@@ -107,6 +130,7 @@ public sealed class Session
         return new Session
         {
             UserId = user.Id,
+            Sid = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(SidBytes)),
             TokenHash = tokenHash,
             SecurityStamp = user.SecurityStamp,
             AuthenticationMethod = Domain.AuthenticationMethods.Format(authenticationMethods),
@@ -145,8 +169,9 @@ public sealed class Session
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Sessions from before the authentication methods were recorded have none. They count as ended
-    ///         everywhere, also for exchanging an Authorization Code issued in them, so the User signs in again.
+    ///         Sessions from before the authentication methods or the <see cref="Sid"/> were recorded have none. They
+    ///         count as ended everywhere, also for exchanging an Authorization Code issued in them, so the User signs
+    ///         in again.
     ///     </para>
     ///     <para>
     ///         Does not check the User. Callers must also compare <see cref="SecurityStamp"/> and check <see cref="User.CanSignIn"/>.
@@ -163,7 +188,8 @@ public sealed class Session
         return RevokedAt is null
             && ExpiresAt > now
             && LastActivityAt + idleTimeout > now
-            && !string.IsNullOrEmpty(AuthenticationMethod);
+            && !string.IsNullOrEmpty(AuthenticationMethod)
+            && !string.IsNullOrEmpty(Sid);
     }
 
     /// <summary>
@@ -202,6 +228,10 @@ public sealed class Session
     /// <summary>
     ///     Revokes the Session. Revoking an already revoked Session keeps the original revocation time.
     /// </summary>
+    /// <remarks>
+    ///     Only for a Session that already ended in effect, e.g. because its User can no longer sign in. To end an
+    ///     active Session, use <c>SessionRevoker</c>, which also revokes its Grants and notifies its Clients.
+    /// </remarks>
     /// <param name="now">The current point in time (UTC).</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
     public void Revoke(DateTime now)

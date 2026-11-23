@@ -34,6 +34,19 @@ Lifetimes of Access and Refresh Tokens are set per Client, in the admin interfac
 | `Authora:Oidc:IdTokenLifetime` | `00:05:00` | at most 1 hour | Lifetime of ID Tokens. |
 | `Authora:Oidc:KeyReloadInterval` | `00:01:00` | 10 seconds to 1 hour | How often the key files are checked for changes. Changing it needs a restart. |
 
+## Back-channel logout
+
+How Logout Tokens are sent to the Back-Channel Logout URIs of Clients, see [Back-channel logout](openid-connect.md#back-channel-logout).
+
+| Setting | Default | Limits | Description |
+|---|---|---|---|
+| `Authora:BackchannelLogout:AllowHttp` | `false` | `false` outside `Development` | Whether Back-Channel Logout URIs may use plain HTTP. `appsettings.Development.json` sets it to `true` for local Clients. Authora does not start with `true` in any other environment, because a Logout Token identifies the User. Checked again before each delivery: with `false`, notifications to an HTTP URI saved earlier are given up without being sent. |
+| `Authora:BackchannelLogout:Timeout` | `00:00:05` | 1 to 30 seconds | How long a Client may take to answer before the delivery counts as failed. |
+| `Authora:BackchannelLogout:MaxAttempts` | `10` | 1 to 50 | Attempts per notification before Authora gives up. Retries wait 10 seconds, then twice as long each time, at most one hour. |
+| `Authora:BackchannelLogout:MaxAge` | `1.00:00:00` | 1 minute to 7 days | How long after the Session ended a notification is still sent; afterwards Authora gives up without sending it, even with attempts left. |
+| `Authora:BackchannelLogout:PollInterval` | `00:00:05` | 1 second to 5 minutes | How often each instance looks for due notifications. Changing it needs a restart. |
+| `Authora:BackchannelLogout:BatchSize` | `20` | 1 to 100 | Notifications an instance sends at the same time. An instance claims them for `Timeout` plus one minute; if it stops while sending, another instance sends them after that. |
+
 ## Sign-in and Sessions
 
 | Setting | Default | Limits | Description |
@@ -151,7 +164,7 @@ A background service deletes expired data.
 | Setting | Default | Limits | Description |
 |---|---|---|---|
 | `Authora:Cleanup:Interval` | `01:00:00` | 1 minute to 1 day | How often the cleanup runs. The first run is one interval after startup. |
-| `Authora:Cleanup:Retention` | `7.00:00:00` | at least 1 day | How long Authorization Codes, Grants, tokens, Sessions and the one-time tokens of email links are kept after they expired or were revoked. Reuse of a consumed code or Refresh Token is only detected while its row exists. |
+| `Authora:Cleanup:Retention` | `7.00:00:00` | at least 1 day | How long Authorization Codes, Grants, tokens, Sessions and the one-time tokens of email links are kept after they expired or were revoked. Reuse of a consumed code or Refresh Token is only detected while its row exists. Grants approved in a Session that is not revoked are kept until it is, so its Clients can still be notified (back-channel logout). |
 | `Authora:Cleanup:BatchSize` | `1000` | 1 to 10000 | Rows deleted per statement. |
 | `Authora:Cleanup:AuditRetention` | `365.00:00:00` | at least 30 days | How long audit events are kept. |
 

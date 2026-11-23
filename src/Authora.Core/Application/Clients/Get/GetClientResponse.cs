@@ -21,6 +21,8 @@ namespace Authora.Core.Application.Clients.Get;
 /// <param name="RefreshTokenTTL" example="86400">Lifetime of Refresh Tokens in seconds.</param>
 /// <param name="RedirectUris" example="[&quot;https://shop.example.com/callback&quot;]">Registered Redirect URIs.</param>
 /// <param name="PostLogoutRedirectUris" example="[&quot;https://shop.example.com/signed-out&quot;]">Registered Post-logout Redirect URIs, for RP-initiated logout.</param>
+/// <param name="BackchannelLogoutUri" example="https://shop.example.com/backchannel-logout">Back-Channel Logout URI, to which Authora sends a Logout Token when a Session ends in which the Client received tokens, or null.</param>
+/// <param name="BackchannelLogoutSessionRequired" example="false">Whether the Client requires the sid claim in Logout Tokens. Authora always sends it.</param>
 /// <param name="Scopes">Scopes the Client is allowed to request.</param>
 /// <param name="ServedScopes">Scopes the Client serves as a resource server. It can introspect Access Tokens of other Clients only if they contain one of these Scopes.</param>
 /// <param name="Secrets">Secrets of the Client, including expired and revoked ones. Only metadata, never the Secret itself.</param>
@@ -39,6 +41,8 @@ public sealed record GetClientResponse(
     int RefreshTokenTTL,
     IReadOnlyList<string> RedirectUris,
     IReadOnlyList<string> PostLogoutRedirectUris,
+    string? BackchannelLogoutUri,
+    bool BackchannelLogoutSessionRequired,
     IReadOnlyList<ClientScopeResponse> Scopes,
     IReadOnlyList<ClientScopeResponse> ServedScopes,
     IReadOnlyList<ClientSecretResponse> Secrets,

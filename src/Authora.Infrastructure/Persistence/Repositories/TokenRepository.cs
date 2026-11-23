@@ -90,6 +90,19 @@ public sealed class TokenRepository(AuthoraContext context) : ITokenRepository
     }
 
     /// <inheritdoc/>
+    public async Task<int> RevokeGrantsOfSessions(IReadOnlyCollection<Guid> sessionIds, DateTime now, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionIds);
+
+        var ids = sessionIds.ToList();
+
+        return await RevokeGrants(
+            context.Grants.Where(grant => grant.SessionId != null && ids.Contains(grant.SessionId.Value)),
+            now,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<int> RevokeGrantsOfUserForClient(Guid userId, Guid clientId, DateTime now, CancellationToken cancellationToken = default)
     {
         return await RevokeGrants(

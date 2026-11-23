@@ -55,6 +55,12 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
         builder.Property(x => x.RequiresMfa)
             .IsRequired();
 
+        builder.Property(x => x.BackchannelLogoutUri)
+            .HasMaxLength(Client.BackchannelLogoutUriMaxLength);
+
+        builder.Property(x => x.BackchannelLogoutSessionRequired)
+            .IsRequired();
+
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 

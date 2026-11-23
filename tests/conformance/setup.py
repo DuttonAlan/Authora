@@ -1,10 +1,16 @@
-"""Prepares a fresh Authora for the OpenID conformance suite and writes the suite's test plan configuration.
+"""Prepares a fresh Authora for the OpenID conformance suite and writes the suite's test plan configurations.
 
 Waits until Authora and the suite answer. Then signs in to the admin interface as the bootstrap administrator, the
 way a browser does, and uses the admin API to create the User the suite signs in as and two Confidential Clients (the
 suite's "client" and "client2") with the suite's Redirect URI and Post-logout Redirect URI. Both Clients are
 first-party, so the suite's browser sees no consent screen, and may omit PKCE, which most tests of the Basic OP plan
 do not send.
+
+The Back-Channel Logout OP plan gets a configuration of its own, with another alias and a third Client that has a
+Back-Channel Logout URI. Logout Tokens are sent to the alias, i.e. to whichever test of it runs, so the Clients of the
+other plans have none: a test of the RP-Initiated Logout plan would fail on a request it does not expect. The URI
+points to the TLS proxy "backchannel-proxy" of docker-compose.yml, because Authora cannot verify the certificate of
+the suite's nginx (self-signed for "localhost").
 
 Runs in the "runner" container of docker-compose.yml, see run.sh. Settings come from environment variables.
 """
@@ -25,12 +31,26 @@ USER_EMAIL = os.environ["CONFORMANCE_USER_EMAIL"]
 USER_PASSWORD = os.environ["CONFORMANCE_USER_PASSWORD"]
 SUITE_URL = os.environ["CONFORMANCE_SERVER"].rstrip("/")
 ALIAS = os.environ.get("CONFORMANCE_ALIAS", "authora")
+BACKCHANNEL_ALIAS = os.environ.get("CONFORMANCE_BACKCHANNEL_ALIAS", "authora-backchannel")
 OUTPUT = os.environ.get("CONFORMANCE_CONFIG", "/work/config.json")
+BACKCHANNEL_OUTPUT = os.environ.get("CONFORMANCE_BACKCHANNEL_CONFIG", "/work/config-backchannel.json")
+# Forwards to the suite's nginx, with a certificate Authora trusts, see docker-compose.yml.
+BACKCHANNEL_PROXY_URL = os.environ.get("CONFORMANCE_BACKCHANNEL_PROXY", "https://backchannel-proxy:8443")
 
-# The suite sends the browser back to this URL; static Clients must have it registered.
-REDIRECT_URI = f"{SUITE_URL}/test/a/{ALIAS}/callback"
-# The RP-Initiated Logout tests expect this Post-logout Redirect URI for static Clients.
-POST_LOGOUT_REDIRECT_URI = f"{SUITE_URL}/test/a/{ALIAS}/post_logout_redirect"
+
+def redirect_uri(alias):
+    """The suite sends the browser back to this URL; static Clients must have it registered."""
+    return f"{SUITE_URL}/test/a/{alias}/callback"
+
+
+def post_logout_redirect_uri(alias):
+    """The logout tests expect this Post-logout Redirect URI for static Clients."""
+    return f"{SUITE_URL}/test/a/{alias}/post_logout_redirect"
+
+
+def backchannel_logout_uri(alias):
+    """The Back-Channel Logout test expects Logout Tokens at this path of the alias."""
+    return f"{BACKCHANNEL_PROXY_URL}/test/a/{alias}/backchannel_logout"
 
 
 def fail(message):
@@ -91,16 +111,21 @@ def admin_api(http, method, path, body=None, expected=200):
     return response.json() if response.content else None
 
 
-def register_client(http, name, scope_ids):
+def register_client(http, name, scope_ids, alias=ALIAS, backchannel_logout=False):
     created = admin_api(http, "POST", "/clients", {
         "name": name,
         "type": "Confidential",
-        "redirectUris": [REDIRECT_URI],
-        "postLogoutRedirectUris": [POST_LOGOUT_REDIRECT_URI],
+        "redirectUris": [redirect_uri(alias)],
+        "postLogoutRedirectUris": [post_logout_redirect_uri(alias)],
         "scopeIds": scope_ids,
     }, expected=201)
 
     client_id = created["id"]
+    if backchannel_logout:
+        admin_api(http, "PUT", f"/clients/{client_id}", {
+            "backchannelLogoutUri": backchannel_logout_uri(alias),
+            "backchannelLogoutSessionRequired": True,
+        }, expected=204)
     # Redirect URIs, Post-logout Redirect URIs and Scopes cannot be added and PKCE cannot be made optional any more
     # once a Client is first-party, so this comes last.
     admin_api(http, "PUT", f"/clients/{client_id}/pkce-optional", expected=204)
@@ -248,10 +273,22 @@ def main():
             },
         }
 
-    with open(OUTPUT, "w", encoding="utf-8") as file:
-        json.dump(config, file, indent=4)
+        backchannel_client = register_client(
+            http, "Conformance back-channel client", scope_ids, alias=BACKCHANNEL_ALIAS, backchannel_logout=True)
 
-    print(f"setup: created the User {USER_EMAIL} and two Clients, wrote {OUTPUT}")
+        backchannel_config = {
+            "alias": BACKCHANNEL_ALIAS,
+            "description": "Authora (back-channel logout)",
+            "server": {"discoveryUrl": f"{ISSUER}/.well-known/openid-configuration"},
+            "client": backchannel_client,
+            "browser": browser_automation(),
+        }
+
+    for path, value in ((OUTPUT, config), (BACKCHANNEL_OUTPUT, backchannel_config)):
+        with open(path, "w", encoding="utf-8") as file:
+            json.dump(value, file, indent=4)
+
+    print(f"setup: created the User {USER_EMAIL} and three Clients, wrote {OUTPUT} and {BACKCHANNEL_OUTPUT}")
 
 
 if __name__ == "__main__":

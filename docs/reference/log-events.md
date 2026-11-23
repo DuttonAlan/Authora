@@ -23,6 +23,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 15001 – 15002 | Consents granted on the consent screen and revoked by the User or an administrator |
 | 16001 – 16010 | Multi-factor authentication: authenticator app and recovery codes, see below |
 | 17001 – 17009 | Passkeys, see below |
+| 18001, 18011 – 18015 | Back-channel logout: Sessions ended explicitly, and the delivery of Logout Tokens, see below |
 
 ## Email
 
@@ -121,6 +122,19 @@ Challenges, public keys and responses are never logged, only the Ids of passkeys
 | 17008 | Information | Passkey … of User … was removed by an administrator | `DELETE /api/users/{id}/passkeys/{passkeyId}`. All Sessions and tokens of the User were revoked. |
 | 17009 | Information | User … must complete a second factor in Session … before changing their passkeys | The Session was signed in with the password alone, e.g. before the User had a second factor; the User is sent to the step-up. |
 
+## Back-channel logout
+
+See [Back-channel logout](openid-connect.md#back-channel-logout).
+
+| Event Id | Level | Message (shortened) | Meaning |
+|---|---|---|---|
+| 18001 | Information | Revoked … Sessions of User … and … Grants approved in them; queued … back-channel logout notifications | A sign-out, a password change or reset, removing a second factor, or an administrator ended Sessions. Written once per change, also without Clients to notify. |
+| 18011 | Information | Sent the Logout Token of notification … for User … to Client … | The Client answered with `2xx`. |
+| 18012 | Warning | Sending the Logout Token of notification … to Client … failed in attempt …: … Retried at … | Status code, network error or timeout; retried with a growing delay. |
+| 18013 | Warning | Gave up sending the Logout Token of notification … for User … to Client … after … attempts | After `Authora:BackchannelLogout:MaxAttempts`; or without sending, once older than `MaxAge` or for an HTTP URI while `AllowHttp` is off. Also recorded as `client.backchannel-logout-failed`. The Client may still consider the User signed in. |
+| 18014 | Information | Dropped notification …, because Client … no longer has a Back-Channel Logout URI | The URI was removed after the Session ended. |
+| 18015 | Error | Sending back-channel logout notifications failed | E.g. the database was unavailable; retried with the next run. |
+
 ## Events worth alerting on
 
 | Event Id | Level | Message (shortened) | Meaning |
@@ -139,6 +153,8 @@ Challenges, public keys and responses are never logged, only the Ids of passkeys
 | 7007 | Warning | … a bootstrap password is still configured | Remove `Authora:Bootstrap:Administrator:Password`. |
 | 7009 | Warning | The Client of the admin interface was not created | The Issuer gives an invalid Redirect URI; the admin interface cannot be used. |
 | 8002 | Error | The cleanup of expired data failed | Retried with the next run. |
+| 18013 | Warning | Gave up sending the Logout Token … | A Client was not told that a User signed out. Check that its Back-Channel Logout URI is reachable from Authora. |
+| 18015 | Error | Sending back-channel logout notifications failed | Retried with the next run. |
 | 9003 | Error | The changed key files could not be loaded | The previous keys stay in use; health check `signing-keys` is `Degraded`. |
 | 9004 | Warning | The signing key file … can be read or written by other users | Restrict the file to the user that runs Authora. |
 | 14004 | Error | Email … could not be sent through … | The email did not reach the User. Check the SMTP settings and the server. |

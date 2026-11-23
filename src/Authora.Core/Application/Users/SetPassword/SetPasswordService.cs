@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.Exceptions;
@@ -17,19 +18,23 @@ namespace Authora.Core.Application.Users.SetPassword;
 /// </summary>
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="passwordHasher">The hasher for the new password.</param>
+/// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
+/// <param name="timeProvider">The TimeProvider for the revocation time.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the change.</param>
 public sealed class SetPasswordService(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
+    SessionRevoker sessionRevoker,
     PrivilegeGuard privilegeGuard,
+    TimeProvider timeProvider,
     IAuditLog auditLog,
     ILogger<SetPasswordService> logger)
 {
     /// <summary>
     ///     Sets a new password. This rotates the Security Stamp, which ends all Sessions and invalidates all tokens
-    ///     of the User.
+    ///     of the User. The Sessions are revoked explicitly, so their Clients are notified (back-channel logout).
     /// </summary>
     /// <remarks>
     ///     A caller who is not an administrator can only set the password of a User whose Permissions they all hold,
@@ -64,6 +69,10 @@ public sealed class SetPasswordService(
         await privilegeGuard.EnsureCanActOnUserAsync(user.Id, entry, cancellationToken);
 
         user.SetPasswordHash(passwordHasher.Hash(request.Password));
+
+        // Joins the transaction of the guard.
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, exceptSessionId: null, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
         auditLog.Record(entry);
 
         await userRepository.SaveChangesAsync(cancellationToken);

@@ -432,7 +432,7 @@ public sealed class EndSessionTests(AuthoraApiFactory factory) : IClassFixture<A
         var code = AuthorizationCode.Create(
             secretHasher.Hash("unused"), client, user, Guid.NewGuid(), null, ["openid"], null, null, authenticatedAt, [AuthenticationMethods.Password], issuedAt, TimeSpan.FromMinutes(1));
 
-        return issuer.Issue(user, code, ["openid"], "unused-access-token", issuedAt);
+        return issuer.Issue(user, code, "test-sid", ["openid"], "unused-access-token", issuedAt);
     }
 
     /// <summary>

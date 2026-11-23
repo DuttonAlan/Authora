@@ -1,6 +1,6 @@
 # OpenID Connect
 
-Authora is an OpenID Connect provider on top of its [OAuth endpoints](oauth-endpoints.md). This page covers discovery, Scopes and claims, the authorization request parameters of OpenID Connect, ID Tokens, signing keys, UserInfo and logout.
+Authora is an OpenID Connect provider on top of its [OAuth endpoints](oauth-endpoints.md). This page covers discovery, Scopes and claims, the authorization request parameters of OpenID Connect, ID Tokens, signing keys, UserInfo, logout and back-channel logout.
 
 | Endpoint | Purpose |
 |---|---|
@@ -31,6 +31,7 @@ All URLs in the document are built from `Authora:OAuth:Issuer`, so they always m
 | `request_parameter_supported`, `request_uri_parameter_supported`, `claims_parameter_supported` | `false` |
 | `authorization_response_iss_parameter_supported` | `true` |
 | `end_session_endpoint` | `{Issuer}/oauth/logout` |
+| `backchannel_logout_supported`, `backchannel_logout_session_supported` | `true`, see [Back-channel logout](#back-channel-logout) |
 
 ## Scopes and claims
 
@@ -110,6 +111,7 @@ Returned by `POST /oauth/token` when exchanging a code whose Scopes include `ope
 | `at_hash` | Hash of the Access Token |
 | `amr` | The methods of the Session, e.g. `["pwd", "otp", "mfa"]`, see [Authentication levels](#authentication-levels) |
 | `acr` | The level of the Session, e.g. `urn:authora:acr:mfa`, always sent |
+| `sid` | The Session ID: a random, opaque value that identifies the User's Session at Authora, always sent. The same for every Client in that Session. [Logout Tokens](#back-channel-logout) carry the same value. |
 | identity claims | See [Scopes and claims](#scopes-and-claims) |
 
 The header contains `alg: RS256`, `typ: JWT` and the `kid` of the signing key. Clients must validate the signature with the JWKS, and `iss`, `aud`, `exp` and `nonce`.
@@ -157,6 +159,55 @@ Responses carry `Cache-Control: no-store`.
 
 After the decision, the browser is sent (`303`) to `post_logout_redirect_uri` with `state` if one was sent, otherwise Authora shows the result. The confirmation keeps other sites from signing Users out with a link; it needs an antiforgery token.
 
-Signing out ends the Session at Authora, so every application asks the User to sign in again. It does not revoke tokens: Access and Refresh Tokens the Client already has stay valid. A Client that signs a User out should also [revoke](oauth-endpoints.md#revocation) its Refresh Token. Signing out is recorded as the audit event `account.signed-out-by-client`.
+Signing out ends the Session at Authora, so every application asks the User to sign in again. It also revokes the Grants approved in that Session, with their Access and Refresh Tokens, of every Client, and notifies the Clients with a Back-Channel Logout URI, see [Back-channel logout](#back-channel-logout). Tokens of Grants from other Sessions and of the Client Credentials Grant stay valid. Signing out is recorded as the audit event `account.signed-out-by-client`.
 
 Post-logout Redirect URIs are registered per Client in the admin interface or with `POST /api/clients/{id}/post-logout-redirect-uris`, with the same rules as Redirect URIs (absolute, no fragment, HTTPS or a loopback IP). Like Redirect URIs, none can be added while a Client is first-party (`409 Conflict`): no code or token is sent there, but the Client Id of the admin interface is public, so a URI of one's own would turn its logout into an open redirect on Authora's origin.
+
+## Back-channel logout
+
+[OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html): when a User's Session at Authora ends, Authora sends a Logout Token server to server to every Client that received tokens in that Session and has a Back-Channel Logout URI, so the Client can end its own session for the User even if the browser never visits it again. How to receive it: [Receive back-channel logout](../how-to/receive-back-channel-logout.md).
+
+A Client registers its Back-Channel Logout URI with `PUT /api/clients/{id}` (`backchannelLogoutUri`, `backchannelLogoutSessionRequired`, see the [admin API](admin-api.md)) or in the admin interface. The URI must be absolute, without fragment or user information, and use HTTPS (plain HTTP only with `Authora:BackchannelLogout:AllowHttp`, which only the environment `Development` allows).
+
+### When Clients are notified
+
+Each of the following ends Sessions explicitly. It revokes them and the Grants approved in them (Access and Refresh Tokens, of every Client), and queues one notification per Session and Client with a Back-Channel Logout URI:
+
+| Trigger | Sessions |
+|---|---|
+| Sign-out at `/account/logout` or `/oauth/logout` | The current Session |
+| Admin API: revoke sessions, deactivate, delete, set the password, reset MFA, remove a passkey of a User | All Sessions of the User |
+| Password reset with an email link | All Sessions of the User |
+| Password change, removing the authenticator app or a passkey at `/account/security` | All other Sessions of the User |
+
+A Session that ends because its lifetime is over (`Authora:SignIn:SessionLifetime`) or it was not used for `Authora:SignIn:SessionIdleTimeout` ends **without** a notification and keeps its Grants: Clients see the expiry of their own tokens. The Grants of the Client Credentials Grant have no Session and are never revoked by a logout.
+
+Sessions from before Authora recorded the Session ID count as ended, so Users sign in again after the upgrade.
+
+### Logout Token
+
+`POST` to the Back-Channel Logout URI with `Content-Type: application/x-www-form-urlencoded` and the single parameter `logout_token`: a JWT signed like ID Tokens (`alg: RS256`, the `kid` of the current signing key, published in the JWKS), with the header `typ: logout+jwt`, so it is never accepted as an ID Token.
+
+| Claim | Value |
+|---|---|
+| `iss` | `Authora:OAuth:Issuer` |
+| `aud` | `client_id` |
+| `iat`, `exp` | When the token was sent, and two minutes later. Each attempt gets a new token. |
+| `jti` | A new unique value for every token, also for a retry of the same notification |
+| `sub` | User Id |
+| `sid` | The `sid` of the ID Tokens issued in the Session; always sent |
+| `events` | `{"http://schemas.openid.net/event/backchannel-logout": {}}` |
+
+A Logout Token never contains a `nonce`.
+
+### Delivery
+
+Notifications are written to a database outbox in the same transaction that ends the Session, so they survive restarts and are sent by any instance. Every instance looks for due notifications every `Authora:BackchannelLogout:PollInterval` (5 seconds); an instance claims a notification before sending it, so several instances never send it at the same time.
+
+- Any `2xx` response counts as delivered. Redirects are not followed and count as failed, like other status codes, network errors and no response within `Authora:BackchannelLogout:Timeout` (5 seconds).
+- A failed delivery is retried after 10 seconds, then with a delay that doubles every time, up to one hour.
+- Authora gives up after `Authora:BackchannelLogout:MaxAttempts` attempts (10), and records the audit event `client.backchannel-logout-failed` and the log event 18013. It also gives up, without sending, a notification whose Session ended more than `Authora:BackchannelLogout:MaxAge` (1 day) ago, e.g. after an outage, and one for a URI that does not use HTTPS while `Authora:BackchannelLogout:AllowHttp` is off (e.g. saved in development).
+- The Grants of a Session that is not revoked are kept by the cleanup, even when they have no tokens left, so every Client that received tokens in the Session is notified when it ends.
+- If the Client is deleted or its URI removed before the notification is sent, the notification is dropped. The current URI of the Client is used, not the one it had when the Session ended.
+
+All settings: [Configuration](configuration.md#back-channel-logout).

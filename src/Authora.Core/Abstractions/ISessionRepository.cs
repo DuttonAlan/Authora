@@ -51,6 +51,53 @@ public interface ISessionRepository
     public Task<bool> RevokeSessionIfSecurityStampChanged(Guid id, DateTime now, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Starts a transaction, or joins the one the request already has, e.g. that of the
+    ///     <see cref="Application.Authorization.PrivilegeGuard"/>. Revoking Sessions and checking a Session before
+    ///     creating a Grant in it need one.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The transaction; committing a joined one does nothing, its owner commits it.</returns>
+    public Task<ITransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Locks a Session against being revoked until the transaction of the request ends, so a Grant can be created
+    ///     in it without missing a revocation that runs at the same time: the revocation waits, and then sees the Grant.
+    ///     Waits while a revocation of the Session is not committed yet. Load the Session afterwards.
+    /// </summary>
+    /// <param name="id">Id of the Session.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>A Task that completes once the Session is locked, or if it does not exist.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the request has no transaction.</exception>
+    public Task LockSession(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Revokes a Session in a single atomic update, unless it is already revoked. Tracked Sessions are not updated.
+    /// </summary>
+    /// <remarks>
+    ///     Of several concurrent calls for the same Session, exactly one revokes it.
+    /// </remarks>
+    /// <param name="id">Id of the Session.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if this call revoked the Session.</returns>
+    public Task<bool> RevokeSession(Guid id, DateTime now, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Revokes all Sessions of a User that are not revoked yet, in a single atomic update. Tracked Sessions are not
+    ///     updated.
+    /// </summary>
+    /// <param name="userId">Id of the User.</param>
+    /// <param name="exceptSessionId">Id of a Session that stays valid, e.g. the one the User changes the password in, or null.</param>
+    /// <param name="now">The current point in time (UTC).</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The Ids of the Sessions this call revoked.</returns>
+    public Task<IReadOnlyList<Guid>> RevokeSessionsOfUser(
+        Guid userId,
+        Guid? exceptSessionId,
+        DateTime now,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Loads the stored values of a tracked Session again, e.g. after another request changed it.
     /// </summary>
     /// <param name="session">The tracked Session.</param>

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs the OpenID Foundation conformance suite's Basic OP and RP-Initiated Logout OP certification test plans
-# against Authora built from this repository, with Authora's results compared to expected-failures.json and expected-skips.json.
+# Runs the OpenID Foundation conformance suite's Basic OP, RP-Initiated Logout OP and Back-Channel Logout OP
+# certification test plans against Authora built from this repository, with Authora's results compared to
+# expected-failures.json and expected-skips.json.
 #
 # Needs bash, Docker with Compose, curl and OpenSSL. Used by .github/workflows/conformance.yml; locally:
 #
@@ -20,6 +21,7 @@ cd "$(dirname "$0")"
 export SUITE_VERSION="${SUITE_VERSION:-release-v5.3.4}"
 BASIC_PLAN='oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]'
 LOGOUT_PLAN='oidcc-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]'
+BACKCHANNEL_PLAN='oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]'
 
 compose() {
     docker compose --file docker-compose.yml "$@"
@@ -27,7 +29,7 @@ compose() {
 
 collect_logs() {
     mkdir -p .work/logs
-    for service in authora server nginx; do
+    for service in authora server nginx backchannel-proxy; do
         compose logs --no-color "$service" > ".work/logs/$service.log" 2>&1 || true
     done
 }
@@ -51,7 +53,11 @@ mkdir -p .work/secrets .work/results .work/suite
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .work/secrets/signing-key.pem 2> /dev/null
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=authora" -addext "subjectAltName=DNS:authora" \
     -keyout .work/secrets/tls.key -out .work/secrets/tls.crt 2> /dev/null
-# Authora runs as a non-root user in the container.
+# The certificate of the proxy that forwards Logout Tokens to the suite; Authora trusts it through SSL_CERT_FILE.
+openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=backchannel-proxy" \
+    -addext "subjectAltName=DNS:backchannel-proxy" \
+    -keyout .work/secrets/backchannel-proxy.key -out .work/secrets/backchannel-proxy.crt 2> /dev/null
+# Authora and nginx run as non-root users in their containers.
 chmod 644 .work/secrets/*
 
 # Only for this run: the stack is removed afterwards.
@@ -68,9 +74,10 @@ trap cleanup EXIT
 
 echo "==> Building Authora and starting the stack"
 compose build
-compose up --detach --quiet-pull db migrate authora mongodb server nginx
+compose up --detach --quiet-pull db migrate authora mongodb server nginx backchannel-proxy
 
-echo "==> Running $BASIC_PLAN and $LOGOUT_PLAN"
+echo "==> Running $BASIC_PLAN, $LOGOUT_PLAN and $BACKCHANNEL_PLAN"
+# The Back-Channel Logout plan has a configuration of its own, with another alias, see setup.py.
 compose --profile runner run --rm --no-deps runner sh -c '
     set -e
     pip install --quiet --requirement /work/suite/scripts/requirements.txt
@@ -80,5 +87,5 @@ compose --profile runner run --rm --no-deps runner sh -c '
         --expected-failures-file /conformance/expected-failures.json \
         --expected-skips-file /conformance/expected-skips.json \
         --export-dir /work/results \
-        "$0" /work/config.json "$1" /work/config.json
-' "$BASIC_PLAN" "$LOGOUT_PLAN"
+        "$0" /work/config.json "$1" /work/config.json "$2" /work/config-backchannel.json
+' "$BASIC_PLAN" "$LOGOUT_PLAN" "$BACKCHANNEL_PLAN"

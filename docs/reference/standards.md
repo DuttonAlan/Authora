@@ -12,6 +12,7 @@
 | [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414) / [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html) | `/.well-known/openid-configuration` |
 | [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) | Authorization Code flow, ID Tokens (`RS256`), UserInfo, `nonce`, `prompt`, `max_age`, `auth_time`, `at_hash`, Scopes `openid`, `profile`, `email`. |
 | [OpenID Connect RP-Initiated Logout 1.0](https://openid.net/specs/openid-connect-rpinitiated-1_0.html) | `end_session_endpoint` with `id_token_hint` (also expired), `client_id`, `post_logout_redirect_uri` and `state`; Post-logout Redirect URIs registered per Client; confirmation page unless the hint belongs to the current Session. |
+| [OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html) | `sid` in ID Tokens; signed Logout Tokens (`typ: logout+jwt`) with `sub` and `sid` to the Back-Channel Logout URI of every Client that received tokens in a Session that is ended explicitly, from a database outbox with retries. `backchannel_logout_session_supported`. |
 | [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517) JWK / [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) JWK Thumbprint | JWKS, `kid` as thumbprint. |
 | [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details | Errors of the admin API. |
 | [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238) TOTP / [RFC 4226](https://www.rfc-editor.org/rfc/rfc4226) HOTP | Authenticator apps as a second factor: HMAC-SHA-1, 6 digits, 30-second steps, one step of drift either way, 160-bit secrets; a used time step is rejected. Set up with an `otpauth://totp/` URI ([Key Uri Format](https://github.com/google/google-authenticator/wiki/Key-Uri-Format)) as QR code. No SHA-256/SHA-512, other lengths or periods, no HOTP counters. |
@@ -22,7 +23,7 @@
 
 ## Conformance testing
 
-Every pull request and every commit to `main` runs the [OpenID Foundation conformance suite](https://gitlab.com/openid/conformance-suite) (version `release-v5.3.4`) against the container built from it, with two certification test plans: **Basic OP** (`oidcc-basic-certification-test-plan`, discovery, static Clients) and **RP-Initiated Logout OP** (`oidcc-rp-initiated-logout-certification-test-plan`, `response_type=code`, static Clients). The [Conformance workflow](https://github.com/DuttonAlan/Authora/actions/workflows/conformance.yml) fails if a result changes. See [Run the conformance tests](../how-to/run-the-conformance-tests.md).
+Every pull request and every commit to `main` runs the [OpenID Foundation conformance suite](https://gitlab.com/openid/conformance-suite) (version `release-v5.3.4`) against the container built from it, with three certification test plans: **Basic OP** (`oidcc-basic-certification-test-plan`, discovery, static Clients), **RP-Initiated Logout OP** (`oidcc-rp-initiated-logout-certification-test-plan`, `response_type=code`, static Clients) and **Back-Channel Logout OP** (`oidcc-backchannel-rp-initiated-logout-certification-test-plan`, `response_type=code`, static Clients). The [Conformance workflow](https://github.com/DuttonAlan/Authora/actions/workflows/conformance.yml) fails if a result changes. See [Run the conformance tests](../how-to/run-the-conformance-tests.md).
 
 All 35 test modules of the Basic OP plan run. None fails. Those that warn or are skipped are recorded, with reasons, in `tests/conformance/expected-failures.json` and `expected-skips.json`:
 
@@ -38,6 +39,8 @@ All 35 test modules of the Basic OP plan run. None fails. Those that warn or are
 `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri` and `oidcc-ensure-request-object-with-redirect-uri` end with the result *Review*: they pass, and the suite's log contains the page Authora showed (sign-in or error page) for a person to check, as certification requires.
 
 All 11 test modules of the RP-Initiated Logout OP plan run, without failures, warnings or skips. Eight of them end with *Review*, with the page Authora showed: the error page for an invalid, modified or foreign `id_token_hint`, a missing hint with a `post_logout_redirect_uri` and no `client_id`, or an unregistered `post_logout_redirect_uri`; the *You are signed out* page otherwise.
+
+Both test modules of the Back-Channel Logout OP plan run, without failures, warnings or skips: the discovery document advertises back-channel logout with `sid`, and after an RP-initiated logout the suite receives a valid Logout Token whose `sub` and `sid` match the ID Token, and a later `prompt=none` request fails because the User is signed out.
 
 The test Clients are Confidential Clients for which [PKCE is optional](oauth-endpoints.md#pkce), because the Basic OP plan sends PKCE in only one of its tests.
 
@@ -57,7 +60,9 @@ Authora deliberately keeps a small feature set. Not supported today:
 **Protocols**
 
 - Grant types other than `authorization_code`, `refresh_token` and `client_credentials`, e.g. the device flow or token exchange.
-- Session management, front- and back-channel logout: applications are not told when a User signs out at Authora, and ID Tokens have no `sid` claim. The end-session endpoint ignores `logout_hint` and `ui_locales`.
+- Session management and front-channel logout. The end-session endpoint ignores `logout_hint` and `ui_locales`.
+- Back-channel logout when a Session expires or stays unused: only Sessions that are ended explicitly (sign-out, password change or reset, removed second factor, an administrator) notify their Clients, which the specification allows. Clients see the expiry of their own tokens instead.
+- Encrypted Logout Tokens, and `sub` without `sid` or vice versa: Logout Tokens are signed only and always carry both.
 - Pushed authorization requests (PAR), JWT-secured authorization requests (JAR), the `request` and `request_uri` parameters.
 - Response modes other than `query`, e.g. `form_post`.
 - The `claims` parameter, the `address` and `phone` Scopes, and Access Tokens in the body of UserInfo requests.

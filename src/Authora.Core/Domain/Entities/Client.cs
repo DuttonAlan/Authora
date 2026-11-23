@@ -34,6 +34,11 @@ public sealed class Client
     public const int DefaultRefreshTokenTTL = 86400;
 
     /// <summary>
+    ///     Maximum length of the <see cref="BackchannelLogoutUri"/>.
+    /// </summary>
+    public const int BackchannelLogoutUriMaxLength = 2048;
+
+    /// <summary>
     ///     Upper limit of the Access Token lifetime in seconds (24 hours). Resource servers may check Access Tokens
     ///     without calling Authora, so a long lifetime keeps revoked access usable.
     /// </summary>
@@ -162,6 +167,20 @@ public sealed class Client
     ///     Users without one set it up first. Set via <see cref="SetRequiresMfa(bool)"/>.
     /// </summary>
     public bool RequiresMfa { get; private set; }
+
+    /// <summary>
+    ///     The Back-Channel Logout URI of the Client (OpenID Connect Back-Channel Logout 1.0), to which Authora sends a
+    ///     Logout Token when a Session ends in which the Client received tokens, or <see langword="null"/> if the Client
+    ///     is not notified. Set via <see cref="SetBackchannelLogoutUri(string?, bool)"/>.
+    /// </summary>
+    public string? BackchannelLogoutUri { get; private set; }
+
+    /// <summary>
+    ///     Whether the Client requires the <c>sid</c> claim in Logout Tokens (<c>backchannel_logout_session_required</c>).
+    ///     Authora always sends it, so this only records what the Client expects. Defaults to <see langword="false"/>.
+    ///     Set via <see cref="SetBackchannelLogoutSessionRequired(bool)"/>.
+    /// </summary>
+    public bool BackchannelLogoutSessionRequired { get; private set; }
 
     /// <summary>
     ///     Point in time (UTC) when the Client was created.
@@ -347,6 +366,68 @@ public sealed class Client
     public void SetRequiresMfa(bool requiresMfa)
     {
         RequiresMfa = requiresMfa;
+    }
+
+    /// <summary>
+    ///     Sets the Back-Channel Logout URI, or removes it.
+    /// </summary>
+    /// <param name="uri">The absolute URI, or <see langword="null"/> or empty to stop notifying the Client.</param>
+    /// <param name="allowHttp">
+    ///     Whether plain HTTP is allowed, e.g. for development. Otherwise the URI must use HTTPS, because the Logout
+    ///     Token identifies the User.
+    /// </param>
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when the URI is not absolute, too long, contains a fragment, user information or whitespaces, or does
+    ///     not use HTTPS (or HTTP, if allowed).
+    /// </exception>
+    public void SetBackchannelLogoutUri(string? uri, bool allowHttp)
+    {
+        if (string.IsNullOrEmpty(uri))
+        {
+            BackchannelLogoutUri = null;
+            return;
+        }
+
+        if (uri.Length > BackchannelLogoutUriMaxLength)
+        {
+            throw new DomainValidationException(
+                $"Back-Channel Logout URI must not be longer than {BackchannelLogoutUriMaxLength} characters.",
+                nameof(uri));
+        }
+
+        if (uri != uri.Trim() || !Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
+        {
+            throw new DomainValidationException("Back-Channel Logout URI must be absolute, without whitespaces.", nameof(uri));
+        }
+
+        // OpenID Connect Back-Channel Logout 1.0, Section 2.2: the URI must not include a fragment.
+        if (!string.IsNullOrEmpty(parsed.Fragment) || uri.Contains('#', StringComparison.Ordinal))
+        {
+            throw new DomainValidationException("Back-Channel Logout URI must not contain a fragment.", nameof(uri));
+        }
+
+        if (!string.IsNullOrEmpty(parsed.UserInfo))
+        {
+            throw new DomainValidationException("Back-Channel Logout URI must not contain user information.", nameof(uri));
+        }
+
+        if (parsed.Scheme != Uri.UriSchemeHttps && !(allowHttp && parsed.Scheme == Uri.UriSchemeHttp))
+        {
+            throw new DomainValidationException(
+                allowHttp ? "Back-Channel Logout URI must use HTTP or HTTPS." : "Back-Channel Logout URI must use HTTPS.",
+                nameof(uri));
+        }
+
+        BackchannelLogoutUri = uri;
+    }
+
+    /// <summary>
+    ///     Records whether the Client requires the <c>sid</c> claim in Logout Tokens.
+    /// </summary>
+    /// <param name="sessionRequired">True if the Client requires <c>sid</c>.</param>
+    public void SetBackchannelLogoutSessionRequired(bool sessionRequired)
+    {
+        BackchannelLogoutSessionRequired = sessionRequired;
     }
 
     /// <summary>

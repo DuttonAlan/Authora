@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.Account;
+using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Exceptions;
 using Authora.Core.Domain.Enums;
@@ -25,6 +26,7 @@ namespace Authora.Core.Application.Mfa.Remove;
 /// <param name="userRepository">An Instance of a IUserRepository to change the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to keep the current Session valid.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to remove the authenticator and the codes.</param>
+/// <param name="sessionRevoker">Revokes the other Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="verifier">Checks the code.</param>
 /// <param name="timeProvider">The TimeProvider for the lockout and the Session checks.</param>
 /// <param name="options">The sign-in settings with the lockout and the idle timeout.</param>
@@ -34,6 +36,7 @@ public sealed class RemoveTotpService(
     IUserRepository userRepository,
     ISessionRepository sessionRepository,
     IMfaRepository mfaRepository,
+    SessionRevoker sessionRevoker,
     MfaVerifier verifier,
     TimeProvider timeProvider,
     IOptions<SignInOptions> options,
@@ -106,6 +109,9 @@ public sealed class RemoveTotpService(
 
         user.RotateSecurityStamp();
         session.RenewSecurityStamp(user);
+
+        // In the transaction of the lock above.
+        await sessionRevoker.RevokeSessionsOfUserAsync(user.Id, session.Id, now, cancellationToken);
 
         auditLog.Record(AuditEntry.ForUser(AuditEventTypes.Mfa.Removed, user.Id, $"Session {session.Id}"));
 

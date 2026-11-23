@@ -25,7 +25,7 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `PUT /api/users/{id}` | `users.update` | Change Email or name. A different Email is no longer verified and gets a new verification link; a change of upper and lower case keeps the verification. |
 | `POST /api/users/{id}/email-verification` | `users.update` | Email the User a link to confirm their address (see [Email verification](configuration.md#email-verification)); earlier links stop working. `204` once the mail server accepted the email; `409` if email delivery is not configured, the User is deactivated or deleted, or the Email is already verified; `502` if the mail server could not be reached or rejected the email. |
 | `POST /api/users/{id}/email-verified` | `users.update` | Mark the Email as verified without a link, so `email_verified` becomes `true`. Applications may trust a verified Email to belong to the User, so only mark addresses the User is known to own. Open verification links stop working. Idempotent; `409` if the User is deleted. |
-| `DELETE /api/users/{id}` | `users.delete` | Delete. |
+| `DELETE /api/users/{id}` | `users.delete` | Delete; ends all Sessions and tokens. |
 | `POST /api/users/{id}/deactivate` | `users.manage-access` | Block sign-in and end all Sessions and tokens. |
 | `POST /api/users/{id}/activate` | `users.manage-access` | Allow sign-in again. |
 | `POST /api/users/{id}/unlock` | `users.manage-access` | End a lockout after failed sign-ins. |
@@ -42,6 +42,8 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | `GET /api/users/{id}/mfa` | `users.read` | Multi-factor authentication: `enabled` (the User completes a second factor after the password: they have an authenticator app or a passkey), `authenticatorApp` (`enrolledAt`, `lastUsedAt`; `null` without an app, an unfinished setup does not count), `recoveryCodes` (`remaining`, `total`, `createdAt`, `lastUsedAt`; `null` without codes) and `passkeys`, oldest first (`id`, `name`, `createdAt`, `lastUsedAt`, `isSynced` (may be synced to other devices, records `swk` instead of `hwk`), `aaGuid` (the authenticator model, all zeros if unknown), `transports`; empty without passkeys). Never the secret, the codes, or the credential Ids and public keys of passkeys. |
 | `DELETE /api/users/{id}/mfa` | `users.reset-mfa` | Reset multi-factor authentication, e.g. after the User lost their phone and their recovery codes: removes the authenticator app, the recovery codes and all passkeys, and ends all Sessions and tokens. The password alone then signs the User in until they set up a new second factor. Idempotent; `409` if the User is deleted. See [Require multi-factor authentication](../how-to/require-multi-factor-authentication.md). |
 | `DELETE /api/users/{id}/passkeys/{passkeyId}` | `users.reset-mfa` | Remove one passkey, e.g. on a lost security key; the other passkeys and the authenticator app stay. Ends all Sessions and tokens. `404` if the User has no such passkey, `409` if the User is deleted. |
+
+Every endpoint above that ends Sessions revokes them explicitly, with the Grants approved in them, and notifies their Clients that have a Back-Channel Logout URI (see [Back-channel logout](openid-connect.md#back-channel-logout)).
 
 ## Groups
 
@@ -86,9 +88,9 @@ The admin API under `/api/*` manages Authora. The admin interface uses it, and s
 | Endpoint | Permission | Description |
 |---|---|---|
 | `GET /api/clients` | `clients.read` | List. |
-| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty`, `isPkceOptional` and `requiresMfa`. |
+| `GET /api/clients/{id}` | `clients.read` | Details, including Redirect URIs, Post-logout Redirect URIs, Scopes, Secrets (without values), `isFirstParty`, `isPkceOptional`, `requiresMfa`, `backchannelLogoutUri` and `backchannelLogoutSessionRequired`. |
 | `POST /api/clients` | `clients.create` | Register, with `name`, `type` (`Public` or `Confidential`), and optionally `grantTypes` (`authorization_code`, `refresh_token`, `client_credentials`; default the first two, see below), `accessTokenTTL`, `refreshTokenTTL` (seconds), `redirectUris`, `postLogoutRedirectUris`, `scopeIds`. For a Confidential Client, the response contains its first Secret, once. |
-| `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types or token lifetimes. `client_credentials` cannot be newly allowed while first-party (`409`); keeping or removing it can. |
+| `PUT /api/clients/{id}` | `clients.update` | Change name, Grant Types, token lifetimes or the back-channel logout settings; omitted or `null` members stay unchanged. `client_credentials` cannot be newly allowed while first-party (`409`); keeping or removing it can. `backchannelLogoutUri`: absolute, without fragment or user information, HTTPS (`400` otherwise), or `""` to remove it; see [Back-channel logout](openid-connect.md#back-channel-logout). `backchannelLogoutSessionRequired` only records whether the Client needs `sid`, which Authora always sends. |
 | `DELETE /api/clients/{id}` | `clients.delete` | Delete, with all its codes and Grants. |
 | `POST /api/clients/{id}/enable` | `clients.update` | Enable. |
 | `POST /api/clients/{id}/disable` | `clients.update` | Disable; revokes all its Grants. |

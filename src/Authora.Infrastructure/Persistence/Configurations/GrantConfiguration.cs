@@ -43,6 +43,9 @@ public sealed class GrantConfiguration : IEntityTypeConfiguration<Grant>
         builder.HasIndex(x => x.AuthorizationCodeId);
         builder.HasIndex(x => x.ClientId);
 
+        // Used to revoke the Grants of an ended Session and to find the Clients to notify.
+        builder.HasIndex(x => x.SessionId);
+
         builder.HasOne<Client>()
             .WithMany()
             .HasForeignKey(x => x.ClientId)
@@ -55,7 +58,7 @@ public sealed class GrantConfiguration : IEntityTypeConfiguration<Grant>
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // AuthorizationCodeId has no foreign key on purpose: used and expired codes can be deleted
-        // without deleting the Grants and tokens that were issued from them.
+        // AuthorizationCodeId and SessionId have no foreign key on purpose: used and expired codes and ended Sessions can
+        // be deleted without deleting the Grants and tokens that were issued from them.
     }
 }

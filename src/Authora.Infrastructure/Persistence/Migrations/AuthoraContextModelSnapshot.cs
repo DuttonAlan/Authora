@@ -219,6 +219,44 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.ToTable("authorization_codes", "auth");
                 });
 
+            modelBuilder.Entity("Authora.Core.Domain.Entities.BackchannelLogoutNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Sid")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("NextAttemptAt");
+
+                    b.ToTable("backchannel_logout_notifications", "auth");
+                });
+
             modelBuilder.Entity("Authora.Core.Domain.Entities.Client", b =>
                 {
                     b.Property<Guid>("Id")
@@ -229,6 +267,13 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("AllowedGrantTypes")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("BackchannelLogoutSessionRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("BackchannelLogoutUri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -397,6 +442,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("SecurityStamp")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
@@ -405,6 +453,8 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasIndex("AuthorizationCodeId");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("SessionId");
 
                     b.HasIndex("UserId");
 
@@ -722,6 +772,11 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SecurityStamp")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Sid")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("TokenHash")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -1017,6 +1072,15 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasOne("Authora.Core.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Authora.Core.Domain.Entities.BackchannelLogoutNotification", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
