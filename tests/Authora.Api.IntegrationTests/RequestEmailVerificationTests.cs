@@ -95,9 +95,12 @@ public sealed partial class RequestEmailVerificationTests(AuthoraApiFactory fact
         Assert.Equal(2, messages.Count);
         Assert.Equal("Confirm your email address", messages[^1].Subject);
 
-        // Only the newest link works.
-        var (_, oldLink) = await ConfirmAsync(_client, ReadToken(messages[0]));
+        // Only the newest link works. The page of a replaced link shows no form, only the message.
+        using var oldPage = await _client.GetAsync(VerifyPagePath(ReadToken(messages[0])), TestContext.Current.CancellationToken);
+        var oldLink = await oldPage.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var (_, newLink) = await ConfirmAsync(_client, ReadToken(messages[1]));
+
+        Assert.Equal(HttpStatusCode.OK, oldPage.StatusCode);
 
         Assert.Contains(VerifyEmailModel.InvalidLinkMessage, oldLink, StringComparison.Ordinal);
         Assert.Contains(VerifyEmailModel.VerifiedMessage, newLink, StringComparison.Ordinal);
@@ -302,9 +305,7 @@ public sealed partial class RequestEmailVerificationTests(AuthoraApiFactory fact
     // Opens the link like a browser, then submits the form.
     private static async Task<(HttpStatusCode Status, string Html)> ConfirmAsync(HttpClient client, string token)
     {
-        var path = $"{EmailVerificationLink.PagePath}?{EmailVerificationLink.TokenParameter}={Uri.EscapeDataString(token)}";
-
-        using var page = await client.GetAsync(path, TestContext.Current.CancellationToken);
+        using var page = await client.GetAsync(VerifyPagePath(token), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
 
@@ -324,6 +325,9 @@ public sealed partial class RequestEmailVerificationTests(AuthoraApiFactory fact
 
         return (response.StatusCode, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
+
+    private static string VerifyPagePath(string token)
+        => $"{EmailVerificationLink.PagePath}?{EmailVerificationLink.TokenParameter}={Uri.EscapeDataString(token)}";
 
     private async Task AddVerificationTokenAsync(Guid userId)
     {
