@@ -1,0 +1,9 @@
+@* Offers a signed-in User whose Email is not verified a new verification link. Only rendered when one can be requested. *@
+<div class="notice" role="status">
+    <p>Your email address is not confirmed yet. Use the link we sent you, or get a new one.</p>
+    <form method="post" asp-page="/Account/RequestEmailVerification">
+        <div class="actions">
+            <button type="submit">Send a new link</button>
+        </div>
+    </form>
+</div>

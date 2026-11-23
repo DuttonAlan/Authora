@@ -43,4 +43,10 @@ public sealed class RateLimitOptions
     ///     most <c>Authora:PasswordReset:MaxEmailsPerHour</c> links.
     /// </summary>
     public int PasswordResetPermitsPerMinute { get; set; } = 5;
+
+    /// <summary>
+    ///     Requests of signed-in Users for a new email verification link per minute and IP address, against flooding
+    ///     mailboxes. Defaults to 5. Each User also gets at most <c>Authora:EmailVerification:MaxEmailsPerHour</c> links.
+    /// </summary>
+    public int EmailVerificationPermitsPerMinute { get; set; } = 5;
 }

@@ -32,6 +32,12 @@ internal static class RateLimitPolicies
     public const string PasswordReset = "password-reset";
 
     /// <summary>
+    ///     Limits requests of signed-in Users for a new email verification link per client IP address. The number of
+    ///     links per User is limited by the request itself.
+    /// </summary>
+    public const string EmailVerification = "email-verification";
+
+    /// <summary>
     ///     Registers the policies.
     /// </summary>
     /// <param name="options">The rate limiter options.</param>
@@ -55,6 +61,11 @@ internal static class RateLimitPolicies
         // Like sign-in, only POST is limited: opening a link or the form sends nothing.
         options.AddPolicy(PasswordReset, context => HttpMethods.IsPost(context.Request.Method)
             ? PerIpAddress(context, PasswordReset, GetOptions(context).PasswordResetPermitsPerMinute)
+            : RateLimitPartition.GetNoLimiter(string.Empty));
+
+        // Only POST sends an email, so showing the page is not limited.
+        options.AddPolicy(EmailVerification, context => HttpMethods.IsPost(context.Request.Method)
+            ? PerIpAddress(context, EmailVerification, GetOptions(context).EmailVerificationPermitsPerMinute)
             : RateLimitPartition.GetNoLimiter(string.Empty));
     }
 

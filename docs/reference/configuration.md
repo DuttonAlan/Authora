@@ -63,6 +63,7 @@ Per client IP address. Behind a reverse proxy, configure `Authora:ForwardedHeade
 | `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts, second factors at `/account/second-factor`, password changes at `/account/password` and the submissions of `/account/security/authenticator`, `/account/security/authenticator/remove` and `/account/security/recovery-codes` per minute, together. |
 | `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/admin/callback` and `/admin/session/refresh` per minute, together. A resource server that introspects tokens for every request should cache the results or get a higher limit. |
 | `Authora:RateLimiting:PasswordResetPermitsPerMinute` | `5` | 1 to 100000 | Submissions of `/account/forgot-password`, `/account/reset-password` and `/account/verify-email` per minute, together. Opening the pages is not limited. Each address also gets at most `Authora:PasswordReset:MaxEmailsPerHour` links. |
+| `Authora:RateLimiting:EmailVerificationPermitsPerMinute` | `5` | 1 to 100000 | Requests for a new email verification link at `/account/email-verification` per minute. Opening the page is not limited. Each User also gets at most `Authora:EmailVerification:MaxEmailsPerHour` links. |
 
 Requests over the limit get `429 Too Many Requests`.
 
@@ -122,6 +123,7 @@ Users confirm their Email with a link to `{Issuer}/account/verify-email`, which 
 |---|---|---|---|
 | `Authora:EmailVerification:SendAutomatically` | `true` | | Whether a link is sent in the background when a User is created or their Email changes to a different address. With `false`, administrators send links with `POST /api/users/{id}/email-verification`. |
 | `Authora:EmailVerification:LinkLifetime` | `1.00:00:00` | 1 minute to 24 hours | How long a verification link works. A newer link of the same User replaces an older one right away. |
+| `Authora:EmailVerification:MaxEmailsPerHour` | `3` | 1 to 100 | How many links a signed-in User can request for themselves at `/account/email-verification` per hour. Links sent automatically or by an administrator in that hour count too, but are never held back. |
 
 ## Bootstrap
 

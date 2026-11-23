@@ -78,6 +78,13 @@ public static class AuditEventTypes
         ///     Details).
         /// </summary>
         public const string EmailVerified = "account.email-verified";
+
+        /// <summary>
+        ///     A signed-in User asked for a new link to confirm their Email. Succeeded: a link was sent, with its expiry
+        ///     in the Details. Failed: no link was sent, with the reason in the Details, e.g. too many links in the last
+        ///     hour or the email could not be sent. The confirmation itself is <see cref="EmailVerified"/>.
+        /// </summary>
+        public const string EmailVerificationRequested = "account.email-verification-requested";
     }
 
     /// <summary>

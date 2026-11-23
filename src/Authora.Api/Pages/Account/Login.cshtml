@@ -9,6 +9,10 @@
 {
     <h1>You are signed in</h1>
     <p>Signed in as <strong>@Model.SignedInEmail</strong>.</p>
+    @if (Model.CanRequestEmailVerification)
+    {
+        <partial name="_EmailVerificationNotice" />
+    }
     <p><a href="/account/security">Account and security</a> · <a href="/account/logout">Sign out</a></p>
 }
 else

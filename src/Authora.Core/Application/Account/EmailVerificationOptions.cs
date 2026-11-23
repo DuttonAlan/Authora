@@ -31,6 +31,11 @@ public sealed class EmailVerificationOptions
     public static readonly TimeSpan MaxLinkLifetime = EmailToken.MaxLifetime;
 
     /// <summary>
+    ///     Upper limit of <see cref="MaxEmailsPerHour"/>.
+    /// </summary>
+    public const int MaxEmailsPerHourLimit = 100;
+
+    /// <summary>
     ///     Whether a verification link is sent by itself when a User is created or their Email is changed. Defaults to
     ///     <see langword="true"/>. Administrators can send links either way.
     /// </summary>
@@ -41,4 +46,11 @@ public sealed class EmailVerificationOptions
     ///     <see cref="MaxLinkLifetime"/>.
     /// </summary>
     public TimeSpan LinkLifetime { get; set; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    ///     How many verification links a signed-in User can request for themselves per hour, against flooding a mailbox.
+    ///     Links sent automatically or by an administrator in that hour count as well, but are not limited by it. Defaults
+    ///     to 3, between 1 and <see cref="MaxEmailsPerHourLimit"/>.
+    /// </summary>
+    public int MaxEmailsPerHour { get; set; } = 3;
 }

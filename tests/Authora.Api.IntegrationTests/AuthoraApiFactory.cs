@@ -331,6 +331,7 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
         // All test requests share one IP address; the tests of the limit lower it again.
         builder.UseSetting("Authora:RateLimiting:PasswordResetPermitsPerMinute", "10000");
         builder.UseSetting("Authora:RateLimiting:SignInPermitsPerMinute", "10000");
+        builder.UseSetting("Authora:RateLimiting:EmailVerificationPermitsPerMinute", "10000");
 
         builder.ConfigureTestServices(services =>
         {

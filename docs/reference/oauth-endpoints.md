@@ -240,11 +240,13 @@ A User who forgot their password follows **Forgot password?** on the sign-in pag
 A User confirms that they receive email at their address with a link to `/account/verify-email?token=…`. Once confirmed, `email_verified` is `true` in ID Tokens and at UserInfo, see [OpenID Connect](openid-connect.md#scopes-and-claims). Settings: [Email verification](configuration.md#email-verification).
 
 - With email delivery configured, the link is sent in the background when an administrator creates a User and when they change a User's Email to a different address, unless `Authora:EmailVerification:SendAutomatically` is `false` or the User is deactivated. A delivery failure does not fail the change; it is only logged (log event 14004). Administrators can send another link with `POST /api/users/{id}/email-verification`, or mark the address as verified without a link with `POST /api/users/{id}/email-verified`, see [Admin API](admin-api.md#users).
+- A signed-in User whose Email is not verified requests a new link at `/account/email-verification`. `/account/security` and the page after a sign-in without a return URL (`/account/login`) show a notice with a **Send a new link** button that submits to it. The email is sent before the page answers, so a delivery failure is shown; earlier links stop working. Offered only with email delivery configured; otherwise there is no notice and the page returns `404`.
+- At most `Authora:EmailVerification:MaxEmailsPerHour` (3) links per User and hour, counting links sent automatically or by an administrator; further requests send nothing and say so. Requests also have their own rate limit per IP address (`Authora:RateLimiting:EmailVerificationPermitsPerMinute`, 5).
 - Changing the Email to a different address makes it unverified again; a change of upper and lower case only keeps the verification. Deleting a User removes it.
 - Opening the link only shows a **Confirm email address** button, so mail scanners that follow links do not use it up; submitting it does. No sign-in is needed: the link itself proves that whoever opens it receives the email.
 - The link works for `Authora:EmailVerification:LinkLifetime` (24 hours) and only once. A newer link replaces older ones, and a link stops working if the User's Email or security stamp changes (password changed or set by an administrator, deactivation, "sign out everywhere"), the User is deactivated, or an administrator marks the address as verified.
-- Submissions share the rate limit of the password reset pages (`Authora:RateLimiting:PasswordResetPermitsPerMinute`, 5 per IP address).
-- Recorded as audit events `user.email-verification-sent` and `account.email-verified` (and `user.email-marked-verified` when an administrator marks the address).
+- Submissions of `/account/verify-email` share the rate limit of the password reset pages (`Authora:RateLimiting:PasswordResetPermitsPerMinute`, 5 per IP address).
+- Recorded as audit events `user.email-verification-sent`, `account.email-verification-requested` and `account.email-verified` (and `user.email-marked-verified` when an administrator marks the address).
 
 ## Events that invalidate tokens
 

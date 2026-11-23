@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using Authora.Api.Authentication;
 using Authora.Api.RateLimiting;
 using Authora.Core.Application.Account;
+using Authora.Core.Application.Account.RequestEmailVerification;
 using Authora.Core.Application.Account.RequestPasswordReset;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
@@ -27,6 +28,7 @@ namespace Authora.Api.Pages.Account;
 /// <param name="signInService">The Service to check the credentials and start a Session.</param>
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
 /// <param name="requestPasswordResetService">Tells whether the page offers "Forgot password?".</param>
+/// <param name="requestEmailVerificationService">Tells whether the page offers a signed-in User a new email verification link.</param>
 /// <param name="signInOptions">The sign-in settings with the lifetime of a pending sign-in.</param>
 /// <remarks>
 ///     A User who enrolled a second factor is sent on to <see cref="SecondFactorModel"/> after the password, with a
@@ -37,6 +39,7 @@ public sealed class LoginModel(
     SignInService signInService,
     SignOutService signOutService,
     RequestPasswordResetService requestPasswordResetService,
+    RequestEmailVerificationService requestEmailVerificationService,
     IOptions<SignInOptions> signInOptions) : PageModel
 {
     /// <summary>
@@ -89,10 +92,25 @@ public sealed class LoginModel(
     public string? SignedInEmail => User.FindFirst(SessionClaimTypes.Email)?.Value;
 
     /// <summary>
-    ///     Shows the sign-in form.
+    ///     Whether the signed-in User's Email is not verified and a new link can be requested, so the page, which the User
+    ///     sees after signing in without a <see cref="ReturnUrl"/>, offers one.
     /// </summary>
-    public void OnGet()
+    public bool CanRequestEmailVerification { get; private set; }
+
+    /// <summary>
+    ///     Shows the sign-in form, or that the User is signed in.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>A Task that completes once the page is ready.</returns>
+    public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        // Only the page for a signed-in User without a ReturnUrl shows the notice, see Login.cshtml.
+        if (IsSignedIn && ReturnUrl is null)
+        {
+            var userId = Guid.Parse(User.FindFirst(SessionClaimTypes.Subject)!.Value);
+
+            CanRequestEmailVerification = await requestEmailVerificationService.CanRequestAsync(userId, cancellationToken);
+        }
     }
 
     /// <summary>

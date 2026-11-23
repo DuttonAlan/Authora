@@ -50,7 +50,6 @@ Authora deliberately keeps a small feature set. Not supported today:
 **Users**
 
 - Self-registration. Administrators create Users; Users change their own password at `/account/password`, reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)) and confirm their address with a link (see [Email verification](oauth-endpoints.md#email-verification)).
-- Requesting a new email verification link without an administrator. Users who miss the link sent when their account was created or their Email changed ask an administrator to send another one.
 - Passwordless sign-in with a passkey: passkeys are a second factor after the password. Second factors other than an authenticator app (TOTP) with recovery codes and passkeys, e.g. SMS or email codes.
 - Recovery codes for Users who have only passkeys: they register several passkeys, or an administrator resets their second factors.
 - Sign-in through external identity providers (e.g. Google).

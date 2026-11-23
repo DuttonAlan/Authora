@@ -6,6 +6,7 @@ using Authora.Core.Application.Account;
 using Authora.Core.Application.Account.ChangePassword;
 using Authora.Core.Application.Account.CompleteSignIn;
 using Authora.Core.Application.Account.PendingSignIn;
+using Authora.Core.Application.Account.RequestEmailVerification;
 using Authora.Core.Application.Account.RequestPasswordReset;
 using Authora.Core.Application.Account.ResetPassword;
 using Authora.Core.Application.Account.RevokeConsent;
@@ -141,6 +142,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<GetAccountSecurityService>();
         serviceCollection.AddTransient<GetPendingSignInService>();
         serviceCollection.AddTransient<PendingSignInReader>();
+        serviceCollection.AddTransient<RequestEmailVerificationService>();
         serviceCollection.AddTransient<RequestPasswordResetService>();
         serviceCollection.AddTransient<ProcessPasswordResetRequestService>();
         serviceCollection.AddTransient<ResetPasswordService>();

@@ -1,0 +1,37 @@
+@page "/account/email-verification"
+@model Authora.Api.Pages.Account.RequestEmailVerificationModel
+@{
+    ViewData["Title"] = "Confirm your email address";
+}
+
+<h1>Confirm your email address</h1>
+
+@if (Model.Sent)
+{
+    <p class="success" role="status">@Authora.Api.Pages.Account.RequestEmailVerificationModel.SentMessage</p>
+    <p>Open the link in the email to <strong>@Model.SignedInEmail</strong>. It works for @Model.LinkLifetime and only once. If no email arrives, check your spam folder.</p>
+}
+else if (Model.StatusMessage is not null)
+{
+    <p class="success" role="status">@Model.StatusMessage</p>
+}
+else
+{
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error" role="alert">@Model.ErrorMessage</p>
+    }
+
+    @if (Model.CanRequest)
+    {
+        <p>Your email address <strong>@Model.SignedInEmail</strong> is not confirmed yet. We send you a new link to confirm it; earlier links stop working.</p>
+
+        <form method="post">
+            <div class="actions">
+                <button type="submit" class="primary">Send a new link</button>
+            </div>
+        </form>
+    }
+}
+
+<p class="muted"><a href="/account/security">Account and security</a></p>

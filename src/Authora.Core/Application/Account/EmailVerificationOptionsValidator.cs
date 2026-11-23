@@ -16,14 +16,23 @@ public sealed class EmailVerificationOptionsValidator : IValidateOptions<EmailVe
     {
         ArgumentNullException.ThrowIfNull(options);
 
+        var failures = new List<string>();
+        var section = EmailVerificationOptions.SectionName;
+
         if (options.LinkLifetime < EmailVerificationOptions.MinLinkLifetime || options.LinkLifetime > EmailVerificationOptions.MaxLinkLifetime)
         {
-            return ValidateOptionsResult.Fail(
-                $"'{EmailVerificationOptions.SectionName}:{nameof(EmailVerificationOptions.LinkLifetime)}' must be between "
+            failures.Add(
+                $"'{section}:{nameof(EmailVerificationOptions.LinkLifetime)}' must be between "
                 + $"{EmailVerificationOptions.MinLinkLifetime} and {EmailVerificationOptions.MaxLinkLifetime}. Use the format "
                 + "d.hh:mm:ss, e.g. 1.00:00:00 or 02:00:00; a plain number is read as days.");
         }
 
-        return ValidateOptionsResult.Success;
+        if (options.MaxEmailsPerHour is < 1 or > EmailVerificationOptions.MaxEmailsPerHourLimit)
+        {
+            failures.Add(
+                $"'{section}:{nameof(EmailVerificationOptions.MaxEmailsPerHour)}' must be between 1 and {EmailVerificationOptions.MaxEmailsPerHourLimit}.");
+        }
+
+        return failures.Count > 0 ? ValidateOptionsResult.Fail(failures) : ValidateOptionsResult.Success;
     }
 }

@@ -83,4 +83,10 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5024, Level = LogLevel.Information, Message = "User {UserId} holds a Permission and must set up a second factor, because multi-factor authentication is required for administrators.")]
     public static partial void SecondFactorEnrollmentRequired(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 5025, Level = LogLevel.Information, Message = "User {UserId} asked for a new email verification link, which was sent.")]
+    public static partial void EmailVerificationRequested(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 5026, Level = LogLevel.Warning, Message = "No email verification link was sent to User {UserId} at their request: {Reason}.")]
+    public static partial void EmailVerificationRequestNotSent(this ILogger logger, Guid userId, string reason);
 }
