@@ -475,6 +475,29 @@ public sealed class PasskeyTests(AuthoraApiFactory factory) : IClassFixture<Auth
     }
 
     [Fact]
+    public async Task Rename_InSessionWithoutTheSecondFactor_NeedsStepUp()
+    {
+        var (userId, _) = await factory.CreateUserWithPasswordAsync(Password);
+        using var authenticator = await CreateUserPasskeyAsync(userId);
+        var passkey = Assert.Single(await GetPasskeysAsync(userId));
+
+        // Signed in with the password alone, e.g. before the passkey was registered.
+        var sessionToken = await factory.CreateSessionAsync(userId);
+
+        using var response = await PostPageAsync(
+            $"{PasskeysModel.PagePath}?handler=Rename",
+            sessionToken,
+            pendingToken: null,
+            ("PasskeyId", passkey.Id.ToString()),
+            ("NewName", "Work laptop"));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(StepUpModel.PagePath, response.Headers.Location?.OriginalString, StringComparison.Ordinal);
+        Assert.Equal(passkey.Name, Assert.Single(await GetPasskeysAsync(userId)).Name);
+        Assert.Empty(await GetEventsAsync(AuditEventTypes.Passkeys.Renamed, userId));
+    }
+
+    [Fact]
     public async Task Remove_DeletesThePasskey_AndSignsOutEverywhereElse()
     {
         var (userId, email) = await factory.CreateUserWithPasswordAsync(Password);

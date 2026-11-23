@@ -55,7 +55,8 @@ public sealed class RegisterPasskeyService(
         // Checked before the challenge is consumed, so the User can correct the name.
         var name = Passkey.NormalizeName(request.Name);
 
-        var (user, _, needsStepUp) = await guard.CheckAsync(request.UserId, request.SessionId, cancellationToken);
+        var checkedContext = await guard.CheckAsync(request.UserId, request.SessionId, cancellationToken);
+        var (user, _, needsStepUp) = checkedContext;
 
         if (user is null)
         {
@@ -94,6 +95,22 @@ public sealed class RegisterPasskeyService(
         // Held until the commit, so concurrent registrations cannot exceed the limit, and a reset cannot miss the new
         // passkey.
         await using var transaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
+        // Saving the passkey does not check the User's version, so the Session is checked again under the lock: an MFA
+        // reset or a removal that committed while the response was verified ended it, and the passkey must not survive.
+        var recheck = await guard.CheckAgainAsync(checkedContext, cancellationToken);
+
+        if (recheck.User is null)
+        {
+            logger.PasskeyRegistrationFailed(user.Id, "the Session ended during the registration");
+
+            return RegisterPasskeyResult.SessionEnded;
+        }
+
+        if (recheck.NeedsStepUp)
+        {
+            return RegisterPasskeyResult.StepUpRequired;
+        }
 
         if ((await passkeyRepository.GetPasskeys(user.Id, cancellationToken)).Count >= Passkey.MaxPerUser)
         {

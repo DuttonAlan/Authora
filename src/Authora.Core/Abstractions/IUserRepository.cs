@@ -83,6 +83,15 @@ public interface IUserRepository
     public Task<bool> IsUserDeleted(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Loads the stored values of a tracked User again, e.g. after taking a lock under which another request may
+    ///     have changed it.
+    /// </summary>
+    /// <param name="user">The tracked User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>A Task that completes once the User is reloaded.</returns>
+    public Task ReloadUser(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Starts a transaction that holds the privilege lock until it is committed or disposed. Only one such
     ///     transaction runs at a time, so a check of the remaining administrators or of the Permissions of the caller
     ///     (see <see cref="Application.Authorization.PrivilegeGuard"/>) stays valid until the change is saved and

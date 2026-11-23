@@ -230,7 +230,7 @@ public sealed class PasskeysModel(
     ///     Renames a passkey.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns>The page with a confirmation or an error.</returns>
+    /// <returns>The page with a confirmation or an error, the step-up, or the sign-in page if the Session ended.</returns>
     public async Task<IActionResult> OnPostRenameAsync(CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -238,20 +238,24 @@ public sealed class PasskeysModel(
             return await FailedAsync(ModelState.Values.SelectMany(entry => entry.Errors).First().ErrorMessage, cancellationToken);
         }
 
+        RenamePasskeyResult result;
+
         try
         {
-            await renamePasskeyService.ExecuteAsync(GetUserId(), PasskeyId, NewName, cancellationToken);
+            result = await renamePasskeyService.ExecuteAsync(GetUserId(), GetSessionId(), PasskeyId, NewName, cancellationToken);
         }
         catch (DomainValidationException exception)
         {
             return await FailedAsync(exception.Message, cancellationToken);
         }
-        catch (NotFoundException)
-        {
-            return await FailedAsync("The passkey no longer exists.", cancellationToken);
-        }
 
-        return await SucceededAsync("Passkey renamed.", cancellationToken);
+        return result switch
+        {
+            RenamePasskeyResult.Renamed => await SucceededAsync("Passkey renamed.", cancellationToken),
+            RenamePasskeyResult.StepUpRequired => LocalRedirect(StepUpUrl),
+            RenamePasskeyResult.SessionEnded => SessionEnded(),
+            _ => await FailedAsync("The passkey no longer exists.", cancellationToken)
+        };
     }
 
     /// <summary>

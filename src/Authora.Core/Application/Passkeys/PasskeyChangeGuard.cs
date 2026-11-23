@@ -44,9 +44,41 @@ public sealed class PasskeyChangeGuard(
     /// <returns>The tracked User and Session, and whether the Session must step up first.</returns>
     public async Task<PasskeyChangeContext> CheckAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default)
     {
-        var now = timeProvider.GetUtcNow().UtcDateTime;
         var user = await userRepository.GetUserById(userId, cancellationToken);
         var session = await sessionRepository.GetSessionById(sessionId, cancellationToken);
+
+        return await EvaluateAsync(user, session, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Reloads the User and the Session of an earlier <see cref="CheckAsync"/> and checks them again.
+    /// </summary>
+    /// <remarks>
+    ///     Call it after taking the MFA lock (<see cref="IMfaRepository.BeginMfaChangeAsync"/>) when the change does not
+    ///     save the User: an MFA reset or a removal that committed in the meantime rotated the User's security stamp, so
+    ///     the Session no longer counts, and the change must not be saved.
+    /// </remarks>
+    /// <param name="context">The result of <see cref="CheckAsync"/> with a User and a Session.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The User and Session with their current values, and whether the Session must step up first.</returns>
+    public async Task<PasskeyChangeContext> CheckAgainAsync(PasskeyChangeContext context, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.User is not { } user || context.Session is not { } session)
+        {
+            return PasskeyChangeContext.SessionEnded;
+        }
+
+        await userRepository.ReloadUser(user, cancellationToken);
+        await sessionRepository.ReloadSession(session, cancellationToken);
+
+        return await EvaluateAsync(user, session, cancellationToken);
+    }
+
+    private async Task<PasskeyChangeContext> EvaluateAsync(User? user, Session? session, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
 
         // Checked again, although the pages only run with a valid Session: it may have ended since.
         if (user is null
