@@ -18,6 +18,8 @@ Your applications let users sign in through Authora instead of each building the
 - 🔐 **OAuth 2.1 and OpenID Connect**: Authorization Code flow with PKCE required by default, rotating Refresh Tokens with reuse detection, ID Tokens, UserInfo, discovery, revocation and introspection
 - 👤 **Users, Groups and Roles**: manage who may administer Authora, with fine-grained Permissions
 - 📱 **Two-step verification**: Users protect their account with an authenticator app (TOTP), with single-use recovery codes as a fallback, or with phishing-resistant passkeys (WebAuthn)
+- 🌐 **External identity providers**: let people sign in with Google or any other OpenID Connect provider, link those accounts to existing Users safely, or let them sign up
+- 🚪 **Sign-out that reaches your applications**: signing out revokes the tokens of the Session, and back-channel logout tells your applications
 - 🔑 **Applications**: register public and confidential Clients with exact Redirect URIs, allowed Scopes and expiring Secrets
 - 🖥️ **Admin interface** at `/admin`, which never exposes tokens to the browser
 - 📜 **Tamper-evident audit log** of sign-ins and every administrative change
@@ -56,7 +58,7 @@ The [documentation](docs/README.md), also on the website at <https://authora.ala
 
 ## Supported standards
 
-OAuth 2.1 (Authorization Code with PKCE, Refresh Tokens, Client Credentials), RFC 7636 (PKCE, `S256`), RFC 7009 (revocation), RFC 7662 (introspection), RFC 9207 (`iss` in the authorization response), OpenID Connect Core 1.0, Discovery 1.0, RP-Initiated Logout 1.0 and Back-Channel Logout 1.0. Details: [Standards and limitations](docs/reference/standards.md).
+OAuth 2.1 (Authorization Code with PKCE, Refresh Tokens, Client Credentials), RFC 7636 (PKCE, `S256`), RFC 7009 (revocation), RFC 7662 (introspection), RFC 9207 (`iss` in the authorization response), OpenID Connect Core 1.0, Discovery 1.0, RP-Initiated Logout 1.0 and Back-Channel Logout 1.0, as Relying Party of external OpenID Connect providers, RFC 6238 (TOTP) and WebAuthn Level 2 (passkeys). Details: [Standards and limitations](docs/reference/standards.md).
 
 The OpenID Foundation's conformance suite runs its **Basic OP**, **RP-Initiated Logout OP** and **Back-Channel Logout OP** test plans against every pull request; no test fails, and the documented warnings and skips are listed in [Conformance testing](docs/reference/standards.md#conformance-testing). Authora is not certified.
 
@@ -66,7 +68,7 @@ Planned releases, roughly in this order. Each release is a [milestone](https://g
 
 - [**0.2 – Usable by real applications**](https://github.com/DuttonAlan/Authora/milestone/1) (released, see the [changelog](CHANGELOG.md)): RP-initiated logout, client credentials grant, email delivery, self-service password change and reset, email verification, remembered consent, OpenID conformance tests in CI
 - [**0.3 – Stronger sign-in**](https://github.com/DuttonAlan/Authora/milestone/2) (released, see the [changelog](CHANGELOG.md)): multi-factor authentication with TOTP and recovery codes, passkeys as a second factor, `amr`/`acr` and MFA requirements, self-service email verification links
-- [**0.4 – Federation**](https://github.com/DuttonAlan/Authora/milestone/3): sign-in through external OpenID Connect providers (starting with Google), account linking, back-channel logout
+- [**0.4 – Federation**](https://github.com/DuttonAlan/Authora/milestone/3) (released, see the [changelog](CHANGELOG.md)): sign-in through external OpenID Connect providers (starting with Google), account linking, back-channel logout
 - [**0.5 – APIs and the access model**](https://github.com/DuttonAlan/Authora/milestone/4): audience-restricted Access Tokens (RFC 8707), optional JWT Access Tokens, Roles and Groups as claims, PAR and DPoP
 - [**0.6 – Operations**](https://github.com/DuttonAlan/Authora/milestone/5): automatic signing key rotation, OpenTelemetry, audit event export, running several instances
 
