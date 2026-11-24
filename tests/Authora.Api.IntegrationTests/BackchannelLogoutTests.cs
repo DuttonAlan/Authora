@@ -653,9 +653,9 @@ public sealed class BackchannelLogoutTests(AuthoraApiFactory factory) : IClassFi
         var client = await context.Clients.SingleAsync(client => client.Id == clientId, TestContext.Current.CancellationToken);
 
         var code = AuthorizationCode.Create(
-            secretHasher.Hash(Guid.NewGuid().ToString()), client, user, sessionId, null, ["openid"], "test-challenge", null, now, [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
+            secretHasher.Hash(Guid.NewGuid().ToString()), client, user, sessionId, null, ["openid"], [], "test-challenge", null, now, [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
         var grant = Grant.Create(code, now, TimeSpan.FromDays(1));
-        var accessToken = AccessToken.Create(grant.Id, secretHasher.Hash(Guid.NewGuid().ToString()), ["openid"], now, TimeSpan.FromHours(1));
+        var accessToken = AccessToken.Create(grant.Id, secretHasher.Hash(Guid.NewGuid().ToString()), ["openid"], [AuthoraResource.Id], now, TimeSpan.FromHours(1));
 
         context.AddRange(code, grant, accessToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);

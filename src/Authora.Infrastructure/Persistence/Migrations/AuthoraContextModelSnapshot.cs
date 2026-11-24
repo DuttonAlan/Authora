@@ -27,6 +27,10 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.PrimitiveCollection<Guid[]>("Audience")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -188,6 +192,10 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
+                    b.PrimitiveCollection<Guid[]>("Resources")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
                     b.Property<DateTime?>("ReusedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -298,6 +306,13 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<bool>("RequiresMfa")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("RequiresResourceIndicator")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ResourceIdentifier")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -305,6 +320,9 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ResourceIdentifier")
+                        .IsUnique();
 
                     b.ToTable("clients", "identity");
                 });
@@ -467,6 +485,10 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<Guid[]>("Resources")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
 
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");

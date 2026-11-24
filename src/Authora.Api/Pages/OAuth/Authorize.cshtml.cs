@@ -80,9 +80,9 @@ public sealed class AuthorizeModel(
     public ValidatedAuthorizationRequest? ConsentRequest { get; private set; }
 
     /// <summary>
-    ///     The request parameters, repeated as hidden fields of the consent form.
+    ///     The request parameters, repeated as hidden fields of the consent form. <c>resource</c> can occur more than once.
     /// </summary>
-    public IReadOnlyDictionary<string, string> Parameters { get; private set; } = new Dictionary<string, string>();
+    public IReadOnlyList<KeyValuePair<string, string>> Parameters { get; private set; } = [];
 
     /// <summary>
     ///     The error that cannot be sent to the Client and is shown to the User instead, or null.
@@ -305,7 +305,7 @@ public sealed class AuthorizeModel(
             parameters.Remove("prompt");
         }
 
-        return Challenge(new AuthenticationProperties { RedirectUri = GetAuthorizeUrl(parameters) });
+        return Challenge(new AuthenticationProperties { RedirectUri = GetAuthorizeUrl(WithResources(parameters, request)) });
     }
 
     /// <summary>
@@ -315,7 +315,7 @@ public sealed class AuthorizeModel(
     private LocalRedirectResult RedirectToMissingFactor(AuthorizationRequest request, AuthenticationRequirement requirement)
     {
         var page = requirement == AuthenticationRequirement.Enrollment ? AuthenticatorModel.PagePath : StepUpModel.PagePath;
-        var returnUrl = GetAuthorizeUrl(GetParameters(request));
+        var returnUrl = GetAuthorizeUrl(WithResources(GetParameters(request), request));
 
         return LocalRedirect($"{page}?returnUrl={Uri.EscapeDataString(returnUrl)}");
     }
@@ -331,7 +331,7 @@ public sealed class AuthorizeModel(
     /// <summary>
     ///     The URL of the authorization request as GET, with the given parameters.
     /// </summary>
-    private string GetAuthorizeUrl(Dictionary<string, string> parameters)
+    private string GetAuthorizeUrl(IEnumerable<KeyValuePair<string, string>> parameters)
     {
         return QueryHelpers.AddQueryString(
             $"{Request.PathBase}{Request.Path}",
@@ -367,7 +367,7 @@ public sealed class AuthorizeModel(
     private PageResult ShowConsent(AuthorizationRequest request, ValidatedAuthorizationRequest validated)
     {
         ConsentRequest = validated;
-        Parameters = GetParameters(request);
+        Parameters = WithResources(GetParameters(request), request);
 
         return Page();
     }
@@ -429,5 +429,15 @@ public sealed class AuthorizeModel(
         return parameters
             .Where(parameter => parameter.Value is not null)
             .ToDictionary(parameter => parameter.Key, parameter => parameter.Value!);
+    }
+
+    /// <summary>
+    ///     The single-valued parameters followed by every <c>resource</c> value (RFC 8707), which may repeat.
+    /// </summary>
+    private static List<KeyValuePair<string, string>> WithResources(Dictionary<string, string> parameters, AuthorizationRequest request)
+    {
+        return parameters
+            .Concat(request.Resources.Select(resource => new KeyValuePair<string, string>(AuthorizationRequest.ResourceParameter, resource)))
+            .ToList();
     }
 }

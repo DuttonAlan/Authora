@@ -28,7 +28,11 @@ Authora remembers the approval as the user's *Consent* for the Client: the Scope
 
 Each sign-in through the Client creates a *Grant*: the family of tokens the Client gets from that sign-in, so they can be revoked together. A Grant ends; the Consent stays. Revoking a Consent also revokes the Grants of that User for that Client, so the Client loses access right away instead of keeping it until its Refresh Token expires. See [Tokens, Grants and Sessions](tokens-and-sessions.md).
 
-An API (resource server) is also registered as a Confidential Client and *serves* the Scopes it protects. It can only introspect tokens that contain a Scope it serves.
+An API (resource server) is also registered as a Confidential Client and *serves* the Scopes it protects. It can only introspect tokens that are meant for it and contain a Scope it serves, and sees only those Scopes.
+
+Which APIs a token is meant for is its *audience* ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)). An API that has a *Resource Identifier*, e.g. `https://orders.example.com`, can be named with the `resource` parameter: the token is then meant only for the named APIs and keeps only the Scopes they serve. Authora itself is the resource `{Issuer}/api` and serves the System Scopes for the admin API and UserInfo, which accept only tokens meant for Authora. A token requested without `resource` is meant for every Client that served one of its Scopes when it was issued (and for Authora if it has a System Scope), so applications that never send `resource` keep working; an API can opt out of this with *Require the resource parameter*. The audience is stored as Client Ids, so changing a Resource Identifier does not affect existing tokens, and serving a Scope later does not reveal tokens issued before.
+
+Named resources narrow a token; they never widen it. Consent is still about Scopes: an application cannot get a Scope the User did not approve by naming another API, and a token request can only name APIs that the authorization request named, if it named any.
 
 A Confidential Client can also act for itself, without any user, if an administrator allows it the Grant Type *Client Credentials*: a backend service then gets a token with the Scopes it is allowed, and its Grant has no User. Such tokens never carry a user's identity (no `openid`, no UserInfo) and never reach the admin API. See [Protect an API](../how-to/protect-an-api.md#call-the-api-from-a-backend-service).
 

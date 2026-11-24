@@ -6,6 +6,9 @@ using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Exceptions;
+using Authora.Core.Application.OAuth;
+using Authora.Core.Domain;
+using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Core.Domain.Exceptions;
 
@@ -19,16 +22,18 @@ namespace Authora.Core.Application.Clients.Update;
 /// </summary>
 /// <param name="clientRepository">An Instance of a IClientRepository to update a Client.</param>
 /// <param name="backchannelLogoutOptions">The back-channel logout settings, whether HTTP is allowed.</param>
+/// <param name="oauthOptions">The OAuth settings with the Issuer and whether Resource Identifiers may use HTTP.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateClientService(
     IClientRepository clientRepository,
     IOptions<BackchannelLogoutOptions> backchannelLogoutOptions,
+    IOptions<OAuthOptions> oauthOptions,
     IAuditLog auditLog,
     ILogger<UpdateClientService> logger)
 {
     /// <summary>
-    ///     Updates the Name, Grant Types, token lifetimes and back-channel logout settings of an existing Client.
+    ///     Updates the Name, Grant Types, token lifetimes, back-channel logout and API settings of an existing Client.
     /// </summary>
     /// <param name="id">Id of the Client.</param>
     /// <param name="request">The request to update the Client.</param>
@@ -36,13 +41,24 @@ public sealed class UpdateClientService(
     /// <returns>A Task that completes once the Client is updated.</returns>
     /// <exception cref="NotFoundException">Thrown when the Client does not exist.</exception>
     /// <exception cref="DomainValidationException">Thrown when a value is invalid.</exception>
-    /// <exception cref="ConflictException">Thrown when client_credentials should be allowed for a first-party Client.</exception>
+    /// <exception cref="ConflictException">
+    ///     Thrown when client_credentials should be allowed for a first-party Client, or another Client has the
+    ///     Resource Identifier.
+    /// </exception>
     public async Task ExecuteAsync(
         Guid id,
         UpdateClientRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        // The Resource Identifier and RequiresResourceIndicator are checked against each other, and each request
+        // writes only what it changed. Locked before loading, so concurrent changes see each other's saved values.
+        var changesApiSettings = request.ResourceIdentifier is not null || request.RequiresResourceIndicator is not null;
+
+        await using var transaction = changesApiSettings
+            ? await clientRepository.BeginApiSettingsChangeAsync(id, cancellationToken)
+            : null;
 
         var client = await clientRepository.GetClientById(id, cancellationToken)
             ?? throw new NotFoundException($"Client '{id}' was not found.");
@@ -86,15 +102,80 @@ public sealed class UpdateClientService(
             client.SetBackchannelLogoutSessionRequired(sessionRequired);
         }
 
-        var backchannelLogout = client.BackchannelLogoutUri is null
-            ? "no Back-Channel Logout URI"
-            : $"Back-Channel Logout URI '{client.BackchannelLogoutUri}'";
+        // The Resource Identifier decides which tokens the Client sees at introspection, like a served Scope.
+        if (request.ResourceIdentifier is not null)
+        {
+            await SetResourceIdentifierAsync(client, request.ResourceIdentifier, cancellationToken);
+        }
 
-        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Updated, client.Id, $"Name '{client.Name}', {backchannelLogout}"));
+        if (request.RequiresResourceIndicator is { } requiresResourceIndicator)
+        {
+            client.SetRequiresResourceIndicator(requiresResourceIndicator);
+        }
+
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Updated, client.Id, GetUpdatedDetails(client)));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await clientRepository.SaveChangesAsync(cancellationToken);
 
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         logger.ClientUpdated(client.Id, client.Name);
+    }
+
+    /// <summary>
+    ///     The Details of <see cref="AuditEventTypes.Clients.Updated"/>. Both URIs may be 2048 characters long, more than
+    ///     <see cref="AuditEvent.DetailsMaxLength"/>, so each is shortened visibly to <see cref="MaxAuditedUriLength"/>,
+    ///     and the short settings come first. Name (at most 100) and the fixed text fit with both shortened URIs.
+    /// </summary>
+    private static string GetUpdatedDetails(Client client)
+    {
+        var resource = client.ResourceIdentifier is null
+            ? "no Resource Identifier"
+            : $"resource parameter {(client.RequiresResourceIndicator ? "required" : "optional")}, Resource Identifier {Quote(client.ResourceIdentifier)}";
+
+        var backchannelLogout = client.BackchannelLogoutUri is null
+            ? "no Back-Channel Logout URI"
+            : $"Back-Channel Logout URI {Quote(client.BackchannelLogoutUri)}";
+
+        return $"Name '{client.Name}', {resource}, {backchannelLogout}";
+    }
+
+    private static string Quote(string uri)
+    {
+        return uri.Length <= MaxAuditedUriLength
+            ? $"'{uri}'"
+            : $"'{uri[..MaxAuditedUriLength]}…' (shortened)";
+    }
+
+    /// <summary>
+    ///     The longest URI recorded in full in the audit Details.
+    /// </summary>
+    private const int MaxAuditedUriLength = 300;
+
+    private async Task SetResourceIdentifierAsync(Client client, string identifier, CancellationToken cancellationToken)
+    {
+        if (identifier.Length > 0)
+        {
+            // {Issuer}/api names Authora's own admin API and UserInfo in the resource parameter.
+            if (string.Equals(identifier, AuthoraResource.GetIdentifier(oauthOptions.Value.Issuer), StringComparison.Ordinal))
+            {
+                throw new DomainValidationException(
+                    $"The Resource Identifier '{identifier}' is reserved for Authora itself.",
+                    nameof(UpdateClientRequest.ResourceIdentifier));
+            }
+
+            // Checked here for a clear message; the unique index catches concurrent changes (409 as well).
+            if (identifier != client.ResourceIdentifier
+                && await clientRepository.IsResourceIdentifierTaken(identifier, client.Id, cancellationToken))
+            {
+                throw new ConflictException($"Another Client already has the Resource Identifier '{identifier}'.");
+            }
+        }
+
+        client.SetResourceIdentifier(identifier, oauthOptions.Value.AllowHttpResourceIdentifiers);
     }
 }

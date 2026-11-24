@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Upgrading
+
+- Apply the new migration `AudienceRestrictedAccessTokens` (see [Upgrade Authora](docs/how-to/upgrade-authora.md)). It adds the Client columns `ResourceIdentifier` and `RequiresResourceIndicator`, `Resources` on Authorization Codes and Grants, and `Audience` on Access Tokens.
+- **Introspection now checks the audience** (see *Changed*): an API sees a token only if it is in the token's audience, which is fixed when the token is issued. Tokens requested without `resource` are meant for every Client that serves one of their Scopes at that moment, so existing setups keep working, but an API that starts serving a Scope no longer sees tokens issued before.
+- Access Tokens issued before the upgrade have no audience: only the Client they were issued to can introspect them, and the admin API and UserInfo reject them. Applications get working tokens on their next refresh, and the admin interface refreshes its token on the first rejected call. Access Tokens live one hour by default, so APIs that introspect tokens of other Clients may reject requests for up to that long.
+
+### Added
+
+- Audience-restricted Access Tokens ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707), [#55](https://github.com/DuttonAlan/Authora/issues/55)): a Confidential Client gets an optional Resource Identifier, which makes it an API, and **Require the resource parameter** (admin API `PUT /api/clients/{id}`, **API** panel in the admin interface). `resource` (repeatable) at `/oauth/authorize` and `/oauth/token` for all grant types names the APIs a token is meant for, with downscoping at the token endpoint and on refresh, and the new error `invalid_target`. Authora itself is the resource `{Issuer}/api`. The Scopes of such a token are cut to those its audience serves. See [Protect an API](docs/how-to/protect-an-api.md#4-give-the-api-a-resource-identifier).
+- `aud` in introspection responses for Access Tokens.
+- Setting `Authora:OAuth:AllowHttpResourceIdentifiers` for HTTP Resource Identifiers in Development.
+- Log event 6020 for `resource` values rejected with `invalid_target`.
+
+### Changed
+
+- Introspection reports an Access Token as active to the Client it was issued to and to the Clients in its audience, no longer to every Client that serves one of its Scopes.
+- The admin API and UserInfo accept only Access Tokens with Authora (`{Issuer}/api`) in their audience (`401 invalid_token` otherwise).
+- The audit events `client.updated` (Resource Identifier and setting) and `client.token-issued` (audience) and the log events 6002, 6003 and 6014 (audience) contain more details.
+
 ## [0.4.0] - 2026-11-24
 
 ### Upgrading

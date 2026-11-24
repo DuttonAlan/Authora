@@ -42,6 +42,10 @@ public sealed class AccessTokenConfiguration : IEntityTypeConfiguration<AccessTo
 
         builder.Ignore(x => x.Scopes);
 
+        // Client Ids (uuid[]), so a changed Resource Identifier does not orphan the token.
+        builder.PrimitiveCollection(x => x.Audience)
+            .IsRequired();
+
         builder.HasOne(x => x.Grant)
             .WithMany()
             .HasForeignKey(x => x.GrantId)

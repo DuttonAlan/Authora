@@ -30,13 +30,40 @@ Copy the **Client Secret** shown after registration; it is shown only once. Copy
 
 Open the `Orders API` Client. In the **Scopes** panel, check **Served** for `orders.read`.
 
-An API only learns about tokens that contain a Scope it serves. Without this, every token looks inactive to it. This keeps one API from learning about tokens meant for another.
+An API only learns about tokens that are meant for it and contain a Scope it serves; it sees only those Scopes. Without this, every token looks inactive to it. A token requested without `resource` (see the next step) is meant for every API that serves one of its Scopes *when the token is issued*: tokens issued before the API started serving the Scope stay invisible to it.
 
-## 4. Allow the Scope for the applications
+## 4. Give the API a Resource Identifier
 
-Open each Client that calls the API and check **Allowed** for `orders.read` in its **Scopes** panel. The applications then request it, e.g. `scope=openid orders.read`.
+In the **API** panel of the `Orders API` Client, set the **Resource Identifier**, e.g. `https://orders.example.com`, and save. It is an absolute HTTPS URI without query or fragment, usually the API's base URL, and unique among all Clients. Applications name it with the `resource` parameter ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)) to get a token that is meant for this API only: other APIs that serve the same Scopes see it as inactive, and it keeps only the Scopes this API serves.
 
-## 5. Check tokens in the API
+With **Require the resource parameter**, the API no longer sees tokens requested without `resource`, only those that name it. Turn it on once all applications send `resource`.
+
+This step is optional: without a Resource Identifier, the API sees every token requested without `resource` that has one of its Scopes.
+
+## 5. Allow the Scope for the applications
+
+Open each Client that calls the API and check **Allowed** for `orders.read` in its **Scopes** panel. The applications then request it, e.g. `scope=openid orders.read`, and name the API:
+
+```text
+https://auth.example.com/oauth/authorize?client_id=…&response_type=code&scope=openid%20orders.read
+  &resource=https%3A%2F%2Forders.example.com&resource=https%3A%2F%2Fauth.example.com%2Fapi&…
+```
+
+`resource` may repeat. Every requested Scope other than `openid`, `profile`, `email` and `authora.admin` must be served by one of the named APIs, and every named API must serve one of the Scopes, otherwise Authora answers `invalid_target`. `https://auth.example.com/api` (the Issuer followed by `/api`) is Authora itself: name it too if the application calls UserInfo with the token. Without it, `openid` is left out of the Access Token (the ID Token is still issued) and UserInfo rejects it.
+
+At the token endpoint, `resource` can narrow the audience to some of the approved APIs, e.g. one token per API:
+
+```sh
+curl https://auth.example.com/oauth/token \
+  -d grant_type=refresh_token \
+  -d client_id="$APP_CLIENT_ID" \
+  -d refresh_token="$REFRESH_TOKEN" \
+  -d resource=https://orders.example.com
+```
+
+The response's `scope` shows the Scopes the token keeps.
+
+## 6. Check tokens in the API
 
 For each request, take the Bearer token and introspect it with the API's credentials:
 
@@ -57,11 +84,12 @@ An active token:
   "token_type": "Bearer",
   "exp": 1792417234,
   "iat": 1792413634,
-  "iss": "https://auth.example.com"
+  "iss": "https://auth.example.com",
+  "aud": ["https://orders.example.com"]
 }
 ```
 
-Anything else returns only `{"active": false}`, without a reason.
+Anything else returns only `{"active": false}`, without a reason. `aud` lists the APIs the token is meant for (an API without Resource Identifier appears by its Client Id).
 
 Then, in the API:
 
@@ -97,7 +125,7 @@ A service without a user, e.g. a nightly job that reads orders, gets a token for
    }
    ```
 
-   There is no Refresh Token: request a new token when this one expires. Without `scope`, the token gets all Scopes the service is allowed.
+   There is no Refresh Token: request a new token when this one expires. Without `scope`, the token gets all Scopes the service is allowed. Add `-d resource=https://orders.example.com` to get a token meant only for the orders API; without `scope`, it then gets all allowed Scopes that API serves.
 
 4. Call the API with `Authorization: Bearer <access_token>`. Introspection reports the service's Client Id as both `client_id` and `sub`.
 
@@ -114,4 +142,5 @@ Secrets expire after one year by default. Before that, open the `Orders API` Cli
 ## Related
 
 - [Introspection rules](../reference/oauth-endpoints.md#introspection)
+- [Resources and audiences](../reference/oauth-endpoints.md#resources)
 - [Tokens, Grants and Sessions](../explanation/tokens-and-sessions.md): why Access Tokens are opaque

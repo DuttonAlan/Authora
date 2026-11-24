@@ -49,6 +49,14 @@ public sealed class AccessToken
     public string Scope { get; private set; } = null!;
 
     /// <summary>
+    ///     The audience of the token (RFC 8707): Ids of the Clients (APIs) it is meant for, and
+    ///     <see cref="AuthoraResource.Id"/> if it is meant for Authora itself. Only these Clients, and the Client the
+    ///     token was issued to, see it as active at introspection. Stored as Ids, so a changed Resource Identifier
+    ///     does not orphan the token. Empty for tokens from before audiences were recorded.
+    /// </summary>
+    public IReadOnlyList<Guid> Audience { get; private set; } = [];
+
+    /// <summary>
     ///     Point in time (UTC) when the token was issued.
     /// </summary>
     public DateTime CreatedAt { get; private set; }
@@ -74,13 +82,21 @@ public sealed class AccessToken
     /// <param name="grantId">The Id of the Grant the token belongs to.</param>
     /// <param name="tokenHash">The hash of the token.</param>
     /// <param name="scopes">The Scope Names of the token.</param>
+    /// <param name="audience">The Ids of the Clients the token is meant for, see <see cref="Audience"/>.</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <param name="lifetime">The lifetime of the token.</param>
     /// <returns>The created Access Token.</returns>
     /// <exception cref="ArgumentException">Thrown when a value is missing or invalid.</exception>
-    public static AccessToken Create(Guid grantId, SecretHash tokenHash, IEnumerable<string> scopes, DateTime now, TimeSpan lifetime)
+    public static AccessToken Create(
+        Guid grantId,
+        SecretHash tokenHash,
+        IEnumerable<string> scopes,
+        IEnumerable<Guid> audience,
+        DateTime now,
+        TimeSpan lifetime)
     {
         ArgumentNullException.ThrowIfNull(tokenHash);
+        ArgumentNullException.ThrowIfNull(audience);
         UtcGuard.EnsureUtc(now);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
 
@@ -89,6 +105,7 @@ public sealed class AccessToken
             GrantId = grantId,
             TokenHash = tokenHash,
             Scope = ScopeList.Format(scopes),
+            Audience = audience.Distinct().ToList(),
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };

@@ -43,4 +43,11 @@ internal static class AdvisoryLockKeys
     ///     confirmation, new recovery codes, removal, reset and deletion, and linking an account at an identity provider, which deletion removes. The second key is derived from the User's Id.
     /// </summary>
     public const int Mfa = 0x4D46_4155; // "MFAU"
+
+    /// <summary>
+    ///     First key of the two-key locks that serialize changes to the API settings of one Client (Resource Identifier
+    ///     and whether the resource parameter is required), which are checked against each other. The second key is
+    ///     derived from the Client's Id.
+    /// </summary>
+    public const int ApiSettings = 0x4150_4953; // "APIS"
 }

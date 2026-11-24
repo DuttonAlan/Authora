@@ -18,6 +18,11 @@ namespace Authora.Core.Application.OAuth.Introspect;
 /// <param name="ExpiresAt">When the token expires, in seconds since the Unix epoch (<c>exp</c>).</param>
 /// <param name="IssuedAt">When the token was issued, in seconds since the Unix epoch (<c>iat</c>).</param>
 /// <param name="Issuer">The Issuer Identifier of Authora (<c>iss</c>).</param>
+/// <param name="Audience">
+///     The audience of an Access Token (<c>aud</c>, RFC 8707): the Resource Identifiers of the APIs it is meant for,
+///     <c>{Issuer}/api</c> for Authora, or the Client Id of a Client without Resource Identifier. Always an array;
+///     omitted for Refresh Tokens and when empty.
+/// </param>
 public sealed record IntrospectionResponse(
     [property: JsonPropertyName("active")] bool Active,
     [property: JsonPropertyName("scope"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Scope = null,
@@ -26,7 +31,8 @@ public sealed record IntrospectionResponse(
     [property: JsonPropertyName("token_type"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TokenType = null,
     [property: JsonPropertyName("exp"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ExpiresAt = null,
     [property: JsonPropertyName("iat"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? IssuedAt = null,
-    [property: JsonPropertyName("iss"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Issuer = null)
+    [property: JsonPropertyName("iss"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Issuer = null,
+    [property: JsonPropertyName("aud"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Audience = null)
 {
     /// <summary>
     ///     The response for a token that is unknown, expired, revoked or may not be introspected by the caller.

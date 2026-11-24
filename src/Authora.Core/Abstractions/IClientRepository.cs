@@ -54,6 +54,53 @@ public interface IClientRepository
     public Task<Guid?> GetEnabledPublicClientIdByRedirectUri(string redirectUri, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Starts the transaction for changing the API settings of a Client (<see cref="Client.ResourceIdentifier"/> and
+    ///     <see cref="Client.RequiresResourceIndicator"/>) and locks them until the transaction ends, so that concurrent
+    ///     changes run one after the other and each checks the other setting as saved. Load the Client after this call.
+    ///     Joins the transaction of the request if there is one.
+    /// </summary>
+    /// <param name="clientId">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The transaction. Committing a joined transaction is left to its owner.</returns>
+    public Task<ITransaction> BeginApiSettingsChangeAsync(Guid clientId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Gets the enabled Confidential Client with exactly the given Resource Identifier, including its served Scopes.
+    /// </summary>
+    /// <param name="resourceIdentifier">The Resource Identifier, compared character by character.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The untracked Client, or null if no enabled API has the identifier.</returns>
+    public Task<Client?> GetEnabledApiByResourceIdentifier(string resourceIdentifier, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Checks whether another Client already has the given Resource Identifier.
+    /// </summary>
+    /// <param name="resourceIdentifier">The Resource Identifier, compared character by character.</param>
+    /// <param name="exceptClientId">The Client to ignore, e.g. the one being changed.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>True if another Client has it.</returns>
+    public Task<bool> IsResourceIdentifierTaken(string resourceIdentifier, Guid exceptClientId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Gets the Clients with the given Ids, including their served Scopes. Ids of Clients that no longer exist are
+    ///     skipped.
+    /// </summary>
+    /// <param name="ids">The Ids of the Clients.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The untracked Clients.</returns>
+    public Task<IReadOnlyList<Client>> GetClientsWithServedScopes(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Gets the Ids of the Clients that serve at least one of the given Scopes and do not require the
+    ///     <c>resource</c> parameter (<see cref="Client.RequiresResourceIndicator"/>): the audience of an Access Token
+    ///     requested without <c>resource</c>.
+    /// </summary>
+    /// <param name="scopeNames">The Scope Names of the token.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The Ids of the Clients, ordered.</returns>
+    public Task<IReadOnlyList<Guid>> GetIdsOfClientsServingAnyScope(IReadOnlyCollection<string> scopeNames, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Checks in the database whether a Client is disabled, ignoring any tracked (possibly outdated) instance.
     /// </summary>
     /// <param name="id">Id of the Client.</param>

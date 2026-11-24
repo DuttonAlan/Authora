@@ -56,6 +56,14 @@ public sealed class Grant
     public string Scope { get; private set; } = null!;
 
     /// <summary>
+    ///     The approved resources (RFC 8707), as Ids of the APIs and <see cref="AuthoraResource.Id"/> for Authora.
+    ///     Access Tokens of the Grant are meant for these resources or a part of them. Empty if the request named
+    ///     none: then a token is meant for every Client that serves one of its Scopes, unless the token request names
+    ///     resources.
+    /// </summary>
+    public IReadOnlyList<Guid> Resources { get; private set; } = [];
+
+    /// <summary>
     ///     Id of the <see cref="Entities.AuthorizationCode"/> the Grant was created from, or <see langword="null"/> for a
     ///     Grant of the Client itself.
     /// </summary>
@@ -139,6 +147,7 @@ public sealed class Grant
             UserId = authorizationCode.UserId,
             SecurityStamp = authorizationCode.SecurityStamp,
             Scope = authorizationCode.Scope,
+            Resources = authorizationCode.Resources.ToList(),
             AuthorizationCodeId = authorizationCode.Id,
             SessionId = authorizationCode.SessionId,
             AuthenticationMethod = authorizationCode.AuthenticationMethod,
@@ -153,15 +162,22 @@ public sealed class Grant
     /// </summary>
     /// <param name="client">The Client that obtains the token.</param>
     /// <param name="scopes">The granted Scope Names.</param>
+    /// <param name="resources">The Ids of the resources named with <c>resource</c>, or empty.</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <param name="lifetime">The lifetime of the Grant.</param>
     /// <returns>The created Grant.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="now"/> is not in UTC.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="lifetime"/> is not positive.</exception>
-    public static Grant CreateForClient(Client client, IEnumerable<string> scopes, DateTime now, TimeSpan lifetime)
+    public static Grant CreateForClient(
+        Client client,
+        IEnumerable<string> scopes,
+        IEnumerable<Guid> resources,
+        DateTime now,
+        TimeSpan lifetime)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentNullException.ThrowIfNull(resources);
         UtcGuard.EnsureUtc(now);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
 
@@ -169,6 +185,7 @@ public sealed class Grant
         {
             ClientId = client.Id,
             Scope = ScopeList.Format(scopes),
+            Resources = resources.Distinct().ToList(),
             CreatedAt = now,
             ExpiresAt = now + lifetime
         };

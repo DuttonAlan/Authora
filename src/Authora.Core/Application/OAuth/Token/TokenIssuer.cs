@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.OAuth.Resources;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -21,14 +22,15 @@ public sealed class TokenIssuer(ISecretGenerator secretGenerator, ISecretHasher 
     /// </summary>
     /// <param name="grant">The Grant the tokens belong to. No token expires after it.</param>
     /// <param name="client">The Client the tokens are issued to. Its TTLs are used.</param>
-    /// <param name="scopes">The Scope Names of the Access Token.</param>
+    /// <param name="audience">The Scope Names and the audience of the Access Token, see <see cref="ResourceResolver"/>.</param>
     /// <param name="now">The current point in time (UTC).</param>
     /// <returns>The new tokens and the response for the Client.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the Grant has expired, which the caller checks first.</exception>
-    public IssuedTokens Issue(Grant grant, Client client, IReadOnlyList<string> scopes, DateTime now)
+    public IssuedTokens Issue(Grant grant, Client client, TokenAudience audience, DateTime now)
     {
         ArgumentNullException.ThrowIfNull(grant);
         ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(audience);
 
         if (grant.IsExpired(now))
         {
@@ -40,7 +42,8 @@ public sealed class TokenIssuer(ISecretGenerator secretGenerator, ISecretHasher 
         var accessToken = AccessToken.Create(
             grant.Id,
             secretHasher.Hash(accessTokenValue),
-            scopes,
+            audience.Scopes,
+            audience.Audience,
             now,
             accessTokenLifetime);
 
@@ -63,7 +66,7 @@ public sealed class TokenIssuer(ISecretGenerator secretGenerator, ISecretHasher 
             TokenResponse.BearerTokenType,
             (int)accessTokenLifetime.TotalSeconds,
             refreshTokenValue,
-            ScopeList.Format(scopes));
+            ScopeList.Format(audience.Scopes));
 
         return new IssuedTokens(accessToken, refreshToken, response);
     }

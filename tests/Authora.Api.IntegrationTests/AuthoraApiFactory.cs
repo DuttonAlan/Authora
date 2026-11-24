@@ -265,13 +265,18 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// <param name="issuedAt">When the token was issued, now by default. The token is valid for one hour.</param>
     /// <param name="clientId">The Client the token is issued to, or null for a new Public Client.</param>
     /// <param name="authenticationMethods">How the User signed in for the token, the password only by default.</param>
+    /// <param name="audience">
+    ///     The audience of the token, by default the one of a request without <c>resource</c>: Authora if a Scope is a
+    ///     System Scope, and every Client that serves one of the Scopes.
+    /// </param>
     /// <returns>The plain-text Access Token.</returns>
     public async Task<string> IssueAccessTokenAsync(
         Guid userId,
         IReadOnlyList<string> scopes,
         DateTime? issuedAt = null,
         Guid? clientId = null,
-        IReadOnlyList<string>? authenticationMethods = null)
+        IReadOnlyList<string>? authenticationMethods = null,
+        IReadOnlyList<Guid>? audience = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
@@ -285,11 +290,24 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
             : await context.Clients.SingleAsync(client => client.Id == clientId);
 
         var authorizationCode = AuthorizationCode.Create(
-            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, "test-challenge", null, now, authenticationMethods ?? [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
+            secretHasher.Hash(secretGenerator.Generate()), client, user, Guid.NewGuid(), null, scopes, [], "test-challenge", null, now, authenticationMethods ?? [AuthenticationMethods.Password], now, TimeSpan.FromMinutes(1));
         var grant = Grant.Create(authorizationCode, now, TimeSpan.FromDays(1));
 
+        if (audience is null)
+        {
+            var defaultAudience = new List<Guid>();
+
+            if (await context.Scopes.AnyAsync(systemScope => systemScope.IsSystem && scopes.Contains(systemScope.Name)))
+            {
+                defaultAudience.Add(AuthoraResource.Id);
+            }
+
+            defaultAudience.AddRange(await scope.ServiceProvider.GetRequiredService<IClientRepository>().GetIdsOfClientsServingAnyScope(scopes.ToList()));
+            audience = defaultAudience;
+        }
+
         var token = secretGenerator.Generate();
-        var accessToken = AccessToken.Create(grant.Id, secretHasher.Hash(token), scopes, now, TimeSpan.FromHours(1));
+        var accessToken = AccessToken.Create(grant.Id, secretHasher.Hash(token), scopes, audience, now, TimeSpan.FromHours(1));
 
         context.AddRange(authorizationCode, grant, accessToken);
 

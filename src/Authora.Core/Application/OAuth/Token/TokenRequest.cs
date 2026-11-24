@@ -16,6 +16,9 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="RefreshToken">The Refresh Token (<c>refresh_token</c> only).</param>
 /// <param name="Scope">The requested Scopes: narrower ones for <c>refresh_token</c>, the token's Scopes for <c>client_credentials</c>.</param>
 /// <param name="Credentials">The credentials of the Client.</param>
+/// <param name="Resources">
+///     The <c>resource</c> values (RFC 8707): the APIs the Access Token is meant for. Null or empty if none were sent.
+/// </param>
 public sealed record TokenRequest(
     string? GrantType,
     string? Code,
@@ -23,7 +26,8 @@ public sealed record TokenRequest(
     string? CodeVerifier,
     string? RefreshToken,
     string? Scope,
-    ClientCredentials Credentials)
+    ClientCredentials Credentials,
+    IReadOnlyList<string>? Resources = null)
 {
     /// <summary>
     ///     Returns a description without the code, verifier and tokens, so they are not written to logs by accident.

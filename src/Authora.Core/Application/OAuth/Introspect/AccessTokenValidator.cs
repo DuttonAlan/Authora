@@ -73,7 +73,8 @@ public sealed class AccessTokenValidator(
             accessToken.Scopes,
             accessToken.CreatedAt,
             accessToken.ExpiresAt,
-            grant.AuthenticationMethods);
+            grant.AuthenticationMethods,
+            accessToken.Audience);
     }
 }
 
@@ -93,6 +94,10 @@ public sealed class AccessTokenValidator(
 ///     The methods the User completed in the Session the Grant was approved in, e.g. <c>pwd</c> and <c>otp</c>. Empty
 ///     for a token of the Client itself and for Grants from before the methods were recorded.
 /// </param>
+/// <param name="Audience">
+///     The Ids of the Clients the token is meant for, and <see cref="Domain.AuthoraResource.Id"/> if it is meant for
+///     Authora itself (RFC 8707).
+/// </param>
 public sealed record ValidatedAccessToken(
     Guid Id,
     Guid GrantId,
@@ -101,10 +106,16 @@ public sealed record ValidatedAccessToken(
     IReadOnlyList<string> Scopes,
     DateTime IssuedAt,
     DateTime ExpiresAt,
-    IReadOnlyList<string> AuthenticationMethods)
+    IReadOnlyList<string> AuthenticationMethods,
+    IReadOnlyList<Guid> Audience)
 {
     /// <summary>
     ///     The <c>sub</c> of the token: the User, or the Client if the token has no User.
     /// </summary>
     public string Subject => (UserId ?? ClientId).ToString();
+
+    /// <summary>
+    ///     Whether the token is meant for Authora itself (admin API, UserInfo), i.e. Authora is in its audience.
+    /// </summary>
+    public bool IsMeantForAuthora => Audience.Contains(Domain.AuthoraResource.Id);
 }

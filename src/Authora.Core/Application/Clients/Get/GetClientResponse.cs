@@ -23,8 +23,10 @@ namespace Authora.Core.Application.Clients.Get;
 /// <param name="PostLogoutRedirectUris" example="[&quot;https://shop.example.com/signed-out&quot;]">Registered Post-logout Redirect URIs, for RP-initiated logout.</param>
 /// <param name="BackchannelLogoutUri" example="https://shop.example.com/backchannel-logout">Back-Channel Logout URI, to which Authora sends a Logout Token when a Session ends in which the Client received tokens, or null.</param>
 /// <param name="BackchannelLogoutSessionRequired" example="false">Whether the Client requires the sid claim in Logout Tokens. Authora always sends it.</param>
+/// <param name="ResourceIdentifier" example="https://api.example.com">Resource Identifier (RFC 8707) that makes the Client an API, named by other Clients with the resource parameter, or null.</param>
+/// <param name="RequiresResourceIndicator" example="false">Whether Access Tokens are only meant for the API if the resource parameter named it.</param>
 /// <param name="Scopes">Scopes the Client is allowed to request.</param>
-/// <param name="ServedScopes">Scopes the Client serves as a resource server. It can introspect Access Tokens of other Clients only if they contain one of these Scopes.</param>
+/// <param name="ServedScopes">Scopes the Client serves as a resource server. It can introspect Access Tokens of other Clients only if it is in their audience, and sees only these Scopes of them.</param>
 /// <param name="Secrets">Secrets of the Client, including expired and revoked ones. Only metadata, never the Secret itself.</param>
 /// <param name="CreatedAt">Point in time (UTC) when the Client was created.</param>
 /// <param name="ModifiedAt">Point in time (UTC) when the Client was last modified, or null if it was never modified.</param>
@@ -43,6 +45,8 @@ public sealed record GetClientResponse(
     IReadOnlyList<string> PostLogoutRedirectUris,
     string? BackchannelLogoutUri,
     bool BackchannelLogoutSessionRequired,
+    string? ResourceIdentifier,
+    bool RequiresResourceIndicator,
     IReadOnlyList<ClientScopeResponse> Scopes,
     IReadOnlyList<ClientScopeResponse> ServedScopes,
     IReadOnlyList<ClientSecretResponse> Secrets,

@@ -6,6 +6,7 @@ using Authora.Core.Abstractions;
 using Authora.Core.Application.Account;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.OAuth.ClientAuthentication;
+using Authora.Core.Application.OAuth.Resources;
 using Authora.Core.Application.Oidc;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
@@ -27,6 +28,7 @@ namespace Authora.Core.Application.OAuth.Token;
 /// <param name="tokenRepository">An Instance of a ITokenRepository to store, consume and revoke tokens.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to check the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to check that the Session of a code is still active.</param>
+/// <param name="resourceResolver">Decides the audience and the Scopes of new Access Tokens.</param>
 /// <param name="tokenIssuer">The issuer for new tokens.</param>
 /// <param name="idTokenIssuer">The issuer for ID Tokens.</param>
 /// <param name="secretHasher">The hasher to look up codes and tokens.</param>
@@ -43,6 +45,7 @@ public sealed class IssueTokenService(
     ITokenRepository tokenRepository,
     IUserRepository userRepository,
     ISessionRepository sessionRepository,
+    ResourceResolver resourceResolver,
     TokenIssuer tokenIssuer,
     IdTokenIssuer idTokenIssuer,
     ISecretHasher secretHasher,
@@ -110,13 +113,23 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.UnauthorizedClient, "Only Confidential Clients can use client_credentials.");
         }
 
+        var requestedResources = request.Resources ?? [];
         var scopes = GetClientCredentialsScopes(client, request.Scope);
+
+        // With resource, the Scopes are cut to those the named APIs serve, so omitting scope asks for everything the
+        // Client may have at these APIs.
+        var audience = await resourceResolver.SelectAsync(client, scopes, [], requestedResources, cancellationToken);
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
-        var grant = Grant.CreateForClient(client, scopes, now, TimeSpan.FromSeconds(client.AccessTokenTTL));
-        var tokens = tokenIssuer.Issue(grant, client, scopes, now);
+        var grant = Grant.CreateForClient(
+            client,
+            audience.Scopes,
+            requestedResources.Count > 0 ? audience.Audience : [],
+            now,
+            TimeSpan.FromSeconds(client.AccessTokenTTL));
+        var tokens = tokenIssuer.Issue(grant, client, audience, now);
 
-        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.TokenIssued, client.Id, GetTokenIssuedDetails(grant, scopes.Count)) with
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.TokenIssued, client.Id, GetTokenIssuedDetails(grant, audience)) with
         {
             ClientId = client.Id
         });
@@ -132,20 +145,35 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidClient, "The Client is disabled.");
         }
 
-        logger.ClientCredentialsTokenIssued(grant.Id, client.Id, grant.Scope);
+        logger.ClientCredentialsTokenIssued(grant.Id, client.Id, grant.Scope, FormatAudience(audience.Audience));
 
         return tokens.Response;
     }
 
     /// <summary>
-    ///     The Details of <see cref="AuditEventTypes.Clients.TokenIssued"/>. The Scopes come last and are shortened
-    ///     visibly, because a Scope list can be longer than <see cref="AuditEvent.DetailsMaxLength"/>.
+    ///     The audience as space-delimited Client Ids, for logs and audit events.
     /// </summary>
-    private static string GetTokenIssuedDetails(Grant grant, int scopeCount)
+    private static string FormatAudience(IReadOnlyList<Guid> audience)
+    {
+        return string.Join(' ', audience);
+    }
+
+    /// <summary>
+    ///     The Details of <see cref="AuditEventTypes.Clients.TokenIssued"/>. The Scopes come last and are shortened
+    ///     visibly, because a Scope list can be longer than <see cref="AuditEvent.DetailsMaxLength"/>. The audience
+    ///     holds at most <see cref="ResourceResolver.MaxResources"/> Ids when resources were named, but every serving
+    ///     Client otherwise, so only their number is recorded beyond a few.
+    /// </summary>
+    private static string GetTokenIssuedDetails(Grant grant, TokenAudience audience)
     {
         const string Shortened = "…' (shortened)";
+        const int MaxListedAudience = 10;
 
-        var details = $"Grant {grant.Id}, expires at {grant.ExpiresAt:O}, {scopeCount} Scopes '{grant.Scope}'";
+        var audienceText = audience.Audience.Count <= MaxListedAudience
+            ? $"audience '{FormatAudience(audience.Audience)}'"
+            : $"audience of {audience.Audience.Count} Clients";
+
+        var details = $"Grant {grant.Id}, expires at {grant.ExpiresAt:O}, {audienceText}, {audience.Scopes.Count} Scopes '{grant.Scope}'";
 
         return details.Length <= AuditEvent.DetailsMaxLength
             ? details
@@ -306,8 +334,16 @@ public sealed class IssueTokenService(
 
         var scopes = GetScopesStillAllowed(client, authorizationCode.Scopes);
 
+        // The ID Token and the Consent check use all approved Scopes; only the Access Token is cut to its audience.
+        var audience = await resourceResolver.SelectAsync(
+            client,
+            scopes,
+            authorizationCode.Resources,
+            request.Resources ?? [],
+            cancellationToken);
+
         var grant = Grant.Create(authorizationCode, now, options.Value.GrantLifetime);
-        var tokens = tokenIssuer.Issue(grant, client, scopes, now);
+        var tokens = tokenIssuer.Issue(grant, client, audience, now);
 
         await tokenRepository.CreateGrant(grant, tokens.AccessToken, tokens.RefreshToken, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -342,7 +378,7 @@ public sealed class IssueTokenService(
             throw new OAuthException(OAuthErrors.InvalidGrant, "The User revoked the consent for the Client.");
         }
 
-        logger.GrantCreated(grant.Id, client.Id, authorizationCode.UserId, authorizationCode.Id);
+        logger.GrantCreated(grant.Id, client.Id, authorizationCode.UserId, authorizationCode.Id, FormatAudience(audience.Audience));
 
         // OpenID Connect Core 1.0, Section 3.1.3.3: an ID Token only for requests with openid that the Client may
         // still use. Not on refresh, which OpenID Connect leaves optional.
@@ -415,6 +451,14 @@ public sealed class IssueTokenService(
 
         var accessTokenScopes = GetScopesStillAllowed(client, scopes);
 
+        // RFC 8707, Section 2.2: resource may narrow the resources of the Grant, never widen them.
+        var audience = await resourceResolver.SelectAsync(
+            client,
+            accessTokenScopes,
+            grant.Resources,
+            request.Resources ?? [],
+            cancellationToken);
+
         // Only Grants of a User have Refresh Tokens, so a missing User cannot occur; rejected anyway.
         if (grant.UserId is not { } userId)
         {
@@ -438,11 +482,11 @@ public sealed class IssueTokenService(
             throw invalidToken;
         }
 
-        var tokens = tokenIssuer.Issue(grant, client, accessTokenScopes, now);
+        var tokens = tokenIssuer.Issue(grant, client, audience, now);
 
         await tokenRepository.AddTokens(tokens.AccessToken, tokens.RefreshToken, cancellationToken);
 
-        logger.TokensRefreshed(grant.Id, client.Id);
+        logger.TokensRefreshed(grant.Id, client.Id, FormatAudience(audience.Audience));
 
         return tokens.Response;
     }

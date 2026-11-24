@@ -69,6 +69,7 @@ public sealed class IssueAuthorizationCodeService(
             sessionId,
             request.RequestedRedirectUri,
             request.Scopes.Select(scope => scope.Name),
+            request.Resources,
             request.CodeChallenge,
             request.Nonce,
             authenticatedAt,

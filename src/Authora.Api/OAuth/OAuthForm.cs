@@ -64,6 +64,17 @@ internal sealed class OAuthForm
     }
 
     /// <summary>
+    ///     Gets all values of a parameter that may be sent more than once, e.g. <c>resource</c> (RFC 8707). Values
+    ///     without content are left out.
+    /// </summary>
+    /// <param name="name">The name of the parameter.</param>
+    /// <returns>The values in the order sent, or an empty list.</returns>
+    public IReadOnlyList<string> GetAll(string name)
+    {
+        return _form[name].Where(value => !string.IsNullOrEmpty(value)).Select(value => value!).ToList();
+    }
+
+    /// <summary>
     ///     Gets the Client credentials from the Authorization header (<c>client_secret_basic</c>) or from the body
     ///     (<c>client_secret_post</c>, or only <c>client_id</c> for Public Clients).
     /// </summary>

@@ -69,7 +69,7 @@ Planned releases, roughly in this order. Each release is a [milestone](https://g
 - [**0.2 – Usable by real applications**](https://github.com/DuttonAlan/Authora/milestone/1) (released, see the [changelog](CHANGELOG.md)): RP-initiated logout, client credentials grant, email delivery, self-service password change and reset, email verification, remembered consent, OpenID conformance tests in CI
 - [**0.3 – Stronger sign-in**](https://github.com/DuttonAlan/Authora/milestone/2) (released, see the [changelog](CHANGELOG.md)): multi-factor authentication with TOTP and recovery codes, passkeys as a second factor, `amr`/`acr` and MFA requirements, self-service email verification links
 - [**0.4 – Federation**](https://github.com/DuttonAlan/Authora/milestone/3) (released, see the [changelog](CHANGELOG.md)): sign-in through external OpenID Connect providers (starting with Google), account linking, back-channel logout
-- [**0.5 – APIs and the access model**](https://github.com/DuttonAlan/Authora/milestone/4): audience-restricted Access Tokens (RFC 8707), optional JWT Access Tokens, Roles and Groups as claims, PAR and DPoP
+- [**0.5 – APIs and the access model**](https://github.com/DuttonAlan/Authora/milestone/4): audience-restricted Access Tokens (RFC 8707), optional JWT Access Tokens (RFC 9068), API Roles and Groups as claims, pushed authorization requests (RFC 9126), DPoP (RFC 9449)
 - [**0.6 – Operations**](https://github.com/DuttonAlan/Authora/milestone/5): automatic signing key rotation, OpenTelemetry, audit event export, running several instances
 
 Ideas and feedback are welcome in [issues](https://github.com/DuttonAlan/Authora/issues).

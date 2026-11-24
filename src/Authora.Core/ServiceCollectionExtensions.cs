@@ -56,6 +56,7 @@ using Authora.Core.Application.OAuth;
 using Authora.Core.Application.OAuth.Authorize;
 using Authora.Core.Application.OAuth.ClientAuthentication;
 using Authora.Core.Application.OAuth.Introspect;
+using Authora.Core.Application.OAuth.Resources;
 using Authora.Core.Application.OAuth.Revoke;
 using Authora.Core.Application.OAuth.Token;
 using Authora.Core.Application.ExternalSignIn;
@@ -238,6 +239,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<IssueAuthorizationCodeService>();
         serviceCollection.AddTransient<CheckAuthenticationRequirementService>();
         serviceCollection.AddTransient<IssueTokenService>();
+        serviceCollection.AddTransient<ResourceResolver>();
         serviceCollection.AddTransient<RevokeTokenService>();
         serviceCollection.AddTransient<TokenIssuer>();
         serviceCollection.AddTransient<ValidateAuthorizationRequestService>();

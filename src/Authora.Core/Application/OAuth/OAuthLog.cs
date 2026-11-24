@@ -14,11 +14,11 @@ internal static partial class OAuthLog
     [LoggerMessage(EventId = 6001, Level = LogLevel.Information, Message = "Authorization Code {AuthorizationCodeId} was issued to Client {ClientId} for User {UserId} with Scopes '{Scope}'.")]
     public static partial void AuthorizationCodeIssued(this ILogger logger, Guid authorizationCodeId, Guid clientId, Guid userId, string scope);
 
-    [LoggerMessage(EventId = 6002, Level = LogLevel.Information, Message = "Grant {GrantId} was created for Client {ClientId} and User {UserId} from Authorization Code {AuthorizationCodeId}.")]
-    public static partial void GrantCreated(this ILogger logger, Guid grantId, Guid clientId, Guid userId, Guid authorizationCodeId);
+    [LoggerMessage(EventId = 6002, Level = LogLevel.Information, Message = "Grant {GrantId} was created for Client {ClientId} and User {UserId} from Authorization Code {AuthorizationCodeId}. The Access Token is meant for '{Audience}'.")]
+    public static partial void GrantCreated(this ILogger logger, Guid grantId, Guid clientId, Guid userId, Guid authorizationCodeId, string audience);
 
-    [LoggerMessage(EventId = 6003, Level = LogLevel.Information, Message = "Tokens of Grant {GrantId} were refreshed for Client {ClientId}.")]
-    public static partial void TokensRefreshed(this ILogger logger, Guid grantId, Guid clientId);
+    [LoggerMessage(EventId = 6003, Level = LogLevel.Information, Message = "Tokens of Grant {GrantId} were refreshed for Client {ClientId}. The Access Token is meant for '{Audience}'.")]
+    public static partial void TokensRefreshed(this ILogger logger, Guid grantId, Guid clientId, string audience);
 
     [LoggerMessage(EventId = 6004, Level = LogLevel.Warning, Message = "Authorization Code {AuthorizationCodeId} was used more than once. {RevokedGrants} Grant(s) issued from it were revoked.")]
     public static partial void AuthorizationCodeReused(this ILogger logger, Guid authorizationCodeId, int revokedGrants);
@@ -50,8 +50,8 @@ internal static partial class OAuthLog
     [LoggerMessage(EventId = 6013, Level = LogLevel.Information, Message = "Logout request of Client {ClientId} was rejected: {Error}")]
     public static partial void EndSessionRequestRejected(this ILogger logger, string clientId, string error);
 
-    [LoggerMessage(EventId = 6014, Level = LogLevel.Information, Message = "Grant {GrantId} with an Access Token was created for Client {ClientId} itself (client_credentials) with Scopes '{Scope}'.")]
-    public static partial void ClientCredentialsTokenIssued(this ILogger logger, Guid grantId, Guid clientId, string scope);
+    [LoggerMessage(EventId = 6014, Level = LogLevel.Information, Message = "Grant {GrantId} with an Access Token was created for Client {ClientId} itself (client_credentials) with Scopes '{Scope}', meant for '{Audience}'.")]
+    public static partial void ClientCredentialsTokenIssued(this ILogger logger, Guid grantId, Guid clientId, string scope, string audience);
 
     [LoggerMessage(EventId = 6015, Level = LogLevel.Information, Message = "Authorization Code {CodeId} was rejected, because its Session {SessionId} has ended.")]
     public static partial void AuthorizationCodeOfEndedSession(this ILogger logger, Guid codeId, Guid sessionId);
@@ -67,4 +67,7 @@ internal static partial class OAuthLog
 
     [LoggerMessage(EventId = 6019, Level = LogLevel.Information, Message = "Authorization Code {CodeId} was rejected, because Client {ClientId} requires multi-factor authentication and the code was issued without it.")]
     public static partial void AuthorizationCodeWithoutMfa(this ILogger logger, Guid codeId, Guid clientId);
+
+    [LoggerMessage(EventId = 6020, Level = LogLevel.Information, Message = "Request of Client {ClientId} was rejected with invalid_target for the resource '{Resource}': {Reason}")]
+    public static partial void ResourceRejected(this ILogger logger, Guid clientId, string resource, string reason);
 }

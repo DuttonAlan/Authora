@@ -17,10 +17,14 @@ namespace Authora.Core.Application.Clients.Update;
 /// <param name="RefreshTokenTTL" example="86400">New lifetime of Refresh Tokens in seconds (at most 7776000), or null to leave it unchanged. Must be greater than the Access Token TTL.</param>
 /// <param name="BackchannelLogoutUri" example="https://shop.example.com/backchannel-logout">New Back-Channel Logout URI (absolute, HTTPS, without fragment), an empty string to remove it, or null to leave it unchanged.</param>
 /// <param name="BackchannelLogoutSessionRequired" example="false">Whether the Client requires the sid claim in Logout Tokens, or null to leave it unchanged. Authora always sends sid.</param>
+/// <param name="ResourceIdentifier" example="https://api.example.com">New Resource Identifier (RFC 8707), which makes the Client an API (absolute URI, HTTPS, without query or fragment, unique, not {Issuer}/api; Confidential Clients only), an empty string to remove it, or null to leave it unchanged. Removing it also removes RequiresResourceIndicator.</param>
+/// <param name="RequiresResourceIndicator" example="false">Whether Access Tokens are only meant for the API if the resource parameter named it, or null to leave it unchanged. Requires a Resource Identifier.</param>
 public sealed record UpdateClientRequest(
     [StringLength(Client.NameMaxLength, MinimumLength = 1)] string? Name,
     IReadOnlyList<string>? GrantTypes,
     [Range(1, Client.MaxAccessTokenTTL)] int? AccessTokenTTL,
     [Range(1, Client.MaxRefreshTokenTTL)] int? RefreshTokenTTL,
     [StringLength(Client.BackchannelLogoutUriMaxLength)] string? BackchannelLogoutUri = null,
-    bool? BackchannelLogoutSessionRequired = null);
+    bool? BackchannelLogoutSessionRequired = null,
+    [StringLength(Client.ResourceIdentifierMaxLength)] string? ResourceIdentifier = null,
+    bool? RequiresResourceIndicator = null);
