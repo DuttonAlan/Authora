@@ -130,7 +130,19 @@ public sealed class SignInService(
             return SignInResult.Failed;
         }
 
-        var verification = passwordHasher.Verify(user.PasswordHash, password);
+        // A User without a password (signed up through an identity provider) fails exactly like a wrong password:
+        // the same time for a hash, the same lockout count and the same audit reason.
+        PasswordVerification verification;
+
+        if (user.PasswordHash is { } passwordHash)
+        {
+            verification = passwordHasher.Verify(passwordHash, password);
+        }
+        else
+        {
+            VerifyDummyPassword(password);
+            verification = PasswordVerification.Failed;
+        }
 
         if (verification == PasswordVerification.Failed)
         {
@@ -142,7 +154,7 @@ public sealed class SignInService(
                 options.Value.LockoutDuration,
                 cancellationToken);
 
-            logger.SignInFailed(user.Id, "wrong password");
+            logger.SignInFailed(user.Id, user.HasPassword ? "wrong password" : "the User has no password");
             await RecordFailureAsync(user.Id, "Wrong password", cancellationToken);
 
             if (lockoutEndAt > now)

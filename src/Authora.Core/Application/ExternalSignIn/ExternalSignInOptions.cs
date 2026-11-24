@@ -21,6 +21,12 @@ public sealed class ExternalSignInOptions
     public static readonly TimeSpan FlowLifetime = TimeSpan.FromMinutes(10);
 
     /// <summary>
+    ///     How long a User has, after an account at a provider with the Email of their User arrived, to sign in with
+    ///     their existing methods and link it, see <see cref="PendingExternalLink"/>.
+    /// </summary>
+    public static readonly TimeSpan PendingLinkLifetime = TimeSpan.FromMinutes(15);
+
+    /// <summary>
     ///     Smallest allowed <see cref="Timeout"/>.
     /// </summary>
     public static readonly TimeSpan MinTimeout = TimeSpan.FromSeconds(1);

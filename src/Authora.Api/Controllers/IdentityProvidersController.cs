@@ -58,7 +58,7 @@ public sealed class IdentityProvidersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>201 Created with the Id and the Redirect URI of the provider.</returns>
     /// <response code="201">Responds with the Id and the Redirect URI of the created provider, and its location in the Location header.</response>
-    /// <response code="400">Responds with validation problem details if the request is invalid or the discovery document of the Issuer cannot be used.</response>
+    /// <response code="400">Responds with validation problem details if the request is invalid or the discovery document of the Issuer cannot be used, a default Group does not exist, or sign-up is turned on for Google without an allowed domain.</response>
     /// <response code="409">Responds with problem details if the Slug is already used.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPost]
@@ -130,7 +130,7 @@ public sealed class IdentityProvidersController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content.</returns>
     /// <response code="204">Responds with no content once the provider was updated.</response>
-    /// <response code="400">Responds with validation problem details if the request is invalid or the discovery document of a new Issuer cannot be used.</response>
+    /// <response code="400">Responds with validation problem details if the request is invalid or the discovery document of a new Issuer cannot be used, a default Group does not exist, or sign-up is turned on for Google without an allowed domain.</response>
     /// <response code="404">Responds with problem details if no provider with the given Id exists.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}")]

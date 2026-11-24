@@ -268,7 +268,7 @@ public sealed class ChangePasswordTests(AuthoraApiFactory factory) : IClassFixtu
 
         var user = await context.Users.AsNoTracking().SingleAsync(user => user.Id == userId, TestContext.Current.CancellationToken);
 
-        return passwordHasher.Verify(user.PasswordHash, password) != PasswordVerification.Failed;
+        return passwordHasher.Verify(user.PasswordHash!, password) != PasswordVerification.Failed;
     }
 
     private async Task<List<Core.Domain.Entities.AuditEvent>> GetEventsAsync(Guid userId)

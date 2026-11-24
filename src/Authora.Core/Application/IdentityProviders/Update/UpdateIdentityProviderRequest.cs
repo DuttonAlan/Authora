@@ -17,9 +17,15 @@ namespace Authora.Core.Application.IdentityProviders.Update;
 /// <param name="ClientId" example="1234567890-abc.apps.googleusercontent.com">New Client Id at the provider, or null to leave it unchanged.</param>
 /// <param name="Scopes">New Scopes to request (<c>openid</c> is always added), or null to leave them unchanged.</param>
 /// <param name="SortOrder" example="10">New position on the sign-in page, or null to leave it unchanged.</param>
+/// <param name="AllowSignUp" example="true">Whether people without a User can sign up through the provider, or null to leave it unchanged. For Google it needs at least one allowed domain.</param>
+/// <param name="AllowedEmailDomains">The domains whose people may sign up (replacing the current ones; empty allows every domain, not for Google), or null to leave them unchanged.</param>
+/// <param name="DefaultGroupIds">The Ids of the Groups a User who signs up joins (replacing the current ones), or null to leave them unchanged.</param>
 public sealed record UpdateIdentityProviderRequest(
     [StringLength(IdentityProvider.NameMaxLength, MinimumLength = 1)] string? Name,
     [StringLength(IdentityProvider.IssuerMaxLength, MinimumLength = 1)] string? Issuer,
     [StringLength(IdentityProvider.ClientIdMaxLength, MinimumLength = 1)] string? ClientId,
     IReadOnlyList<string>? Scopes,
-    int? SortOrder);
+    int? SortOrder,
+    bool? AllowSignUp = null,
+    IReadOnlyList<string>? AllowedEmailDomains = null,
+    IReadOnlyList<Guid>? DefaultGroupIds = null);

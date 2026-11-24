@@ -536,6 +536,13 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AllowSignUp")
+                        .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<string[]>("AllowedEmailDomains")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<string>("ClientId")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1015,7 +1022,6 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
@@ -1112,6 +1118,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("group_roles", "identity");
+                });
+
+            modelBuilder.Entity("IdentityProviderDefaultGroup", b =>
+                {
+                    b.Property<Guid>("IdentityProviderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("IdentityProviderId", "GroupId");
+
+                    b.HasIndex("GroupId");
+
+                    b.ToTable("identity_provider_default_groups", "identity");
                 });
 
             modelBuilder.Entity("RolePermission", b =>
@@ -1422,6 +1443,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.HasOne("Authora.Core.Domain.Entities.Role", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IdentityProviderDefaultGroup", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.Group", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Authora.Core.Domain.Entities.IdentityProvider", null)
+                        .WithMany()
+                        .HasForeignKey("IdentityProviderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

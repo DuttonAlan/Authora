@@ -11,7 +11,17 @@
     <p class="success" role="status">@Model.StatusMessage</p>
 }
 
+@if (Model.ErrorMessage is not null)
+{
+    <p class="error" role="alert">@Model.ErrorMessage</p>
+}
+
 <p>Sign in with an account you already have at another provider instead of your password. Your two-step verification still applies.</p>
+
+@if (!Model.SignInMethods.HasPassword)
+{
+    <p class="muted">You have no password. <a href="@Authora.Api.Pages.Account.PasswordModel.PagePath">Set a password</a> to sign in without a linked account.</p>
+}
 
 @if (Model.Accounts.Linked.Count > 0)
 {

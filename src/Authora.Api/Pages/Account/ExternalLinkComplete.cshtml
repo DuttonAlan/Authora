@@ -1,0 +1,9 @@
+@page "/account/security/external-accounts/complete"
+@model Authora.Api.Pages.Account.ExternalLinkCompleteModel
+@{
+    ViewData["Title"] = "Account not linked";
+}
+
+<h1>Account not linked</h1>
+<p class="error" role="alert">@Model.Message</p>
+<p><a href="@Model.ContinueUrl">Continue</a></p>

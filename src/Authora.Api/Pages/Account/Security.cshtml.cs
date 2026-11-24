@@ -7,6 +7,7 @@ using System.Globalization;
 using Authora.Api.Authentication;
 using Authora.Core.Application.Account.RequestEmailVerification;
 using Authora.Core.Application.Account.Security;
+using Authora.Core.Application.Account.SignInMethods;
 using Authora.Core.Application.ExternalSignIn.GetIdentities;
 using Authora.Core.Application.Mfa.GetStatus;
 
@@ -23,12 +24,14 @@ namespace Authora.Api.Pages.Account;
 /// <param name="getMfaStatusService">The Service to get the authenticator app, the recovery codes and the passkeys of the User.</param>
 /// <param name="requestEmailVerificationService">Tells whether the page offers a new email verification link.</param>
 /// <param name="getExternalIdentitiesService">The Service to list the linked accounts at identity providers.</param>
+/// <param name="getSignInMethodsService">The Service to tell whether the User has a password.</param>
 [Authorize]
 public sealed class SecurityModel(
     GetAccountSecurityService getAccountSecurityService,
     GetMfaStatusService getMfaStatusService,
     RequestEmailVerificationService requestEmailVerificationService,
-    GetExternalIdentitiesService getExternalIdentitiesService) : PageModel
+    GetExternalIdentitiesService getExternalIdentitiesService,
+    GetSignInMethodsService getSignInMethodsService) : PageModel
 {
     /// <summary>
     ///     Path of the page.
@@ -71,6 +74,11 @@ public sealed class SecurityModel(
     public ExternalIdentitiesResponse ExternalAccounts { get; private set; } = new([], []);
 
     /// <summary>
+    ///     How the User can sign in, so the page offers to set a password if the User has none.
+    /// </summary>
+    public SignInMethodsResponse SignInMethods { get; private set; } = new(true, 0);
+
+    /// <summary>
     ///     Shows the overview.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -86,6 +94,7 @@ public sealed class SecurityModel(
         Mfa = await getMfaStatusService.ExecuteAsync(userId, cancellationToken);
         CanRequestEmailVerification = await requestEmailVerificationService.CanRequestAsync(userId, cancellationToken);
         ExternalAccounts = await getExternalIdentitiesService.ExecuteAsync(userId, cancellationToken);
+        SignInMethods = await getSignInMethodsService.ExecuteAsync(userId, cancellationToken);
 
         AuthenticationMethods = [.. User.FindAll(SessionClaimTypes.AuthenticationMethod).Select(claim => DisplayName(claim.Value))];
     }

@@ -9,7 +9,9 @@ Keeping the two apart is the most important thing to understand about Authora's 
 
 ## Users
 
-A *User* is a person who signs in with an Email and a password. A User has a fixed Id (`sub` in tokens), which never changes, even if the Email does. Applications should recognize users by this Id.
+A *User* is a person who signs in with an Email and a password, or through an account at an external identity provider linked to the User. A User has a fixed Id (`sub` in tokens), which never changes, even if the Email does. Applications should recognize users by this Id.
+
+A User can come into existence in two ways: an administrator creates them (with an initial password), or they sign up on their first sign-in through an identity provider that allows it (just-in-time provisioning). Signed-up Users have no password until they set one, a verified Email from the provider, and the provider's default Groups. An account at a provider is never attached to an existing User just because the Emails match: the person must sign in to that User with its existing methods first, see [Security model](security-model.md#an-email-never-links-an-account). A User without a password always keeps at least one linked account, so they cannot lock themselves out.
 
 A User is active, inactive (has not signed in for a while, but still can), deactivated (cannot sign in until an administrator activates them again) or deleted. Deleting cannot be undone: the User can never sign in again and their Email is free for a new User. The record itself is kept, so the audit log still makes sense.
 

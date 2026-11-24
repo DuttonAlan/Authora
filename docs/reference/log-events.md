@@ -10,7 +10,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 2001 – 2005 | Roles |
 | 3001 – 3003 | Scopes |
 | 4001 – 4022 | Clients |
-| 5001 – 5026 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018 and 5025 – 5026, see below), second factor and step-up (5019 – 5024, see below) |
+| 5001 – 5027 | Sign-in, sign-out (also at the request of a Client), lockout, Sessions, password changes by the User (5011: the notification email could not be sent), password reset by email (5012 – 5016, see below), email verification (5017 – 5018 and 5025 – 5026, see below), second factor and step-up (5019 – 5024, see below), a first password set by a User who had none (5027) |
 | 6001 – 6019 | Codes, Grants, refreshes, reuse detection, revocation, Client authentication, rejected authorization and logout requests, codes of ended Sessions, Grants of codes whose Consent was revoked meanwhile (6016), required multi-factor authentication and `acr_values` (6017 – 6019, see below) |
 | 7001 – 7009 | Seeding at startup |
 | 8001 – 8006 | Cleanup of expired data (including email tokens and, as 8005 and 8006, pending sign-ins and passkey challenges) and audit events |
@@ -25,7 +25,7 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 17001 – 17009 | Passkeys, see below |
 | 18001, 18011 – 18015 | Back-channel logout: Sessions ended explicitly, and the delivery of Logout Tokens, see below |
 | 19001 – 19007 | External identity providers: changes through the admin API, see below |
-| 20001 – 20010, 20021 – 20022 | Sign-in and linking through external identity providers, and the requests to them, see below |
+| 20001 – 20006, 20008 – 20016, 20021 – 20022 | Sign-in, sign-up and linking through external identity providers, and the requests to them, see below |
 
 ## Email
 
@@ -73,6 +73,7 @@ Addresses, content, tokens and SMTP credentials are never logged. Emails appear 
 | 5018 | Warning | An email verification link was not accepted: … | 14013 or 14014 has the reason. |
 | 5025 | Information | User … asked for a new email verification link, which was sent | At `/account/email-verification`; logged once the mail server accepted the email. |
 | 5026 | Warning | No email verification link was sent to User … at their request: … | Too many links in the last hour (`Authora:EmailVerification:MaxEmailsPerHour`), or the email could not be sent (14004 has the reason). |
+| 5027 | Information | User …, who had no password, set one in Session … | E.g. after signing up through an identity provider; all other Sessions ended. |
 
 ## Second factor and step-up
 
@@ -156,10 +157,15 @@ See [Add an external identity provider](../how-to/add-an-external-identity-provi
 | 20004 | Information | User … signed in through identity provider … with Session … | |
 | 20005 | Information | User … signed in through identity provider … and must complete a second factor … | |
 | 20006 | Warning | A sign-in through identity provider … failed: … | The reason, as in `account.external-sign-in-failed`: e.g. wrong `state`, an error of the provider, an invalid ID Token, a disabled provider, a User who cannot sign in. |
-| 20007 | Information | An account at identity provider … that is not linked to a User tried to sign in | |
 | 20008 | Information | User … linked identity … at identity provider … | |
 | 20009 | Information | User … removed identity … at identity provider … | |
 | 20010 | Information | User … must set up a second factor after signing in through an identity provider | `Authora:Mfa:RequireForAdministrators`. |
+| 20011 | Information | An account at identity provider … that is not linked has the Email of User …, who must sign in to link it | Nothing is linked until that User signs in with their existing methods. |
+| 20012 | Information | An account at identity provider … that is not linked cannot sign in: … | Sign-up is turned off, the provider reported no verified Email, or the domain is not allowed. |
+| 20013 | Information | User … was created on their first sign-in through identity provider …, with identity … | Sign-up, see `user.provisioned`. |
+| 20014 | Warning | A pending link of an account at identity provider … was not completed: … | E.g. the browser signed in to another User, or the provider was disabled meanwhile. |
+| 20015 | Information | User … cannot remove identity …: it is their last way to sign in | The User has no password. |
+| 20016 | Information | An administrator removed identity … of User … at identity provider … | |
 | 20021 | Warning | The discovery document or the key set of Issuer … could not be fetched or read | With the exception. Network, TLS, timeout or an invalid document. |
 | 20022 | Warning | The token endpoint of Issuer … could not be reached | With the exception. |
 

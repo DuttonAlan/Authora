@@ -30,6 +30,14 @@ To help a User yourself, open the User (`users.set-password`) and either:
 - **Send reset link**: the User gets the same email and chooses the password themselves, so you never learn it. Their current password keeps working until they use the link. Needs email delivery; if the mail server cannot be reached, the admin interface shows an error.
 - **Set password**: you choose the new password and give it to the User through a secure channel. This signs the User out everywhere, including the browser they use.
 
+Users who signed up through an [identity provider](add-an-external-identity-provider.md#let-people-sign-up) have no password (**Password: None** on their page and in the list). They sign in through their linked account and can set a password themselves at `/account/password`, after a recent sign-in, or with **Forgot password?**; you can also send them a reset link or set one.
+
+## Manage linked accounts
+
+The **Linked accounts** panel of a User lists their accounts at identity providers: the provider, the Email the provider reported when the account was linked, when it was linked and last used. **Remove** (`users.manage-access`) a link, e.g. after the account at the provider was compromised or belongs to someone else: the User can no longer sign in through it. Existing Sessions stay, so use **Sign out everywhere** as well if the account was misused. A User without a password keeps their last linked account, their only way to sign in (`409`); set a password or send a reset link first.
+
+Users link and unlink accounts themselves at **Account and security → Linked accounts**, or by signing in to their User once when an account with their Email arrives. An Email alone never links an account.
+
 ## Reset two-step verification
 
 Users set up an authenticator app and add passkeys themselves on their account page. If someone lost their phone and has no recovery code left, open the User → **Two-step verification** → **Reset two-step verification** (`users.reset-mfa`). This removes the app, the recovery codes and the passkeys and signs them out everywhere; they then sign in with the password alone and set up a second factor again. For a single lost security key, **Remove** just that passkey in the same panel. See [Require multi-factor authentication](require-multi-factor-authentication.md).
@@ -64,6 +72,7 @@ Changes take effect with the next request: the admin API loads the User's Permis
 | Temporarily block | **Deactivate** (`users.manage-access`) | Signs the User out everywhere and blocks sign-in until **Activate**. |
 | End all sessions | **Sign out everywhere** (`users.manage-access`) | Ends all Sessions and revokes all tokens of the User, in every application. |
 | Cut off one application | **Revoke** in the **Consents** panel (`users.manage-access`) | Revokes the User's Consent for the Client and its tokens for the User. The User is asked again on the next sign-in to it. |
+| Stop sign-in through a provider | **Remove** in the **Linked accounts** panel (`users.manage-access`) | The User can no longer sign in through that account; Sessions stay. Not for the last linked account at an enabled provider of a User without a password. |
 | Remove for good | **Delete** (`users.delete`) | Deletes the User and all their Sessions, tokens and Consents. Their Email can be used again. |
 | Undo a lockout | **Unlock** (`users.manage-access`) | After 5 failed sign-ins in a row, a User is locked out for 15 minutes; this ends it early. A password reset by email ends it too. |
 

@@ -5,6 +5,7 @@
 using Authora.Api.Authentication;
 using Authora.Api.Authorization;
 using Authora.Api.RateLimiting;
+using Authora.Core.Application.Account.SignInMethods;
 using Authora.Core.Application.ExternalSignIn.GetIdentities;
 using Authora.Core.Application.ExternalSignIn.Unlink;
 
@@ -24,11 +25,13 @@ namespace Authora.Api.Pages.Account;
 /// </remarks>
 /// <param name="getExternalIdentitiesService">The Service to list the links and the providers.</param>
 /// <param name="unlinkService">The Service to remove a link.</param>
+/// <param name="getSignInMethodsService">The Service to tell whether the User has a password.</param>
 [Authorize(Policy = AuthorizationPolicies.RecentAuthentication)]
 [EnableRateLimiting(RateLimitPolicies.SignIn)]
 public sealed class ExternalAccountsModel(
     GetExternalIdentitiesService getExternalIdentitiesService,
-    UnlinkExternalIdentityService unlinkService) : PageModel
+    UnlinkExternalIdentityService unlinkService,
+    GetSignInMethodsService getSignInMethodsService) : PageModel
 {
     /// <summary>
     ///     Path of the page.
@@ -49,6 +52,11 @@ public sealed class ExternalAccountsModel(
     ///     The message after a link was removed.
     /// </summary>
     public const string UnlinkedMessage = "The account was unlinked. It can no longer be used to sign in.";
+
+    /// <summary>
+    ///     The message when the account to unlink is the only way of a User without a password to sign in.
+    /// </summary>
+    public const string LastSignInMethodMessage = "This account is your only way to sign in. Set a password first, then you can unlink it.";
 
     /// <summary>
     ///     What happened before the page was shown, e.g. <c>linked</c> after a link.
@@ -79,6 +87,16 @@ public sealed class ExternalAccountsModel(
     };
 
     /// <summary>
+    ///     The error to show, or null.
+    /// </summary>
+    public string? ErrorMessage => Status == "last-sign-in-method" ? LastSignInMethodMessage : null;
+
+    /// <summary>
+    ///     How the User can sign in, so the page points a User without a password to setting one.
+    /// </summary>
+    public SignInMethodsResponse SignInMethods { get; private set; } = new(true, 0);
+
+    /// <summary>
     ///     Shows the links.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
@@ -86,6 +104,7 @@ public sealed class ExternalAccountsModel(
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Accounts = await getExternalIdentitiesService.ExecuteAsync(GetUserId(), cancellationToken);
+        SignInMethods = await getSignInMethodsService.ExecuteAsync(GetUserId(), cancellationToken);
     }
 
     /// <summary>
@@ -95,9 +114,14 @@ public sealed class ExternalAccountsModel(
     /// <returns>A redirect to the page.</returns>
     public async Task<IActionResult> OnPostUnlinkAsync(CancellationToken cancellationToken)
     {
-        var unlinked = await unlinkService.ExecuteAsync(GetUserId(), ExternalIdentityId, cancellationToken);
+        var result = await unlinkService.ExecuteAsync(GetUserId(), ExternalIdentityId, cancellationToken);
 
-        return LocalRedirect(unlinked ? $"{PagePath}?status=unlinked" : PagePath);
+        return LocalRedirect(result switch
+        {
+            UnlinkExternalIdentityResult.Unlinked => $"{PagePath}?status=unlinked",
+            UnlinkExternalIdentityResult.LastSignInMethod => $"{PagePath}?status=last-sign-in-method",
+            _ => PagePath
+        });
     }
 
     private Guid GetUserId()

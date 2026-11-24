@@ -22,6 +22,9 @@ namespace Authora.Core.Application.IdentityProviders;
 /// <param name="IsEnabled" example="true">Whether Users can sign in through the provider.</param>
 /// <param name="SortOrder" example="0">Position of the button on the sign-in page; lower values first.</param>
 /// <param name="RedirectUri" example="https://auth.example.com/account/external/google/callback">The Redirect URI to register at the provider.</param>
+/// <param name="AllowSignUp" example="false">Whether people without a User get one on their first sign-in through the provider (just-in-time provisioning).</param>
+/// <param name="AllowedEmailDomains">The domains whose people may sign up, lowercase; empty allows every domain (except for Google, where sign-up needs one). For Google, the Google Workspace domain (<c>hd</c>) is checked.</param>
+/// <param name="DefaultGroups">The Groups a User who signs up through the provider joins.</param>
 /// <param name="LinkedIdentities" example="12">How many accounts at the provider are linked to Users.</param>
 /// <param name="CreatedAt">Point in time (UTC) when the provider was created.</param>
 /// <param name="ModifiedAt">Point in time (UTC) when the provider was last modified, or null.</param>
@@ -37,6 +40,9 @@ public sealed record IdentityProviderResponse(
     bool IsEnabled,
     int SortOrder,
     string RedirectUri,
+    bool AllowSignUp,
+    IReadOnlyList<string> AllowedEmailDomains,
+    IReadOnlyList<IdentityProviderGroupResponse> DefaultGroups,
     int LinkedIdentities,
     DateTime CreatedAt,
     DateTime? ModifiedAt)
@@ -64,8 +70,21 @@ public sealed record IdentityProviderResponse(
             provider.IsEnabled,
             provider.SortOrder,
             ExternalSignInOptions.GetRedirectUri(issuer, provider.Slug),
+            provider.AllowSignUp,
+            provider.AllowedEmailDomains,
+            [.. provider.DefaultGroups
+                .OrderBy(group => group.Name, StringComparer.Ordinal)
+                .Select(group => new IdentityProviderGroupResponse(group.Id, group.Name, group.DisplayName))],
             linkedIdentities,
             provider.CreatedAt,
             provider.ModifiedAt);
     }
 }
+
+/// <summary>
+///     A default Group of an external identity provider.
+/// </summary>
+/// <param name="Id" example="0199d1a2-7c3e-7b4a-9f10-3c963f66afa6">Id of the Group.</param>
+/// <param name="Name" example="employees">Unique Name of the Group.</param>
+/// <param name="DisplayName" example="Employees">Display Name of the Group.</param>
+public sealed record IdentityProviderGroupResponse(Guid Id, string Name, string DisplayName);

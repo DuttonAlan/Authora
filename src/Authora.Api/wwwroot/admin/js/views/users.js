@@ -78,7 +78,8 @@ export async function list(context) {
             h('button', { type: 'submit' }, 'Search')),
             table([
                 { label: 'User', render: userCell },
-                { label: 'State', render: user => stateBadge(user.state) }
+                { label: 'State', render: user => stateBadge(user.state) },
+                { label: 'Password', render: user => user.hasPassword ? badge('Set', 'neutral') : badge('None', 'warn') }
             ], result.items, { href: user => `#/users/${user.id}`, empty: search || state ? 'No Users match the search.' : 'No Users exist yet.' }),
             pager(page, pageSize, result.total, next => show({ page: String(next) }))));
 }
@@ -108,13 +109,14 @@ function createPanel(context) {
  * @returns {Promise<HTMLElement>} The page.
  */
 export async function detail(context, id) {
-    const [user, roles, groups, permissions, consents, mfa, allRoles] = await Promise.all([
+    const [user, roles, groups, permissions, consents, mfa, identities, allRoles] = await Promise.all([
         api('GET', `/users/${id}`),
         api('GET', `/users/${id}/roles`),
         api('GET', `/users/${id}/groups`),
         api('GET', `/users/${id}/permissions`),
         api('GET', `/users/${id}/consents`),
         api('GET', `/users/${id}/mfa`),
+        api('GET', `/users/${id}/external-identities`),
         context.can('roles.read') && context.can('users.assign-roles') ? api('GET', '/roles') : Promise.resolve([])
     ]);
 
@@ -137,6 +139,7 @@ export async function detail(context, id) {
                     ['Email', user.emailVerified
                         ? h('span', { class: 'badge-row' }, badge('Verified', 'ok'), formatDate(user.emailVerifiedAt))
                         : badge('Not verified', 'warn')],
+                    ['Password', user.hasPassword ? badge('Set', 'ok') : badge('None', 'neutral')],
                     ['Last sign-in', relativeTime(user.lastLoginAt)],
                     ['Failed sign-ins', String(user.failedLoginCount)],
                     ['Locked out until', formatDate(user.lockoutEndAt)],
@@ -145,6 +148,7 @@ export async function detail(context, id) {
                 ]),
                 deleted ? null : accessActions(context, user)),
             mfaPanel(context, user, mfa, deleted),
+            linkedAccountsPanel(context, user, identities, deleted),
             !deleted && context.can('users.update') ? panel('Profile', form([
                 { name: 'email', label: 'Email', type: 'email', required: true, value: user.email, maxLength: 254 },
                 { name: 'firstName', label: 'First name', required: true, value: user.firstName, maxLength: 100 },
@@ -300,6 +304,35 @@ function mfaPanel(context, user, mfa, deleted) {
                 }
             }, 'destructive'))
         ] : null);
+}
+
+function linkedAccountsPanel(context, user, identities, deleted) {
+    const canRemove = !deleted && context.can('users.manage-access');
+    // A User without a password keeps their last linked account, their only way to sign in.
+    const isLast = !user.hasPassword && identities.length <= 1;
+
+    return panel('Linked accounts',
+        hint(user.hasPassword
+            ? 'Accounts at identity providers the User signs in with, in addition to the password.'
+            : 'The User has no password and signs in with these accounts. The last one cannot be removed until a password is set.'),
+        table([
+            { label: 'Provider', render: identity => identity.isProviderEnabled ? identity.providerName : h('span', { class: 'badge-row' }, identity.providerName, badge('Disabled', 'bad')) },
+            { label: 'Email at link time', class: 'secondary', render: identity => identity.email ?? '–' },
+            { label: 'Linked', render: identity => formatDate(identity.createdAt) },
+            { label: 'Last used', render: identity => relativeTime(identity.lastUsedAt) },
+            {
+                label: '', class: 'actions-cell', render: identity => canRemove && !isLast
+                    ? button('Remove', async () => {
+                        if (await confirmed('Remove linked account', `Remove the ${identity.providerName} account of ${user.email}? It can no longer be used to sign in. Existing Sessions stay; use "Sign out everywhere" to end them.`)) {
+                            run(() => api('DELETE', `/users/${user.id}/external-identities/${identity.id}`), 'The linked account was removed.', context);
+                        }
+                    }, 'small destructive')
+                    : null
+            }
+        ], identities, {
+            href: context.can('identity-providers.read') ? identity => `#/identity-providers/${identity.providerId}` : undefined,
+            empty: 'No accounts are linked.'
+        }));
 }
 
 function rolesPanel(context, user, roles, allRoles, deleted) {

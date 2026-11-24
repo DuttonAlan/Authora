@@ -41,8 +41,8 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(User.NameMaxLength);
 
+        // Null for a User without a password, e.g. one who signed up through an external identity provider.
         builder.Property(x => x.PasswordHash)
-            .IsRequired()
             .HasMaxLength(256);
 
         builder.Property(x => x.State)

@@ -78,6 +78,25 @@ public sealed partial class IdentityProvider
     public const string GoogleIssuer = "https://accounts.google.com";
 
     /// <summary>
+    ///     Maximum number of allowed email domains.
+    /// </summary>
+    public const int MaxAllowedEmailDomains = 50;
+
+    /// <summary>
+    ///     Maximum length of an allowed email domain (RFC 1035).
+    /// </summary>
+    public const int EmailDomainMaxLength = 253;
+
+    /// <summary>
+    ///     Maximum number of default Groups.
+    /// </summary>
+    public const int MaxDefaultGroups = 20;
+
+    private readonly List<Group> _defaultGroups = [];
+
+    private List<string> _allowedEmailDomains = [];
+
+    /// <summary>
     ///     Used by EF Core to materialize an identity provider from the database.
     /// </summary>
     private IdentityProvider()
@@ -137,6 +156,27 @@ public sealed partial class IdentityProvider
     ///     Position of the button on the sign-in page; lower values first, equal values by Name.
     /// </summary>
     public int SortOrder { get; private set; }
+
+    /// <summary>
+    ///     Whether a person whose account at the provider is not linked, and whose Email belongs to no User, gets a new
+    ///     User on their first sign-in (just-in-time provisioning). Only for an Email the provider verified and, if
+    ///     <see cref="AllowedEmailDomains"/> is not empty, in one of those domains. Set via
+    ///     <see cref="ConfigureSignUp(bool, IEnumerable{string})"/>.
+    /// </summary>
+    public bool AllowSignUp { get; private set; }
+
+    /// <summary>
+    ///     The lowercase domains whose people may sign up through the provider, e.g. <c>example.com</c>. Empty allows
+    ///     every domain, except for the <see cref="IdentityProviderPreset.Google"/> preset, where sign-up needs at
+    ///     least one and the domain is the Google Workspace domain of the account (<c>hd</c>), not that of the Email.
+    ///     A domain matches exactly; subdomains must be listed themselves.
+    /// </summary>
+    public IReadOnlyList<string> AllowedEmailDomains => _allowedEmailDomains;
+
+    /// <summary>
+    ///     The Groups a User who signs up through the provider joins. A deleted Group is removed from the list.
+    /// </summary>
+    public IReadOnlyCollection<Group> DefaultGroups => _defaultGroups;
 
     /// <summary>
     ///     Point in time (UTC) when the identity provider was created.
@@ -362,6 +402,107 @@ public sealed partial class IdentityProvider
     {
         IsEnabled = false;
     }
+
+    /// <summary>
+    ///     Sets whether people can sign up through the provider and from which domains.
+    /// </summary>
+    /// <param name="allowSignUp">Whether people without a User get one on their first sign-in.</param>
+    /// <param name="allowedEmailDomains">The domains, e.g. <c>example.com</c>; empty for all (not for Google).</param>
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when a domain is invalid, there are too many, or sign-up is turned on for the Google preset without a
+    ///     domain.
+    /// </exception>
+    public void ConfigureSignUp(bool allowSignUp, IEnumerable<string> allowedEmailDomains)
+    {
+        ArgumentNullException.ThrowIfNull(allowedEmailDomains);
+
+        var domains = new List<string>();
+
+        foreach (var domain in allowedEmailDomains)
+        {
+            var normalized = NormalizeDomain(domain);
+
+            if (!IsValidDomain(normalized))
+            {
+                throw new DomainValidationException(
+                    $"'{domain}' is not a valid domain. Use a domain name such as example.com, without '@' or a scheme.",
+                    nameof(allowedEmailDomains));
+            }
+
+            if (!domains.Contains(normalized, StringComparer.Ordinal))
+            {
+                domains.Add(normalized);
+            }
+        }
+
+        if (domains.Count > MaxAllowedEmailDomains)
+        {
+            throw new DomainValidationException($"At most {MaxAllowedEmailDomains} email domains can be allowed.", nameof(allowedEmailDomains));
+        }
+
+        // Without a domain, every Google account could sign up, including personal Gmail accounts.
+        if (allowSignUp && Preset == IdentityProviderPreset.Google && domains.Count == 0)
+        {
+            throw new DomainValidationException(
+                "Sign-up through Google needs at least one allowed domain (the Google Workspace domain).",
+                nameof(allowedEmailDomains));
+        }
+
+        AllowSignUp = allowSignUp;
+        _allowedEmailDomains = domains;
+    }
+
+    /// <summary>
+    ///     Sets the Groups a User who signs up through the provider joins.
+    /// </summary>
+    /// <param name="groups">The Groups.</param>
+    /// <exception cref="DomainValidationException">Thrown when there are too many Groups.</exception>
+    public void SetDefaultGroups(IEnumerable<Group> groups)
+    {
+        ArgumentNullException.ThrowIfNull(groups);
+
+        var distinct = groups.DistinctBy(group => group.Id).ToList();
+
+        if (distinct.Count > MaxDefaultGroups)
+        {
+            throw new DomainValidationException($"At most {MaxDefaultGroups} default Groups can be set.", nameof(groups));
+        }
+
+        _defaultGroups.RemoveAll(group => distinct.All(other => other.Id != group.Id));
+
+        foreach (var group in distinct.Where(group => _defaultGroups.All(other => other.Id != group.Id)))
+        {
+            _defaultGroups.Add(group);
+        }
+    }
+
+    /// <summary>
+    ///     Checks whether a domain may sign up through the provider: it is in <see cref="AllowedEmailDomains"/>, or the
+    ///     list is empty and the provider is not the <see cref="IdentityProviderPreset.Google"/> preset.
+    /// </summary>
+    /// <param name="domain">The domain of the Email, or for Google the <c>hd</c> claim; null if there is none.</param>
+    /// <returns>True if the domain is allowed.</returns>
+    public bool IsDomainAllowed(string? domain)
+    {
+        if (_allowedEmailDomains.Count == 0)
+        {
+            return Preset != IdentityProviderPreset.Google;
+        }
+
+        return !string.IsNullOrWhiteSpace(domain) && _allowedEmailDomains.Contains(NormalizeDomain(domain), StringComparer.Ordinal);
+    }
+
+    private static string NormalizeDomain(string? domain) => (domain ?? string.Empty).Trim().TrimEnd('.').ToLowerInvariant();
+
+    private static bool IsValidDomain(string domain)
+    {
+        return domain.Length is > 0 and <= EmailDomainMaxLength
+            && domain.Contains('.', StringComparison.Ordinal)
+            && DomainRegex().IsMatch(domain);
+    }
+
+    [GeneratedRegex("^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", RegexOptions.CultureInvariant)]
+    private static partial Regex DomainRegex();
 
     [GeneratedRegex(SlugPattern, RegexOptions.CultureInvariant)]
     private static partial Regex SlugRegex();

@@ -103,12 +103,16 @@ public static class AuditEventTypes
     public static class ExternalIdentities
     {
         /// <summary>
-        ///     A signed-in User linked their account at a provider. From now on they can sign in through it.
+        ///     An account at a provider was linked to a User, who can sign in through it from now on. The Details name
+        ///     how (<c>via account page</c>: the signed-in User linked it; <c>via sign-in prompt</c>: the account had the
+        ///     Email of the User, who then signed in with their existing methods to link it). A link created when a
+        ///     User signs up through the provider is recorded in <see cref="Users.Provisioned"/>.
         /// </summary>
         public const string Linked = "external-identity.linked";
 
         /// <summary>
-        ///     A User removed the link to their account at a provider.
+        ///     The link to an account at a provider was removed, by the User (<c>by the User</c>) or by an administrator
+        ///     (<c>by an administrator</c>). Existing Sessions stay.
         /// </summary>
         public const string Unlinked = "external-identity.unlinked";
     }
@@ -228,6 +232,13 @@ public static class AuditEventTypes
     {
         /// <summary>A User was created.</summary>
         public const string Created = "user.created";
+
+        /// <summary>
+        ///     A User was created on their first sign-in through an external identity provider that allows sign-up
+        ///     (just-in-time provisioning), without a password and with the account at the provider linked. The
+        ///     Details name the provider, the identity and the default Groups the User joined.
+        /// </summary>
+        public const string Provisioned = "user.provisioned";
 
         /// <summary>The Email or Name of a User was changed.</summary>
         public const string Updated = "user.updated";

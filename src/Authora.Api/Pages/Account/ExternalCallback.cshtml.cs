@@ -33,12 +33,14 @@ namespace Authora.Api.Pages.Account;
 /// <param name="completeService">The Service to check the response and sign in or link.</param>
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
 /// <param name="flowCookie">The cookie of the running flow.</param>
+/// <param name="linkCookie">The cookie that keeps an account with the Email of a User until that User signs in.</param>
 /// <param name="signInOptions">The sign-in settings with the lifetime of a pending sign-in.</param>
 [EnableRateLimiting(RateLimitPolicies.ExternalSignIn)]
 public sealed class ExternalCallbackModel(
     CompleteExternalSignInService completeService,
     SignOutService signOutService,
     ExternalSignInCookie flowCookie,
+    ExternalLinkCookie linkCookie,
     IOptions<SignInOptions> signInOptions) : PageModel
 {
     /// <summary>
@@ -47,9 +49,17 @@ public sealed class ExternalCallbackModel(
     public const string FailedMessage = "The sign-in did not work. Please try again.";
 
     /// <summary>
-    ///     The message for an account at the provider that is not linked to a User.
+    ///     The message for an account at the provider that has the verified Email of a User, but is not linked yet.
     /// </summary>
-    public const string NotLinkedMessage = "This account is not linked. Sign in with your password to link it.";
+    public const string LinkRequiredMessage = "An account with this email already exists. Sign in to link it.";
+
+    /// <summary>
+    ///     Gets the message for an account at the provider that is not linked and cannot sign up. The same for every
+    ///     reason, so it does not reveal whether a User exists or why sign-up was refused.
+    /// </summary>
+    /// <param name="providerName">The Name of the provider, or null if it is unknown.</param>
+    /// <returns>The message.</returns>
+    public static string GetNotPossibleMessage(string? providerName) => $"Sign-in with {providerName ?? "this provider"} is not possible for this account.";
 
     /// <summary>
     ///     The message for an account at the provider that is linked to another User.
@@ -128,6 +138,13 @@ public sealed class ExternalCallbackModel(
 
             case ExternalSignInStatus.AlreadyLinked:
                 return LocalRedirect($"{ExternalAccountsModel.PagePath}?status=already-linked");
+
+            case ExternalSignInStatus.LinkRequired:
+                // Nothing is linked yet: only after the browser signs in to that User with its existing methods.
+                linkCookie.Append(Response, result.PendingLink!);
+                ContinueUrl = $"{SessionAuthenticationHandler.SignInPath}?returnUrl={Uri.EscapeDataString(ExternalLinkCompleteModel.PagePath)}";
+
+                return Page();
 
             case ExternalSignInStatus.NotLinked:
                 ContinueUrl = $"{SessionAuthenticationHandler.SignInPath}?returnUrl={Uri.EscapeDataString(returnUrl)}";

@@ -15,6 +15,7 @@ using Authora.Core.Application.OAuth;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
+using Authora.Core.Domain.Exceptions;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,13 @@ namespace Authora.Core.Application.ExternalSignIn.Complete;
 /// </summary>
 /// <remarks>
 ///     <para>
+///         An account that is not linked is resolved in this order: if a User has its verified Email, the account is
+///         only kept as a <see cref="PendingExternalLink"/> until the browser signs in to that User with the User's
+///         existing methods (a matching Email alone never links); otherwise, if the provider allows sign-up, the Email
+///         is verified and its domain allowed, a new User without a password is created with the account linked and
+///         signed in; otherwise the sign-in is refused without revealing why.
+///     </para>
+///     <para>
 ///         The sign-in follows the rules of a password sign-in: the User must be able to sign in and not be locked out,
 ///         and a User who enrolled a second factor gets only a pending sign-in, which <c>CompleteSignInService</c> turns
 ///         into a Session. The provider counts as the first factor (<c>fed</c>); it does not replace a second one.
@@ -39,7 +47,7 @@ namespace Authora.Core.Application.ExternalSignIn.Complete;
 /// </remarks>
 /// <param name="providerRepository">An Instance of a IIdentityProviderRepository to load the provider.</param>
 /// <param name="externalIdentityRepository">An Instance of a IExternalIdentityRepository to find and create links.</param>
-/// <param name="userRepository">An Instance of a IUserRepository to load and save the User.</param>
+/// <param name="userRepository">An Instance of a IUserRepository to load, find by Email, create and save the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository for the lock of the User that a link shares with deleting the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to create the Session or check the Session of a link.</param>
 /// <param name="challengeRepository">An Instance of a ISignInChallengeRepository to create a pending sign-in.</param>
@@ -172,17 +180,14 @@ public sealed class CompleteExternalSignInService(
         CancellationToken cancellationToken)
     {
         var identity = await externalIdentityRepository.FindIdentity(provider.Id, claims.Subject, cancellationToken);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
 
         if (identity is null)
         {
-            logger.ExternalIdentityNotLinked(provider.Slug);
-            await RecordFailureAsync(provider, null, "The account at the provider is not linked to a User", cancellationToken);
-
-            return Result(ExternalSignInStatus.NotLinked, provider, flow);
+            return await ResolveUnlinkedAsync(provider, flow, claims, now, cancellationToken);
         }
 
         var user = await userRepository.GetUserById(identity.UserId, cancellationToken);
-        var now = timeProvider.GetUtcNow().UtcDateTime;
 
         if (user is null || !user.CanSignIn)
         {
@@ -214,6 +219,162 @@ public sealed class CompleteExternalSignInService(
             return await FailAsync(provider, provider.Slug, flow, user.Id, "The User was changed by another request at the same time", cancellationToken);
         }
 
+        return await StartSessionAsync(provider, flow, user, now, cancellationToken);
+    }
+
+    // The account is not linked: a User with its verified Email must sign in to link it, otherwise the provider may
+    // create a User, otherwise the sign-in is refused. The User sees the same message for every refusal.
+    private async Task<ExternalSignInResult> ResolveUnlinkedAsync(
+        IdentityProvider provider,
+        ExternalSignInFlow flow,
+        ExternalIdentityClaims claims,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var email = claims.Email?.Trim();
+        var hasVerifiedEmail = claims.EmailVerified && !string.IsNullOrEmpty(email);
+
+        // Only a verified Email counts, so only someone who controls an account with that verified Email at the
+        // provider learns that a User has it. Nothing is linked until the browser signs in to that User.
+        if (hasVerifiedEmail
+            && await userRepository.GetUserByNormalizedEmail(User.Normalize(email!), cancellationToken) is { } existing)
+        {
+            logger.ExternalLinkRequired(existing.Id, provider.Slug);
+            await RecordFailureAsync(
+                provider,
+                existing.Id,
+                "The account at the provider is not linked; a User with its Email exists and must sign in to link it",
+                cancellationToken);
+
+            return Result(ExternalSignInStatus.LinkRequired, provider, flow) with
+            {
+                PendingLink = new PendingExternalLink(provider.Id, provider.Slug, claims.Subject, email!, existing.Id, now, flow.ReturnUrl)
+            };
+        }
+
+        if (!provider.AllowSignUp)
+        {
+            return await RefuseSignUpAsync(provider, flow, "The account at the provider is not linked to a User, and sign-up is turned off", cancellationToken);
+        }
+
+        if (!hasVerifiedEmail)
+        {
+            return await RefuseSignUpAsync(provider, flow, "Sign-up refused: the provider reported no verified Email", cancellationToken);
+        }
+
+        // Google: the Workspace domain of the account (hd), which personal accounts lack; others: the Email's domain.
+        var domain = provider.Preset == IdentityProviderPreset.Google
+            ? claims.HostedDomain
+            : email![(email!.LastIndexOf('@') + 1)..];
+
+        if (!provider.IsDomainAllowed(domain))
+        {
+            return await RefuseSignUpAsync(
+                provider,
+                flow,
+                provider.Preset == IdentityProviderPreset.Google
+                    ? "Sign-up refused: the Google Workspace domain (hd) of the account is not allowed"
+                    : "Sign-up refused: the domain of the Email is not allowed",
+                cancellationToken);
+        }
+
+        return await ProvisionAsync(provider, flow, claims, email!, now, cancellationToken);
+    }
+
+    private async Task<ExternalSignInResult> ProvisionAsync(
+        IdentityProvider provider,
+        ExternalSignInFlow flow,
+        ExternalIdentityClaims claims,
+        string email,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        User user;
+
+        try
+        {
+            user = User.CreateWithoutPassword(email, NameOrFallback(claims.GivenName, email), NameOrFallback(claims.FamilyName, email));
+        }
+        catch (DomainValidationException)
+        {
+            return await RefuseSignUpAsync(provider, flow, "Sign-up refused: the Email of the provider is not valid in Authora", cancellationToken);
+        }
+
+        // The provider verified the Email, and the domain is allowed.
+        user.MarkEmailVerified(now);
+        user.RecordSuccessfulSignIn(now);
+
+        foreach (var group in provider.DefaultGroups)
+        {
+            user.JoinGroup(group);
+        }
+
+        var identity = ExternalIdentity.Create(user.Id, provider.Id, claims.Subject, email, now);
+        identity.RecordUse(now);
+
+        var groups = provider.DefaultGroups.Count == 0
+            ? "none"
+            : string.Join(", ", provider.DefaultGroups.OrderBy(group => group.Name, StringComparer.Ordinal).Select(group => $"'{group.Name}' ({group.Id})"));
+
+        auditLog.Record(AuditEntry.ForUser(
+            AuditEventTypes.Users.Provisioned,
+            user.Id,
+            $"Identity provider '{provider.Slug}' ({provider.Id}), identity {identity.Id}, default Groups: {groups}"));
+
+        // User, Group memberships, identity and audit event are saved together. Fails without saving anything if
+        // another request created a User with the Email or linked the account at the same time.
+        userRepository.AddUser(user);
+
+        if (!await externalIdentityRepository.TryCreateIdentity(identity, cancellationToken))
+        {
+            return await FailAsync(
+                provider,
+                provider.Slug,
+                flow,
+                null,
+                "Sign-up failed: a User with the Email was created, or the account was linked, by another request at the same time",
+                cancellationToken);
+        }
+
+        logger.UserProvisioned(user.Id, provider.Slug, identity.Id);
+
+        return await StartSessionAsync(provider, flow, user, now, cancellationToken);
+    }
+
+    private async Task<ExternalSignInResult> RefuseSignUpAsync(
+        IdentityProvider provider,
+        ExternalSignInFlow flow,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        logger.ExternalSignUpRefused(provider.Slug, reason);
+        await RecordFailureAsync(provider, null, reason, cancellationToken);
+
+        return Result(ExternalSignInStatus.NotLinked, provider, flow);
+    }
+
+    // A name the provider did not report, or one Authora cannot store, becomes the local part of the Email.
+    private static string NameOrFallback(string? name, string email)
+    {
+        var trimmed = name?.Trim();
+
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            var at = email.LastIndexOf('@');
+
+            trimmed = at > 0 ? email[..at].Trim() : email;
+        }
+
+        return trimmed.Length > User.NameMaxLength ? trimmed[..User.NameMaxLength].Trim() : trimmed;
+    }
+
+    private async Task<ExternalSignInResult> StartSessionAsync(
+        IdentityProvider provider,
+        ExternalSignInFlow flow,
+        User user,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
         var sessionToken = secretGenerator.Generate();
         var session = Session.Create(
             user,
@@ -327,7 +488,7 @@ public sealed class CompleteExternalSignInService(
         auditLog.Record(AuditEntry.ForUser(
             AuditEventTypes.ExternalIdentities.Linked,
             user.Id,
-            $"Identity {identity.Id}, identity provider '{provider.Slug}' ({provider.Id})"));
+            $"Identity {identity.Id}, identity provider '{provider.Slug}' ({provider.Id}), via account page"));
 
         // Fails if the User already has an account at the provider, or another request linked the same account.
         if (!await externalIdentityRepository.TryCreateIdentity(identity, cancellationToken))

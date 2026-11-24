@@ -96,6 +96,7 @@ builder.Services.AddSingleton<ITotpSecretProtector, DataProtectionTotpSecretProt
 // So are the Client Secrets of external identity providers, and the cookie of a sign-in through one.
 builder.Services.AddSingleton<IProviderSecretProtector, DataProtectionProviderSecretProtector>();
 builder.Services.AddSingleton<ExternalSignInCookie>();
+builder.Services.AddSingleton<ExternalLinkCookie>();
 
 builder.Services.AddHsts(options =>
 {

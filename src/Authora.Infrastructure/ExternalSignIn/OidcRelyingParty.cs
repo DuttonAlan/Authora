@@ -443,7 +443,11 @@ public sealed class OidcRelyingParty(
             || (token.TryGetPayloadValue<string>("email_verified", out var verifiedText)
                 && string.Equals(verifiedText, "true", StringComparison.OrdinalIgnoreCase));
 
-        return new ExternalIdentityClaims(subject, email, emailVerified);
+        token.TryGetPayloadValue<string>("given_name", out var givenName);
+        token.TryGetPayloadValue<string>("family_name", out var familyName);
+        token.TryGetPayloadValue<string>("hd", out var hostedDomain);
+
+        return new ExternalIdentityClaims(subject, email, emailVerified, givenName, familyName, hostedDomain);
     }
 
     private static string DescribeFailure(Exception? exception)

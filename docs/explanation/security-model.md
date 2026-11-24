@@ -65,7 +65,7 @@ The notifications are Authora's only outgoing HTTP requests to addresses that ad
 
 ### Sign-in does not leak who has an account
 
-Every failed sign-in shows the same message, and unknown Emails still go through a password check, so neither the message nor the response time reveals whether an account exists. The lockout after repeated failures is short (15 minutes by default, at most 1 hour), because anyone who knows an Email can trigger it.
+Every failed sign-in shows the same message, and unknown Emails still go through a password check, so neither the message nor the response time reveals whether an account exists. The one exception is the prompt to link an account at an external identity provider, which only the owner of a verified Email at the provider sees, see [An Email never links an account](#an-email-never-links-an-account). The lockout after repeated failures is short (15 minutes by default, at most 1 hour), because anyone who knows an Email can trigger it.
 
 ### A second factor comes before the Session, not after
 
@@ -77,9 +77,21 @@ Users can sign in through an external OpenID Connect provider, e.g. Google, once
 
 The provider counts as the first factor, in place of the password. A User who enrolled a second factor still completes it, `acr` stays at the password level, and *Require MFA* on Clients and `Authora:Mfa:RequireForAdministrators` work unchanged, so linking a provider never weakens an account. The rules of a password sign-in apply too: a User who cannot sign in or is locked out is rejected.
 
-The flow is bound to the browser with `state`, a `nonce` and PKCE, kept in an encrypted, ten-minute, single-use cookie; the ID Token must be signed by a key of the provider and name the expected Issuer, Client and `nonce`. An account is identified by the provider's `sub`, never by its Email, so a provider that lets someone register any address cannot take over a User with that address. Accounts are only linked by a signed-in User with a recent authentication, and the response must arrive in the same Session, so a forged link response cannot attach an attacker's account to a victim. The Client Secret Authora got from the provider cannot be hashed, because it must be sent to the provider; it is encrypted with the Data Protection keys and never returned.
+The flow is bound to the browser with `state`, a `nonce` and PKCE, kept in an encrypted, ten-minute, single-use cookie; the ID Token must be signed by a key of the provider and name the expected Issuer, Client and `nonce`. An account is identified by the provider's `sub`, never by its Email, so a provider that lets someone register any address cannot take over a User with that address (see [An Email never links an account](#an-email-never-links-an-account)). On the account page, accounts are only linked by a signed-in User with a recent authentication, and the response must arrive in the same Session, so a forged link response cannot attach an attacker's account to a victim. The Client Secret Authora got from the provider cannot be hashed, because it must be sent to the provider; it is encrypted with the Data Protection keys and never returned.
 
-Whoever holds `identity-providers.manage` can change the Issuer of a provider and so sign in as any User who linked an account there; treat it like the administrator Role. Signing out of Authora does not sign the User out of the provider.
+Whoever holds `identity-providers.manage` can change the Issuer of a provider and so sign in as any User who linked an account there, or turn on sign-up with default Groups that grant Permissions; treat it like the administrator Role. Signing out of Authora does not sign the User out of the provider.
+
+### An Email never links an account
+
+When an account at a provider that is not linked arrives with the verified Email of an existing User, Authora does not link it. It keeps the account in an encrypted, 15-minute cookie and asks the person to sign in to that User with the User's existing methods, the password and the second factor if one is set up; only a new Session, started by a sign-in completed after the account arrived, to exactly that User, links it. A step-up of a Session from before does not count, since it does not prove the password again. Abandoning the sign-in links nothing. There is no setting to trust the provider's Email instead.
+
+This is the practice of Keycloak's *first broker login*, Auth0 and OWASP, and it closes account takeover through an Email claim: a provider that lets anyone register any address, a provider whose Email is wrong or reassigned, and *pre-registration*, where an attacker creates an account at a provider with the victim's address before the victim links theirs. Only an Email with `email_verified=true` is considered at all.
+
+The prompt does tell the person that a User with this Email exists. Only someone who controls an account with that verified Email at the provider sees it, which is a much smaller group than anyone who can type an Email into the sign-in page; every other refusal shows the same "Sign-in with *provider* is not possible for this account", whatever the reason.
+
+### Sign-up only for verified Emails in allowed domains
+
+A provider can create Users on their first sign-in. It is off by default, and needs an Email the provider verified (`email_verified=true`); allowed domains limit it further, matched exactly. For Google, sign-up needs at least one domain, checked against the `hd` claim, which Google sets only for accounts of a Google Workspace: personal Gmail accounts cannot sign up even with an address that looks like the domain. For other providers the domains are optional, so a provider that lets anyone register lets anyone sign up when no domain is set. New Users get no password, and the password sign-in fails for them exactly like a wrong password (same message, timing, lockout count and audit reason), so it does not reveal how they sign in. They cannot unlink their last account while they have no password; setting one needs a recent authentication instead of a current password.
 
 ### Password reset proves control of the mailbox, nothing more
 

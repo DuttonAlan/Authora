@@ -45,4 +45,16 @@ The secret is encrypted with the Data Protection keys and never shown again, see
 2. Choose **Link Google**, pick your Google account, and come back to "The account was linked".
 3. Sign out, and sign in again with **Sign in with Google**.
 
-Authora identifies the Google account by its `sub`, not by its Email, so a User whose Google address matches their Authora Email still has to link it once. While the consent screen of your Google project is in *Testing*, only the test users you added there can sign in; publish it for everyone else.
+Authora identifies the Google account by its `sub`, not by its Email. A User whose verified Google address matches their Authora Email is asked to sign in to Authora once, with their password and second factor, to link it; the Email alone never links. While the consent screen of your Google project is in *Testing*, only the test users you added there can sign in; publish it for everyone else.
+
+## 4. Optional: let your Google Workspace sign up
+
+To create Users for people of your Google Workspace on their first sign-in, turn on **Sign-up** on the provider's page and enter your Workspace domains, e.g. `example.com`. Or with the admin API:
+
+```sh
+curl -X PUT https://auth.example.com/api/identity-providers/$PROVIDER_ID \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{ "allowSignUp": true, "allowedEmailDomains": ["example.com"], "defaultGroupIds": [] }'
+```
+
+For Google, sign-up needs at least one domain (`400` otherwise), and the domain is checked against the `hd` claim, the Workspace the account belongs to, not against the Email. Personal Gmail accounts have no `hd` and cannot sign up, even with an address in your domain; existing Users can still link them. The new Users have no password, join the default Groups and can set a password later, see [Let people sign up](add-an-external-identity-provider.md#let-people-sign-up).

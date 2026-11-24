@@ -13,6 +13,7 @@ namespace Authora.Core.Application.Users.Get;
 /// <param name="Email" example="jane.doe@example.com">Email of the User.</param>
 /// <param name="EmailVerified" example="true">Whether the User confirmed the Email with a verification link, or an administrator marked it as verified. Released as the <c>email_verified</c> claim.</param>
 /// <param name="EmailVerifiedAt">Point in time (UTC) when the Email was verified, or null if it is not verified.</param>
+/// <param name="HasPassword" example="true">Whether the User has a password. A User who signed up through an external identity provider has none and signs in through the linked account until they set one.</param>
 /// <param name="FirstName" example="Jane">First Name of the User.</param>
 /// <param name="LastName" example="Doe">Last Name of the User.</param>
 /// <param name="State" example="Active">State of the User.</param>
@@ -27,6 +28,7 @@ public sealed record GetUserResponse(
     string Email,
     bool EmailVerified,
     DateTime? EmailVerifiedAt,
+    bool HasPassword,
     string FirstName,
     string LastName,
     UserState State,

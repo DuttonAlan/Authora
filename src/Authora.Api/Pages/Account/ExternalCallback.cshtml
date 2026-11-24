@@ -19,12 +19,18 @@
     <p>You signed in with @Model.ProviderName. Confirm it is you with your second factor.</p>
     <p><a href="@Model.ContinueUrl">Continue</a></p>
 }
+else if (Model.Status == ExternalSignInStatus.LinkRequired)
+{
+    <h1>Link your account</h1>
+    <p role="status">@ExternalCallbackModel.LinkRequiredMessage</p>
+    <p class="muted">Sign in as usual, including two-step verification if you set it up. Your @Model.ProviderName account is then linked, and you can sign in with it from now on.</p>
+    <p><a href="@Model.ContinueUrl">Sign in to link it</a></p>
+}
 else if (Model.Status == ExternalSignInStatus.NotLinked)
 {
-    <h1>Account not linked</h1>
-    <p class="error" role="alert">@ExternalCallbackModel.NotLinkedMessage</p>
-    <p class="muted">After signing in, link your @Model.ProviderName account under "Account and security".</p>
-    <p><a href="@Model.ContinueUrl">Sign in with your password</a></p>
+    <h1>Sign in</h1>
+    <p class="error" role="alert">@ExternalCallbackModel.GetNotPossibleMessage(Model.ProviderName)</p>
+    <p><a href="@Model.ContinueUrl">Back to sign-in</a></p>
 }
 else if (Model.Status == ExternalSignInStatus.LinkConflict)
 {

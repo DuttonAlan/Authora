@@ -15,12 +15,14 @@ namespace Authora.Core.Application.IdentityProviders.Create;
 ///     The Service to create an external identity provider.
 /// </summary>
 /// <param name="providerRepository">An Instance of a IIdentityProviderRepository to save the provider.</param>
+/// <param name="groupRepository">An Instance of a IGroupRepository to load the default Groups.</param>
 /// <param name="secretProtector">Encrypts the Client Secret.</param>
 /// <param name="issuerValidator">Checks the discovery document of the Issuer.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the creation.</param>
 public sealed class CreateIdentityProviderService(
     IIdentityProviderRepository providerRepository,
+    IGroupRepository groupRepository,
     IProviderSecretProtector secretProtector,
     IssuerValidator issuerValidator,
     IAuditLog auditLog,
@@ -62,12 +64,20 @@ public sealed class CreateIdentityProviderService(
             provider.Enable();
         }
 
+        await SignUpSettings.ApplyAsync(
+            provider,
+            request.AllowSignUp,
+            request.AllowedEmailDomains,
+            request.DefaultGroupIds,
+            groupRepository,
+            cancellationToken);
+
         await issuerValidator.EnsureValidAsync(provider.Issuer, cancellationToken);
 
         auditLog.Record(AuditEntry.ForIdentityProvider(
             AuditEventTypes.IdentityProviders.Created,
             provider.Id,
-            $"Slug '{provider.Slug}', Issuer '{provider.Issuer}', {(provider.IsEnabled ? "enabled" : "disabled")}, {(provider.HasClientSecret ? "with" : "without")} Client Secret"));
+            $"Slug '{provider.Slug}', Issuer '{provider.Issuer}', {(provider.IsEnabled ? "enabled" : "disabled")}, {(provider.HasClientSecret ? "with" : "without")} Client Secret, {SignUpSettings.Describe(provider)}"));
 
         await providerRepository.CreateProvider(provider, cancellationToken);
 
