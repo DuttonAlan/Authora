@@ -20,8 +20,8 @@ namespace Authora.Core.Application.ExternalSignIn.CompleteLink;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The Session must have authenticated after the account arrived, so a browser that was already signed in
-///         cannot link without signing in again; and it must be a Session of the User with the Email, so the account
+///         The Session must have started after the account arrived, so a browser that was already signed in cannot
+///         link without signing in again, not even after a step-up of its earlier Session; and it must be a Session of the User with the Email, so the account
 ///         is never linked to someone else. A User with a second factor gets a Session only after completing it, so
 ///         the link also requires the second factor.
 ///     </para>
@@ -97,7 +97,9 @@ public sealed class CompletePendingLinkService(
         }
 
         // The sign-in that proves the browser can use the User's existing methods must come after the account arrived.
-        if (session.AuthenticatedAt < pending.CreatedAt)
+        // CreatedAt, not AuthenticatedAt: a step-up moves AuthenticatedAt of an earlier Session without proving the
+        // password again, so only a Session started by a full sign-in after the account arrived counts.
+        if (session.CreatedAt < pending.CreatedAt)
         {
             return CompletePendingLinkResult.SignInRequired;
         }

@@ -9,8 +9,10 @@ using System.Text.Json;
 
 using Authora.Api.Authentication;
 using Authora.Api.Pages.Account;
+using Authora.Core.Abstractions;
 using Authora.Core.Application.Audit;
 using Authora.Core.Application.Authorization;
+using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Core.Domain.Exceptions;
@@ -307,6 +309,14 @@ public sealed class AccountLinkingTests(AuthoraApiFactory factory) : IClassFixtu
         Assert.False(IsDeleted(stale, ExternalLinkCookie.Name));
         Assert.Empty(await GetIdentitiesAsync(userId));
 
+        // A step-up of the earlier Session moves its authentication time, but does not prove the password again.
+        await StepUpAsync(userId, earlierSession);
+        using var steppedUp = await GetAsync(ExternalLinkCompleteModel.PagePath, earlierSession, linkCookie);
+
+        Assert.Equal(HttpStatusCode.Redirect, steppedUp.StatusCode);
+        Assert.StartsWith(SessionAuthenticationHandler.SignInPath, steppedUp.Headers.Location?.OriginalString, StringComparison.Ordinal);
+        Assert.Empty(await GetIdentitiesAsync(userId));
+
         // Signing in to another User links nothing, and the pending link is gone.
         var (otherId, otherEmail) = await factory.CreateUserWithPasswordAsync(Password);
         using var otherSignIn = await SignInAsync(otherEmail, Password, ExternalLinkCompleteModel.PagePath);
@@ -446,6 +456,41 @@ public sealed class AccountLinkingTests(AuthoraApiFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task UserWithoutPassword_LinksToDisabledProviders_DoNotCountAsAWayToSignIn()
+    {
+        var (userId, _, sessionToken, identityId) = await ProvisionAsync();
+        var (disabledProviderId, _) = await factory.CreateIdentityProviderAsync(factory.ExternalProviders.Create(), "Disabled IdP");
+        await factory.LinkExternalIdentityAsync(userId, disabledProviderId, $"subject-{Guid.NewGuid():N}");
+        await DisableProviderAsync(disabledProviderId);
+
+        // The User keeps the link to the enabled provider, the only one they can still sign in through ...
+        using var page = await GetAsync(ExternalAccountsModel.PagePath, sessionToken, cookie: null);
+        var (antiforgeryToken, antiforgeryCookie) = await AuthorizationCodeFlow.ReadAntiforgeryAsync(page);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{ExternalAccountsModel.PagePath}?handler=Unlink")
+        {
+            Content = new FormUrlEncodedContent(
+            [
+                new("ExternalIdentityId", identityId.ToString()),
+                new("__RequestVerificationToken", antiforgeryToken)
+            ])
+        };
+        request.Headers.Add("Cookie", $"{SessionCookie.Name}={sessionToken}; {antiforgeryCookie}");
+        using var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal($"{ExternalAccountsModel.PagePath}?status=last-sign-in-method", response.Headers.Location?.OriginalString);
+        Assert.Equal(2, (await GetIdentitiesAsync(userId)).Count);
+
+        // ... also through the admin API.
+        var token = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
+        using var refused = await SendAdminAsync(HttpMethod.Delete, $"/api/users/{userId}/external-identities/{identityId}", token);
+
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Equal(2, (await GetIdentitiesAsync(userId)).Count);
+    }
+
+    [Fact]
     public async Task AdminApi_ListsAndRemovesLinkedAccounts_ButKeepsTheLastWayToSignIn()
     {
         var (userId, _, sessionToken, identityId) = await ProvisionAsync();
@@ -520,6 +565,30 @@ public sealed class AccountLinkingTests(AuthoraApiFactory factory) : IClassFixtu
 
         provider.ConfigureSignUp(allowSignUp, domains);
         provider.SetDefaultGroups(groups);
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    // Records a step-up in the User's only Session, like completing a second factor in it does; the token stays.
+    private async Task StepUpAsync(Guid userId, string sessionToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var secretHasher = scope.ServiceProvider.GetRequiredService<ISecretHasher>();
+
+        var session = await context.Sessions.SingleAsync(session => session.UserId == userId, TestContext.Current.CancellationToken);
+        session.RecordStepUp(secretHasher.Hash(sessionToken), AuthenticationMethods.OneTimeCode, DateTime.UtcNow);
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task DisableProviderAsync(Guid providerId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+        var provider = await context.IdentityProviders.SingleAsync(provider => provider.Id == providerId, TestContext.Current.CancellationToken);
+        provider.Disable();
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }

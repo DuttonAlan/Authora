@@ -83,7 +83,7 @@ Whoever holds `identity-providers.manage` can change the Issuer of a provider an
 
 ### An Email never links an account
 
-When an account at a provider that is not linked arrives with the verified Email of an existing User, Authora does not link it. It keeps the account in an encrypted, 15-minute cookie and asks the person to sign in to that User with the User's existing methods, the password and the second factor if one is set up; only a sign-in completed after the account arrived, to exactly that User, links it. Abandoning the sign-in links nothing. There is no setting to trust the provider's Email instead.
+When an account at a provider that is not linked arrives with the verified Email of an existing User, Authora does not link it. It keeps the account in an encrypted, 15-minute cookie and asks the person to sign in to that User with the User's existing methods, the password and the second factor if one is set up; only a new Session, started by a sign-in completed after the account arrived, to exactly that User, links it. A step-up of a Session from before does not count, since it does not prove the password again. Abandoning the sign-in links nothing. There is no setting to trust the provider's Email instead.
 
 This is the practice of Keycloak's *first broker login*, Auth0 and OWASP, and it closes account takeover through an Email claim: a provider that lets anyone register any address, a provider whose Email is wrong or reassigned, and *pre-registration*, where an attacker creates an account at a provider with the victim's address before the victim links theirs. Only an Email with `email_verified=true` is considered at all.
 

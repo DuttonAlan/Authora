@@ -11,7 +11,7 @@ You need the Permission `identity-providers.manage` (the `admin` Role has it), a
   1. **Its verified Email belongs to a User**: Authora shows "An account with this email already exists. Sign in to link it." The account is linked only after the person signs in to that User with its existing methods (password and second factor, if set up); then the sign-in continues where it started, e.g. at the application. Abandoning it links nothing.
   2. **Sign-up is allowed** for the provider, the provider verified the Email (`email_verified=true`) and its domain is allowed: a new User is created on the spot, see [Let people sign up](#let-people-sign-up).
   3. **Otherwise** the sign-in is refused with "Sign-in with *Name* is not possible for this account." The reason is only in the audit log and the logs.
-- Signed-in Users can also link an account themselves at **Account and security → Linked accounts** (`/account/security/external-accounts`), after a recent sign-in, and unlink it there. A User without a password cannot unlink their last account.
+- Signed-in Users can also link an account themselves at **Account and security → Linked accounts** (`/account/security/external-accounts`), after a recent sign-in, and unlink it there. A User without a password cannot unlink their last account at an enabled provider; accounts at disabled providers don't count.
 - The provider replaces the password, not the second factor: a User with an authenticator app or a passkey still completes it after the provider. ID Tokens name `fed` in `amr`.
 - Signing out of Authora does not sign the User out of the provider.
 

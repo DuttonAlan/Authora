@@ -19,12 +19,13 @@ namespace Authora.Core.Application.Users.RemoveExternalIdentity;
 /// </summary>
 /// <remarks>
 ///     Removing a link only prevents future sign-ins through it; the Sessions of the User stay (revoke them separately).
-///     A User without a password keeps their last link, which is then their only way to sign in: set a password or
-///     send a reset link first. The caller must be allowed to act on the User (<see cref="PrivilegeGuard"/>).
+///     A User without a password keeps a link unless another link to an enabled provider remains, since it is then
+///     their only way to sign in: set a password or send a reset link first. The caller must be allowed to act on the User (<see cref="PrivilegeGuard"/>).
 /// </remarks>
 /// <param name="userRepository">An Instance of a IUserRepository to load the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository for the lock of the User's ways to sign in.</param>
 /// <param name="externalIdentityRepository">An Instance of a IExternalIdentityRepository to remove the link.</param>
+/// <param name="providerRepository">An Instance of a IIdentityProviderRepository to check which links still work.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="auditLog">The audit log to record the removal.</param>
 /// <param name="logger">The Logger to record the removal.</param>
@@ -32,6 +33,7 @@ public sealed class RemoveUserExternalIdentityService(
     IUserRepository userRepository,
     IMfaRepository mfaRepository,
     IExternalIdentityRepository externalIdentityRepository,
+    IIdentityProviderRepository providerRepository,
     PrivilegeGuard privilegeGuard,
     IAuditLog auditLog,
     ILogger<RemoveUserExternalIdentityService> logger)
@@ -69,9 +71,9 @@ public sealed class RemoveUserExternalIdentityService(
         var identity = identities.FirstOrDefault(identity => identity.Id == externalIdentityId)
             ?? throw new NotFoundException($"Linked account '{externalIdentityId}' was not found.");
 
-        if (UnlinkExternalIdentityService.IsLastSignInMethod(user.HasPassword, identities.Count))
+        if (await UnlinkExternalIdentityService.IsLastSignInMethodAsync(user.HasPassword, identities, identity, providerRepository, cancellationToken))
         {
-            throw new ConflictException("The User has no password and no other linked account, so this is their only way to sign in. Set a password first.");
+            throw new ConflictException("The User has no password and no other linked account at an enabled provider, so this is their only way to sign in. Set a password first.");
         }
 
         externalIdentityRepository.RemoveIdentities([identity]);

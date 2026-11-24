@@ -72,7 +72,7 @@ Changes take effect with the next request: the admin API loads the User's Permis
 | Temporarily block | **Deactivate** (`users.manage-access`) | Signs the User out everywhere and blocks sign-in until **Activate**. |
 | End all sessions | **Sign out everywhere** (`users.manage-access`) | Ends all Sessions and revokes all tokens of the User, in every application. |
 | Cut off one application | **Revoke** in the **Consents** panel (`users.manage-access`) | Revokes the User's Consent for the Client and its tokens for the User. The User is asked again on the next sign-in to it. |
-| Stop sign-in through a provider | **Remove** in the **Linked accounts** panel (`users.manage-access`) | The User can no longer sign in through that account; Sessions stay. Not for the last linked account of a User without a password. |
+| Stop sign-in through a provider | **Remove** in the **Linked accounts** panel (`users.manage-access`) | The User can no longer sign in through that account; Sessions stay. Not for the last linked account at an enabled provider of a User without a password. |
 | Remove for good | **Delete** (`users.delete`) | Deletes the User and all their Sessions, tokens and Consents. Their Email can be used again. |
 | Undo a lockout | **Unlock** (`users.manage-access`) | After 5 failed sign-ins in a row, a User is locked out for 15 minutes; this ends it early. A password reset by email ends it too. |
 
