@@ -26,6 +26,10 @@ namespace Authora.Core.Application.OAuth.Authorize;
 ///     instead of ignoring the parameter.
 /// </param>
 /// <param name="DuplicateParameters">Names of the known parameters that were sent more than once.</param>
+/// <param name="Resources">
+///     The values of <c>resource</c> (RFC 8707), which may be sent more than once, in the order sent. Empty values are
+///     left out.
+/// </param>
 public sealed record AuthorizationRequest(
     string? ClientId,
     string? RedirectUri,
@@ -40,8 +44,14 @@ public sealed record AuthorizationRequest(
     string? MaxAge,
     string? AcrValues,
     string? UnsupportedParameter,
-    IReadOnlyCollection<string> DuplicateParameters)
+    IReadOnlyCollection<string> DuplicateParameters,
+    IReadOnlyList<string> Resources)
 {
+    /// <summary>
+    ///     Name of the repeatable <c>resource</c> parameter (RFC 8707).
+    /// </summary>
+    public const string ResourceParameter = "resource";
+
     /// <summary>
     ///     Names of all parameters of an authorization request that Authora reads.
     /// </summary>
@@ -58,7 +68,8 @@ public sealed record AuthorizationRequest(
         "nonce",
         "prompt",
         "max_age",
-        "acr_values"
+        "acr_values",
+        ResourceParameter
     ];
 
     /// <summary>
@@ -105,6 +116,7 @@ public sealed record AuthorizationRequest(
             Get("max_age"),
             Get("acr_values"),
             UnsupportedParameterNames.FirstOrDefault(name => getValues(name).Any(value => !string.IsNullOrEmpty(value))),
-            duplicates);
+            duplicates,
+            getValues(ResourceParameter).Where(value => !string.IsNullOrEmpty(value)).Select(value => value!).ToList());
     }
 }

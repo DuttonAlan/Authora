@@ -61,8 +61,9 @@ A disabled Client cannot obtain tokens, but can still revoke its tokens.
 | `state` | Optional. Returned unchanged. |
 | `response_mode` | Optional. Only `query`. |
 | `nonce`, `prompt`, `max_age`, `acr_values` | OpenID Connect parameters, see [OpenID Connect](openid-connect.md#authorization-request). |
+| `resource` | Optional, repeatable (at most 10). The APIs the tokens are meant for, see [Resources](#resources). |
 
-- Unknown parameters are ignored; parameters without a value count as omitted; a parameter sent twice is rejected.
+- Unknown parameters are ignored; parameters without a value count as omitted; a parameter sent twice is rejected, except `resource`.
 - Until `client_id` and `redirect_uri` are valid, errors are shown to the User. After that, they are sent to the Redirect URI with `error`, `error_description`, `state` and `iss`.
 - The request is validated before the User signs in, and again when the consent form is submitted.
 
@@ -90,11 +91,29 @@ Every Client must send PKCE by default. An administrator can make it optional fo
 
 A `303 See Other` redirect to the Redirect URI with `code`, `state` (if sent) and `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)).
 
-Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsupported_response_type`, `invalid_scope`, and the OpenID Connect codes `login_required`, `interaction_required`, `consent_required`, `request_not_supported`, `request_uri_not_supported`, `registration_not_supported`.
+Error codes: `invalid_request`, `unauthorized_client`, `access_denied`, `unsupported_response_type`, `invalid_scope`, `invalid_target`, and the OpenID Connect codes `login_required`, `interaction_required`, `consent_required`, `request_not_supported`, `request_uri_not_supported`, `registration_not_supported`.
+
+### Resources
+
+`resource` ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)) names the APIs an Access Token is meant for, its **audience**. An API is a Confidential Client with a Resource Identifier (`resourceIdentifier` in the [admin API](admin-api.md#clients)); Authora itself is the resource `{Issuer}/api` and serves the System Scopes (`openid`, `profile`, `email`, `authora.admin`) for the admin API and UserInfo.
+
+- Each value must be the Resource Identifier of an enabled API or `{Issuer}/api`, an absolute URI without fragment, compared character by character. Otherwise: `invalid_target`.
+- Every requested Scope that is not a System Scope must be served by one of the resources, and every resource must serve one of the Scopes. Otherwise: `invalid_target`. System Scopes need not be covered: they are approved for the ID Token, but left out of Access Tokens whose audience does not include `{Issuer}/api`.
+- The resources are stored with the code and the Grant. The consent screen is unchanged: it is about Scopes, not resources.
 
 ## Token request
 
 `POST /oauth/token`
+
+All three grant types accept `resource` (repeatable, at most 10):
+
+| Access Token | Audience | Scopes |
+|---|---|---|
+| With `resource` | The named resources. For `authorization_code` and `refresh_token` they must be among the resources of the authorization request, if it named any (downscoping); otherwise each must serve one of the Grant's Scopes. For `client_credentials` each must serve one of the requested Scopes. | Cut to the Scopes the audience serves; `scope` in the response shows the cut list. |
+| Without `resource`, Grant with resources | All resources of the Grant that still serve one of its Scopes. | Cut likewise. |
+| Without `resource`, Grant without resources | Every Client that serves one of the token's Scopes, except APIs that require the resource parameter, plus `{Issuer}/api` if the token has a System Scope. Computed and stored when the token is issued. | Unchanged. |
+
+A value that is no enabled API, was not approved, serves none of the Scopes, or leaves no Scope at all is rejected with `invalid_target`. A rejected refresh request does not use up the Refresh Token. With `client_credentials` and `resource` but without `scope`, the token gets every Scope the Client is allowed that the named APIs serve.
 
 ### `grant_type=authorization_code`
 
@@ -144,8 +163,9 @@ A **Confidential** Client obtains an Access Token for itself, without a User ([R
 - `refresh_token` only if the Client is allowed the Grant Type `refresh_token`, and never for `client_credentials`.
 - `id_token` only when exchanging a code whose Scopes include `openid`, and `openid` is still allowed for the Client. Refreshing returns no ID Token.
 - Scopes an administrator disallowed for the Client since the code was issued are dropped.
+- `scope` lists the Scopes of the Access Token, cut to its audience when resources were named. The ID Token is issued for the approved Scopes, so it is also issued when `openid` was cut from the Access Token.
 
-Error codes: `invalid_request`, `invalid_client`, `invalid_grant`, `unauthorized_client`, `unsupported_grant_type`, `invalid_scope`.
+Error codes: `invalid_request`, `invalid_client`, `invalid_grant`, `unauthorized_client`, `unsupported_grant_type`, `invalid_scope`, `invalid_target`.
 
 ## Revocation
 
@@ -161,10 +181,12 @@ Error codes: `invalid_request`, `invalid_client`, `invalid_grant`, `unauthorized
 
 | Token | Reported active to |
 |---|---|
-| Access Token | The Client it was issued to, with all its Scopes; and any Client that serves at least one of its Scopes, with only the served Scopes in `scope`. |
+| Access Token | The Client it was issued to, with all its Scopes; and a Client in the token's audience (see [Token request](#token-request)) that serves at least one of its Scopes, with only the served Scopes in `scope`. A Client that serves one of the Scopes but is not in the audience sees the token as inactive. |
 | Refresh Token | Only the Client it was issued to. |
 
-Active response members: `active`, `scope`, `client_id`, `sub` (the User Id, or the Client Id for a token the Client obtained for itself with `client_credentials`, then equal to `client_id`), `token_type`, `exp`, `iat`, `iss`. Every other case returns only `{"active": false}`.
+Active response members: `active`, `scope`, `client_id`, `sub` (the User Id, or the Client Id for a token the Client obtained for itself with `client_credentials`, then equal to `client_id`), `token_type`, `exp`, `iat`, `iss`, and for Access Tokens `aud`: always an array of the audience's Resource Identifiers (`{Issuer}/api` for Authora, the Client Id for a Client without Resource Identifier), omitted if empty. Every other case returns only `{"active": false}`.
+
+The audience is stored when the token is issued: an API that starts serving a Scope, or gets a Resource Identifier, does not see tokens issued before. The admin API and UserInfo accept only tokens with `{Issuer}/api` in their audience (`401 invalid_token` otherwise).
 
 A token is active only if:
 

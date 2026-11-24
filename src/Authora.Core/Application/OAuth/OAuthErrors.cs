@@ -6,7 +6,7 @@ namespace Authora.Core.Application.OAuth;
 
 /// <summary>
 ///     The <c>error</c> codes of OAuth error responses (RFC 6749, Sections 4.1.2.1 and 5.2, RFC 7009, Section 2.2.1,
-///     RFC 6750, Section 3.1, and OpenID Connect Core 1.0, Section 3.1.2.6).
+///     RFC 6750, Section 3.1, RFC 8707, Section 2, and OpenID Connect Core 1.0, Section 3.1.2.6).
 /// </summary>
 public static class OAuthErrors
 {
@@ -45,6 +45,12 @@ public static class OAuthErrors
     ///     The requested Scope is invalid, unknown, or not allowed for the Client.
     /// </summary>
     public const string InvalidScope = "invalid_scope";
+
+    /// <summary>
+    ///     A <c>resource</c> parameter names no enabled API, is not approved for the Grant, or serves none of the
+    ///     requested Scopes, or a requested Scope is served by none of the named resources (RFC 8707, Section 2).
+    /// </summary>
+    public const string InvalidTarget = "invalid_target";
 
     /// <summary>
     ///     The User denied the request.

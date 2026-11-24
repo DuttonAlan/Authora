@@ -70,6 +70,8 @@ public sealed class GetClientService(
             client.PostLogoutRedirectUris.Select(redirectUri => redirectUri.Value).Order(StringComparer.Ordinal).ToList(),
             client.BackchannelLogoutUri,
             client.BackchannelLogoutSessionRequired,
+            client.ResourceIdentifier,
+            client.RequiresResourceIndicator,
             scopes,
             servedScopes,
             secrets,

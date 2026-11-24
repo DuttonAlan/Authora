@@ -61,6 +61,18 @@ public sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
         builder.Property(x => x.BackchannelLogoutSessionRequired)
             .IsRequired();
 
+        builder.Property(x => x.ResourceIdentifier)
+            .HasMaxLength(Client.ResourceIdentifierMaxLength);
+
+        // Unique, so a resource parameter names exactly one API. PostgreSQL allows any number of NULLs.
+        builder.HasIndex(x => x.ResourceIdentifier)
+            .IsUnique();
+
+        builder.Property(x => x.RequiresResourceIndicator)
+            .IsRequired();
+
+        builder.Ignore(x => x.IsApi);
+
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 

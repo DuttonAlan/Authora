@@ -93,6 +93,14 @@ internal static class ProductionSettingsCheck
             failures.Add($"'{ExternalSignInOptions.SectionName}:{nameof(ExternalSignInOptions.AllowHttp)}' must be false outside Development.");
         }
 
+        // A Resource Identifier names an API in token requests; outside Development APIs are reached over HTTPS.
+        var resourceAllowHttp = configuration[$"{OAuthOptions.SectionName}:{nameof(OAuthOptions.AllowHttpResourceIdentifiers)}"];
+
+        if (bool.TryParse(resourceAllowHttp, out var parsedResourceAllowHttp) && parsedResourceAllowHttp)
+        {
+            failures.Add($"'{OAuthOptions.SectionName}:{nameof(OAuthOptions.AllowHttpResourceIdentifiers)}' must be false outside Development.");
+        }
+
         return failures;
     }
 }

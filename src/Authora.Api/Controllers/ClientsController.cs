@@ -200,9 +200,9 @@ public sealed class ClientsController(
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>204 No Content if the Client was updated.</returns>
     /// <response code="204">Responds with no content once the Client was updated.</response>
-    /// <response code="400">Responds with validation problem details if the request body is invalid, e.g. an invalid Grant Type or TTL.</response>
+    /// <response code="400">Responds with validation problem details if the request body is invalid, e.g. an invalid Grant Type, TTL or Resource Identifier.</response>
     /// <response code="404">Responds with problem details if no Client with the given Id exists.</response>
-    /// <response code="409">Responds with problem details if <c>client_credentials</c> should be allowed for a first-party Client.</response>
+    /// <response code="409">Responds with problem details if <c>client_credentials</c> should be allowed for a first-party Client, or another Client has the Resource Identifier.</response>
     /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]

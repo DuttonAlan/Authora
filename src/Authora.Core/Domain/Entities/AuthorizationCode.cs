@@ -135,6 +135,12 @@ public sealed class AuthorizationCode
     public Guid? ConsentId { get; private set; }
 
     /// <summary>
+    ///     The resources named with <c>resource</c> in the authorization request (RFC 8707), as Ids of the APIs and
+    ///     <see cref="AuthoraResource.Id"/> for Authora. Empty if the request named none.
+    /// </summary>
+    public IReadOnlyList<Guid> Resources { get; private set; } = [];
+
+    /// <summary>
     ///     The approved Scope Names.
     /// </summary>
     public IReadOnlyList<string> Scopes => ScopeList.Split(Scope);
@@ -153,6 +159,7 @@ public sealed class AuthorizationCode
     /// <param name="sessionId">Id of the Session in which the User approved the request.</param>
     /// <param name="redirectUri">The <c>redirect_uri</c> as sent in the request, or null if it was omitted.</param>
     /// <param name="scopes">The approved Scope Names.</param>
+    /// <param name="resources">The Ids of the requested resources, see <see cref="Resources"/>.</param>
     /// <param name="codeChallenge">The PKCE code challenge (method <c>S256</c>), or null if the request had none.</param>
     /// <param name="nonce">The OpenID Connect <c>nonce</c>, or null if it was not sent.</param>
     /// <param name="authenticatedAt">When the User last authenticated in the Session (UTC).</param>
@@ -168,6 +175,7 @@ public sealed class AuthorizationCode
         Guid sessionId,
         string? redirectUri,
         IEnumerable<string> scopes,
+        IEnumerable<Guid> resources,
         string? codeChallenge,
         string? nonce,
         DateTime authenticatedAt,
@@ -178,6 +186,7 @@ public sealed class AuthorizationCode
         ArgumentNullException.ThrowIfNull(codeHash);
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(resources);
         ArgumentOutOfRangeException.ThrowIfEqual(sessionId, Guid.Empty);
         if (codeChallenge is not null)
         {
@@ -198,6 +207,7 @@ public sealed class AuthorizationCode
             SessionId = sessionId,
             RedirectUri = redirectUri,
             Scope = ScopeList.Format(scopes),
+            Resources = resources.Distinct().ToList(),
             CodeChallenge = codeChallenge,
             Nonce = nonce,
             AuthenticatedAt = authenticatedAt,

@@ -58,6 +58,9 @@ public sealed class AuthorizationCodeConfiguration : IEntityTypeConfiguration<Au
         builder.Ignore(x => x.Scopes);
         builder.Ignore(x => x.AuthenticationMethods);
 
+        builder.PrimitiveCollection(x => x.Resources)
+            .IsRequired();
+
         builder.HasOne<Client>()
             .WithMany()
             .HasForeignKey(x => x.ClientId)

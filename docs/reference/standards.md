@@ -7,7 +7,8 @@
 | [OAuth 2.1](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/) | Authorization Code grant with PKCE, Refresh Token grant with rotation, Client Credentials grant for Confidential Clients (opt-in per Client, no User, no Refresh Token). No implicit or password grant. |
 | [RFC 7636](https://www.rfc-editor.org/rfc/rfc7636) PKCE | Required for every Client, unless an administrator makes it optional for a Confidential Client; `S256` only. |
 | [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009) Token Revocation | Access and Refresh Tokens. |
-| [RFC 7662](https://www.rfc-editor.org/rfc/rfc7662) Token Introspection | For Confidential Clients that serve a Scope of the token. |
+| [RFC 7662](https://www.rfc-editor.org/rfc/rfc7662) Token Introspection | For the Client the token was issued to, and Confidential Clients in its audience that serve one of its Scopes; `aud` as an array of Resource Identifiers. |
+| [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707) Resource Indicators | `resource` (repeatable) at the authorization and token endpoints for all grant types, with downscoping and `invalid_target`. APIs are Confidential Clients with a Resource Identifier; Authora itself is `{Issuer}/api`. The Scopes of an Access Token are cut to its audience. Without `resource`, a token is meant for every Client that serves one of its Scopes, unless that API requires the parameter. |
 | [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) Authorization Server Issuer Identification | `iss` in every authorization response. |
 | [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414) / [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html) | `/.well-known/openid-configuration` |
 | [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) | Authorization Code flow, ID Tokens (`RS256`), UserInfo, `nonce`, `prompt`, `max_age`, `auth_time`, `at_hash`, Scopes `openid`, `profile`, `email`. |
@@ -71,7 +72,6 @@ Authora deliberately keeps a small feature set. Not supported today:
 - The `claims` parameter, the `address` and `phone` Scopes, and Access Tokens in the body of UserInfo requests.
 - Dynamic Client registration.
 - Pairwise subject identifiers.
-- Audience-restricted Access Tokens ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)); APIs are told apart by the Scopes they serve.
 - JWT Access Tokens; Access Tokens are opaque and checked through introspection.
 - Signing algorithms other than `RS256`.
 

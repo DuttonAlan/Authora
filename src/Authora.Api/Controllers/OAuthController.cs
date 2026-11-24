@@ -57,7 +57,8 @@ public sealed class OAuthController(
                     form.Get("code_verifier"),
                     form.Get("refresh_token"),
                     form.Get("scope"),
-                    form.GetClientCredentials()),
+                    form.GetClientCredentials(),
+                    form.GetAll("resource")),
                 cancellationToken);
 
             return Ok(response);

@@ -4,6 +4,7 @@
 
 using Authora.Core.Abstractions;
 using Authora.Core.Application.OAuth.ClientAuthentication;
+using Authora.Core.Application.OAuth.Resources;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 
@@ -17,13 +18,15 @@ namespace Authora.Core.Application.OAuth.Introspect;
 /// <remarks>
 ///     Only enabled Confidential Clients may introspect, so a resource server is registered as a Confidential Client
 ///     with the Scopes it serves (<see cref="Domain.Entities.Client.ServedScopes"/>). An Access Token is active for
-///     the Client it was issued to (with all its Scopes), and for a Client that serves at least one of its Scopes
-///     (with only the served Scopes). For every other Client it is inactive, so a Client cannot learn the User and
+///     the Client it was issued to (with all its Scopes), and for a Client in its audience
+///     (<see cref="Domain.Entities.AccessToken.Audience"/>) that serves at least one of its Scopes (with only the
+///     served Scopes). For every other Client it is inactive, so a Client cannot learn the User and
 ///     Scopes of tokens that are not meant for it. Refresh Tokens are only active for the Client they were issued to,
 ///     because they are never sent to resource servers.
 /// </remarks>
 /// <param name="clientAuthenticator">The authenticator for the calling Client.</param>
 /// <param name="accessTokenValidator">The validator for Access Tokens.</param>
+/// <param name="resourceResolver">Returns the Resource Identifiers of the audience, for <c>aud</c>.</param>
 /// <param name="tokenRepository">An Instance of a ITokenRepository to load Refresh Tokens.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to check the User of a Refresh Token.</param>
 /// <param name="secretHasher">The hasher to look up tokens.</param>
@@ -32,6 +35,7 @@ namespace Authora.Core.Application.OAuth.Introspect;
 public sealed class IntrospectTokenService(
     ClientAuthenticator clientAuthenticator,
     AccessTokenValidator accessTokenValidator,
+    ResourceResolver resourceResolver,
     ITokenRepository tokenRepository,
     IUserRepository userRepository,
     ISecretHasher secretHasher,
@@ -87,19 +91,27 @@ public sealed class IntrospectTokenService(
             return null;
         }
 
-        // The Client the token was issued to already knows everything in it. A resource server only sees its own Scopes.
-        // System Scopes are served by Authora itself, so they never make a foreign token visible, even if an assignment
-        // slipped past ServeScopeService.
+        // The Client the token was issued to already knows everything in it. A resource server only sees tokens meant
+        // for it (RFC 8707), and only its own Scopes of them. System Scopes are served by Authora itself, so they never
+        // make a foreign token visible, even if an assignment slipped past ServeScopeService.
         var isOwnToken = accessToken.ClientId == caller.Id;
+
+        // Inactive instead of an error, so the caller cannot tell a foreign token from an invalid one.
+        if (!isOwnToken && !accessToken.Audience.Contains(caller.Id))
+        {
+            return null;
+        }
+
         var visibleScopes = isOwnToken
             ? accessToken.Scopes
             : accessToken.Scopes.Where(scope => caller.ServedScopes.Any(served => !served.IsSystem && served.Name == scope)).ToList();
 
-        // Inactive instead of an error, so the caller cannot tell a foreign token from an invalid one.
         if (!isOwnToken && visibleScopes.Count == 0)
         {
             return null;
         }
+
+        var audience = await resourceResolver.GetIdentifiersAsync(accessToken.Audience, cancellationToken);
 
         return new IntrospectionResponse(
             Active: true,
@@ -109,7 +121,8 @@ public sealed class IntrospectTokenService(
             TokenType: Token.TokenResponse.BearerTokenType,
             ExpiresAt: ToUnixTime(accessToken.ExpiresAt),
             IssuedAt: ToUnixTime(accessToken.IssuedAt),
-            Issuer: options.Value.Issuer);
+            Issuer: options.Value.Issuer,
+            Audience: audience.Count == 0 ? null : audience);
     }
 
     private async Task<IntrospectionResponse?> IntrospectRefreshTokenAsync(Guid callerId, string token, CancellationToken cancellationToken)

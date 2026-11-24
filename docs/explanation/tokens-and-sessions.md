@@ -25,8 +25,8 @@ erDiagram
 | **Session** | The User's sign-in at Authora itself, held in a browser cookie. It lets the User approve several applications without typing the password again (single sign-on). |
 | **Consent** | The User's remembered approval of a third-party Client: the Scopes the User allowed it. Without it, or for a Scope it lacks, the consent screen is shown. It does not expire; the User revokes it under *Connected applications* (`/account/consents`), an administrator through the admin API. Revoking it revokes the Grants of the User for the Client, and the code exchange rejects codes of a revoked Consent, because every code is bound to the Consent it was issued under; approving the Client again creates a new Consent. |
 | **Authorization Code** | A one-minute, single-use ticket that the browser carries from Authora back to the application. It is bound to the Client, the User, the Session, the Redirect URI, the Scopes and, if sent, the PKCE challenge. |
-| **Grant** | Created when the code is exchanged: the tokens of one sign-in of the User to this Client, with these Scopes. It is the unit of revocation. A Client that obtains a token for itself (`client_credentials`) gets a Grant without a User, which holds just that Access Token. |
-| **Access Token** | What the application presents to APIs. Short-lived (1 hour by default). |
+| **Grant** | Created when the code is exchanged: the tokens of one sign-in of the User to this Client, with these Scopes and, if the request named any, these resources. It is the unit of revocation. A Client that obtains a token for itself (`client_credentials`) gets a Grant without a User, which holds just that Access Token. |
+| **Access Token** | What the application presents to APIs. Short-lived (1 hour by default). It has an *audience*: the APIs it is meant for, named with `resource` or, without it, every API that serves one of its Scopes. Only those APIs see it at introspection. |
 | **Refresh Token** | What the application uses to get new Access Tokens without the user. Longer-lived (1 day by default) and single-use. |
 
 A Grant remembers the Session it was approved in. Ending that Session on purpose (signing out, or one of the other ways in [Ending a Session](#ending-a-session)) revokes the Grant too, and tells the application if it asked to be told. A Session that simply expires leaves its Grants alone, and revoking a Grant never signs the User out of Authora.
@@ -59,6 +59,8 @@ Every check, whether introspection, UserInfo or the admin API, walks the whole c
 2. Its **Grant** was not revoked and has not reached its lifetime (90 days by default).
 3. Its **Client** still exists and is enabled.
 4. Its **User**, if it has one, can still sign in and has the same *security stamp* as when the Grant was created.
+
+On top of that, the caller must be one the token is meant for: introspection reports it only to the Client it was issued to and to the APIs in its audience, and the admin API and UserInfo accept it only if Authora (`{Issuer}/api`) is in its audience. The audience is fixed when the token is issued and recorded with it, so it cannot drift when an administrator later changes which Scopes an API serves.
 
 The security stamp is a random value on the User that changes when the User is deactivated or deleted, gets a new password, or is signed out everywhere. Changing it invalidates every Session and token of the User at once, without touching each one.
 

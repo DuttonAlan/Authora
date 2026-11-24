@@ -30,6 +30,10 @@ public sealed class GrantConfiguration : IEntityTypeConfiguration<Grant>
             .HasMaxLength(Schemas.ScopeMaxLength);
 
         builder.Ignore(x => x.Scopes);
+
+        builder.PrimitiveCollection(x => x.Resources)
+            .IsRequired();
+
         builder.Ignore(x => x.IsRevoked);
         builder.Ignore(x => x.HasUser);
 

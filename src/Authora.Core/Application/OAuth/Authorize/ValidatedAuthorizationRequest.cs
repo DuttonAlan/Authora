@@ -26,6 +26,10 @@ namespace Authora.Core.Application.OAuth.Authorize;
 ///     The values of <c>acr_values</c> Authora knows (<see cref="AuthenticationContextClasses"/>), in the requested
 ///     order. Empty if none was sent or none is known.
 /// </param>
+/// <param name="Resources">
+///     The Ids of the resources named with <c>resource</c> (RFC 8707), see <see cref="AuthorizationCode.Resources"/>.
+///     Empty if none was sent.
+/// </param>
 public sealed record ValidatedAuthorizationRequest(
     Client Client,
     string RedirectUri,
@@ -36,7 +40,8 @@ public sealed record ValidatedAuthorizationRequest(
     string? Nonce,
     IReadOnlySet<string> Prompts,
     TimeSpan? MaxAge,
-    IReadOnlyList<string> AcrValues)
+    IReadOnlyList<string> AcrValues,
+    IReadOnlyList<Guid> Resources)
 {
     /// <summary>
     ///     The weakest level of <see cref="AcrValues"/>: a Session that reaches it satisfies the request, because any

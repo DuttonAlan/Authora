@@ -53,4 +53,11 @@ public sealed class OAuthOptions
     ///     Maximum of <see cref="GrantLifetime"/>.
     /// </summary>
     public static readonly TimeSpan MaxGrantLifetime = TimeSpan.FromDays(365);
+
+    /// <summary>
+    ///     Whether the Resource Identifiers of APIs (<see cref="Client.ResourceIdentifier"/>) may use plain HTTP, e.g.
+    ///     for an API on <c>http://localhost</c> during development. Defaults to <see langword="false"/>, and must be
+    ///     <see langword="false"/> outside Development.
+    /// </summary>
+    public bool AllowHttpResourceIdentifiers { get; set; }
 }

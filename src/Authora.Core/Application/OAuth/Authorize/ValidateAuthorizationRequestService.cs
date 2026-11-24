@@ -5,6 +5,7 @@
 using System.Globalization;
 
 using Authora.Core.Abstractions;
+using Authora.Core.Application.OAuth.Resources;
 using Authora.Core.Domain;
 using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
@@ -22,9 +23,11 @@ namespace Authora.Core.Application.OAuth.Authorize;
 ///     consent form, because the form fields come from the browser.
 /// </remarks>
 /// <param name="clientRepository">An Instance of a IClientRepository to load the Client.</param>
+/// <param name="resourceResolver">Resolves and checks the <c>resource</c> parameter.</param>
 /// <param name="logger">The Logger to record rejected requests.</param>
 public sealed class ValidateAuthorizationRequestService(
     IClientRepository clientRepository,
+    ResourceResolver resourceResolver,
     ILogger<ValidateAuthorizationRequestService> logger)
 {
     /// <summary>
@@ -243,6 +246,20 @@ public sealed class ValidateAuthorizationRequestService(
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
+        IReadOnlyList<Guid> resources = [];
+
+        if (request.Resources.Count > 0)
+        {
+            try
+            {
+                resources = await resourceResolver.ValidateAuthorizationResourcesAsync(client, scopes, request.Resources, cancellationToken);
+            }
+            catch (OAuthException exception)
+            {
+                return Fail(exception.Error, exception.Message);
+            }
+        }
+
         return AuthorizationRequestValidationResult.Valid(new ValidatedAuthorizationRequest(
             client,
             redirectUri,
@@ -253,6 +270,7 @@ public sealed class ValidateAuthorizationRequestService(
             request.Nonce,
             prompts,
             maxAge,
-            acrValues));
+            acrValues,
+            resources));
     }
 }

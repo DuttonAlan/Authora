@@ -39,6 +39,11 @@ public sealed class Client
     public const int BackchannelLogoutUriMaxLength = 2048;
 
     /// <summary>
+    ///     Maximum length of the <see cref="ResourceIdentifier"/>.
+    /// </summary>
+    public const int ResourceIdentifierMaxLength = 2048;
+
+    /// <summary>
     ///     Upper limit of the Access Token lifetime in seconds (24 hours). Resource servers may check Access Tokens
     ///     without calling Authora, so a long lifetime keeps revoked access usable.
     /// </summary>
@@ -130,8 +135,10 @@ public sealed class Client
     public IReadOnlyCollection<Scope> AllowedScopes => _allowedScopes;
 
     /// <summary>
-    ///     Scopes the Client serves as a resource server. It may introspect Access Tokens of other Clients only if they
-    ///     contain one of these Scopes. Only Confidential Clients serve Scopes.
+    ///     Scopes the Client serves as a resource server. It may introspect Access Tokens of other Clients only if it is
+    ///     in their audience (<see cref="AccessToken.Audience"/>), and then sees only these Scopes. A token requested
+    ///     without <c>resource</c> is meant for every Client that serves one of its Scopes. Only Confidential Clients
+    ///     serve Scopes.
     /// </summary>
     public IReadOnlyCollection<Scope> ServedScopes => _servedScopes;
 
@@ -181,6 +188,27 @@ public sealed class Client
     ///     Set via <see cref="SetBackchannelLogoutSessionRequired(bool)"/>.
     /// </summary>
     public bool BackchannelLogoutSessionRequired { get; private set; }
+
+    /// <summary>
+    ///     The Resource Identifier of the Client (RFC 8707), e.g. <c>https://api.example.com</c>, or
+    ///     <see langword="null"/>. A Client with one is an <em>API</em>: Clients name it in the <c>resource</c>
+    ///     parameter to get Access Tokens meant for it. Only Confidential Clients can have one, and it is unique among
+    ///     all Clients. Set via <see cref="SetResourceIdentifier(string?, bool)"/>.
+    /// </summary>
+    public string? ResourceIdentifier { get; private set; }
+
+    /// <summary>
+    ///     Whether Access Tokens are only meant for the API if the <c>resource</c> parameter named it. Defaults to
+    ///     <see langword="false"/>: a token requested without <c>resource</c> is meant for every Client that serves one
+    ///     of its Scopes. Requires a <see cref="ResourceIdentifier"/>. Set via
+    ///     <see cref="SetRequiresResourceIndicator(bool)"/>.
+    /// </summary>
+    public bool RequiresResourceIndicator { get; private set; }
+
+    /// <summary>
+    ///     Whether the Client is an API, i.e. has a <see cref="ResourceIdentifier"/>.
+    /// </summary>
+    public bool IsApi => ResourceIdentifier is not null;
 
     /// <summary>
     ///     Point in time (UTC) when the Client was created.
@@ -428,6 +456,93 @@ public sealed class Client
     public void SetBackchannelLogoutSessionRequired(bool sessionRequired)
     {
         BackchannelLogoutSessionRequired = sessionRequired;
+    }
+
+    /// <summary>
+    ///     Sets the Resource Identifier (RFC 8707), which makes the Client an API, or removes it. Removing it also
+    ///     removes <see cref="RequiresResourceIndicator"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Neither uniqueness nor the identifier reserved for Authora's own admin API can be checked here; the caller
+    ///     checks both.
+    /// </remarks>
+    /// <param name="identifier">The absolute URI, or <see langword="null"/> or empty to remove it.</param>
+    /// <param name="allowHttp">Whether plain HTTP is allowed, e.g. for development. Otherwise the URI must use HTTPS.</param>
+    /// <exception cref="DomainValidationException">
+    ///     Thrown when the Client is not a Confidential Client, or the URI is not absolute, too long, contains a query,
+    ///     a fragment, user information or whitespaces, or does not use HTTPS (or HTTP, if allowed).
+    /// </exception>
+    public void SetResourceIdentifier(string? identifier, bool allowHttp)
+    {
+        if (string.IsNullOrEmpty(identifier))
+        {
+            ResourceIdentifier = null;
+            RequiresResourceIndicator = false;
+            return;
+        }
+
+        // An API checks tokens at the introspection endpoint, where only Confidential Clients can authenticate.
+        if (Type != ClientType.Confidential)
+        {
+            throw new DomainValidationException("Only Confidential Clients can have a Resource Identifier.", nameof(identifier));
+        }
+
+        if (identifier.Length > ResourceIdentifierMaxLength)
+        {
+            throw new DomainValidationException(
+                $"Resource Identifier must not be longer than {ResourceIdentifierMaxLength} characters.",
+                nameof(identifier));
+        }
+
+        if (identifier != identifier.Trim()
+            || identifier.Any(char.IsWhiteSpace)
+            || !Uri.TryCreate(identifier, UriKind.Absolute, out var parsed))
+        {
+            throw new DomainValidationException("Resource Identifier must be an absolute URI, without whitespaces.", nameof(identifier));
+        }
+
+        // RFC 8707, Section 2: the URI must not include a fragment and should not include a query.
+        if (!string.IsNullOrEmpty(parsed.Fragment) || identifier.Contains('#', StringComparison.Ordinal))
+        {
+            throw new DomainValidationException("Resource Identifier must not contain a fragment.", nameof(identifier));
+        }
+
+        if (!string.IsNullOrEmpty(parsed.Query) || identifier.Contains('?', StringComparison.Ordinal))
+        {
+            throw new DomainValidationException("Resource Identifier must not contain a query.", nameof(identifier));
+        }
+
+        if (!string.IsNullOrEmpty(parsed.UserInfo))
+        {
+            throw new DomainValidationException("Resource Identifier must not contain user information.", nameof(identifier));
+        }
+
+        if (parsed.Scheme != Uri.UriSchemeHttps && !(allowHttp && parsed.Scheme == Uri.UriSchemeHttp))
+        {
+            throw new DomainValidationException(
+                allowHttp ? "Resource Identifier must use HTTP or HTTPS." : "Resource Identifier must use HTTPS.",
+                nameof(identifier));
+        }
+
+        ResourceIdentifier = identifier;
+    }
+
+    /// <summary>
+    ///     Makes Access Tokens visible to the API only if the <c>resource</c> parameter named it, or also when it was
+    ///     omitted again.
+    /// </summary>
+    /// <param name="requiresResourceIndicator">True to require the <c>resource</c> parameter.</param>
+    /// <exception cref="DomainValidationException">Thrown when it should be required for a Client without Resource Identifier.</exception>
+    public void SetRequiresResourceIndicator(bool requiresResourceIndicator)
+    {
+        if (requiresResourceIndicator && ResourceIdentifier is null)
+        {
+            throw new DomainValidationException(
+                "Only a Client with a Resource Identifier can require the resource parameter.",
+                nameof(requiresResourceIndicator));
+        }
+
+        RequiresResourceIndicator = requiresResourceIndicator;
     }
 
     /// <summary>

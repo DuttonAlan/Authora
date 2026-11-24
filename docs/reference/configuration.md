@@ -19,6 +19,7 @@ Authora reads its settings from `appsettings.json`, `appsettings.{Environment}.j
 
 | Setting | Default | Limits | Description |
 |---|---|---|---|
+| `Authora:OAuth:AllowHttpResourceIdentifiers` | `false` | `false` outside `Development` | Whether the Resource Identifiers of APIs may use plain HTTP, e.g. `http://localhost:5000`. `appsettings.Development.json` sets it to `true` for local APIs. Authora does not start with `true` in any other environment. |
 | `Authora:OAuth:AuthorizationCodeLifetime` | `00:01:00` | at most 10 minutes | Lifetime of Authorization Codes. |
 | `Authora:OAuth:GrantLifetime` | `90.00:00:00` | at most 365 days | Absolute lifetime of a Grant, counted from the code exchange. No token of the Grant expires later, so rotating Refresh Tokens cannot keep it alive; afterwards the User has to approve the Client again. |
 | `Authora:OAuth:CorsOriginsCacheDuration` | `00:01:00` | at most 1 hour | How long the allowed CORS origins (from the Redirect URIs of enabled Clients) are cached. `00:00:00` disables the cache. |

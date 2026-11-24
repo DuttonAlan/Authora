@@ -68,6 +68,12 @@ public sealed class AccessTokenAuthenticationHandler(
             return AuthenticateResult.Fail("The Access Token is not active.");
         }
 
+        // RFC 8707: a token requested only for other APIs (resource without {Issuer}/api) is not meant for Authora.
+        if (!accessToken.IsMeantForAuthora)
+        {
+            return AuthenticateResult.Fail("The Access Token is not meant for Authora.");
+        }
+
         // Every Permission of the admin API belongs to a User. A token a Client obtained for itself (client_credentials)
         // has none, so it is rejected here, not only by the missing authora.admin Scope.
         if (accessToken.UserId is not { } userId)

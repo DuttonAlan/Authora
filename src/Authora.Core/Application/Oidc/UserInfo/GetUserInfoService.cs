@@ -47,6 +47,12 @@ public sealed class GetUserInfoService(AccessTokenValidator accessTokenValidator
             throw new OAuthException(OAuthErrors.InvalidToken, "The Access Token belongs to no User.");
         }
 
+        // RFC 8707: a token requested only for other APIs must not be usable at Authora.
+        if (!token.IsMeantForAuthora)
+        {
+            throw new OAuthException(OAuthErrors.InvalidToken, "The Access Token is not meant for Authora.");
+        }
+
         if (!token.Scopes.Contains(OidcScopes.OpenId))
         {
             throw new OAuthException(OAuthErrors.InsufficientScope, $"The Access Token must have the Scope {OidcScopes.OpenId}.");

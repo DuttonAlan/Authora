@@ -195,7 +195,49 @@ export async function detail(context, id) {
         redirectUrisPanel(context, client, canUpdate),
         postLogoutRedirectUrisPanel(context, client, canUpdate),
         scopesPanel(context, client, scopes, canUpdate),
+        client.type === 'Confidential' ? apiPanel(context, client, canUpdate) : null,
         client.type === 'Confidential' ? secretsPanel(context, client) : null);
+}
+
+// A Confidential Client with a Resource Identifier is an API (RFC 8707): other Clients name it with the resource
+// parameter, and it sees only tokens meant for it at introspection.
+function apiPanel(context, client, canUpdate) {
+    const summary = details([
+        ['Resource Identifier', client.resourceIdentifier ? copyable(client.resourceIdentifier, 'Resource Identifier') : 'None: not an API'],
+        ['resource parameter', client.resourceIdentifier
+            ? (client.requiresResourceIndicator ? 'Required: only tokens that name the API' : 'Optional: also tokens for its served Scopes')
+            : '–']
+    ]);
+
+    if (!canUpdate) {
+        return panel('API', summary);
+    }
+
+    return panel('API',
+        hint('Clients request tokens for an API with resource=<Resource Identifier>. Such a token keeps only the Scopes the API serves, and only the API (and the Client it was issued to) can introspect it.'),
+        summary,
+        h('div', { class: 'subsection' }, form([
+            {
+                name: 'resourceIdentifier',
+                label: 'Resource Identifier',
+                type: 'url',
+                maxLength: 2048,
+                placeholder: 'https://api.example.com',
+                value: client.resourceIdentifier,
+                help: 'Absolute HTTPS URI without query or fragment, unique among all Clients. Leave empty to make the Client no API.'
+            },
+            {
+                name: 'requiresResourceIndicator',
+                label: 'Require the resource parameter',
+                type: 'checkbox',
+                value: client.requiresResourceIndicator,
+                help: 'Tokens requested without resource are then no longer meant for this API, even if it serves one of their Scopes.'
+            }
+        ], 'Save', values => run(() => api('PUT', `/clients/${client.id}`, {
+            resourceIdentifier: values.resourceIdentifier.trim(),
+            // Without a Resource Identifier the setting is removed with it, so it is not sent.
+            requiresResourceIndicator: values.resourceIdentifier.trim() ? values.requiresResourceIndicator : null
+        }), 'The API settings were saved.', context))));
 }
 
 function clientActions(context, client) {
@@ -337,7 +379,7 @@ function scopesPanel(context, client, scopes, canUpdate) {
         context);
 
     return panel('Scopes',
-        hint('Allowed: the Client may request the Scope. Served: the Client is a resource server for the Scope and may introspect tokens with it (Confidential Clients only).'),
+        hint('Allowed: the Client may request the Scope. Served: the Client is a resource server for the Scope and may introspect tokens with it that are meant for it (Confidential Clients only).'),
         client.isFirstParty ? h('p', { class: 'hint locked', text: firstPartyLockedText }) : null,
         table([
             { label: 'Scope', render: scope => h('code', { class: 'token', text: scope.name }) },
