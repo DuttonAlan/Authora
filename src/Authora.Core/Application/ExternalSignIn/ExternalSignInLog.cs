@@ -30,9 +30,6 @@ internal static partial class ExternalSignInLog
     [LoggerMessage(EventId = 20006, Level = LogLevel.Warning, Message = "A sign-in through identity provider {ProviderSlug} failed: {Reason}")]
     public static partial void ExternalSignInFailed(this ILogger logger, string providerSlug, string reason);
 
-    [LoggerMessage(EventId = 20007, Level = LogLevel.Information, Message = "An account at identity provider {ProviderSlug} that is not linked to a User tried to sign in.")]
-    public static partial void ExternalIdentityNotLinked(this ILogger logger, string providerSlug);
-
     [LoggerMessage(EventId = 20008, Level = LogLevel.Information, Message = "User {UserId} linked identity {ExternalIdentityId} at identity provider {ProviderSlug}.")]
     public static partial void ExternalIdentityLinked(this ILogger logger, Guid userId, Guid externalIdentityId, string providerSlug);
 
@@ -41,4 +38,22 @@ internal static partial class ExternalSignInLog
 
     [LoggerMessage(EventId = 20010, Level = LogLevel.Information, Message = "User {UserId} must set up a second factor after signing in through an identity provider.")]
     public static partial void SecondFactorEnrollmentRequired(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 20011, Level = LogLevel.Information, Message = "An account at identity provider {ProviderSlug} that is not linked has the Email of User {UserId}, who must sign in to link it.")]
+    public static partial void ExternalLinkRequired(this ILogger logger, Guid userId, string providerSlug);
+
+    [LoggerMessage(EventId = 20012, Level = LogLevel.Information, Message = "An account at identity provider {ProviderSlug} that is not linked cannot sign in: {Reason}")]
+    public static partial void ExternalSignUpRefused(this ILogger logger, string providerSlug, string reason);
+
+    [LoggerMessage(EventId = 20013, Level = LogLevel.Information, Message = "User {UserId} was created on their first sign-in through identity provider {ProviderSlug}, with identity {ExternalIdentityId}.")]
+    public static partial void UserProvisioned(this ILogger logger, Guid userId, string providerSlug, Guid externalIdentityId);
+
+    [LoggerMessage(EventId = 20014, Level = LogLevel.Warning, Message = "A pending link of an account at identity provider {ProviderSlug} was not completed: {Reason}")]
+    public static partial void PendingLinkRejected(this ILogger logger, string providerSlug, string reason);
+
+    [LoggerMessage(EventId = 20015, Level = LogLevel.Information, Message = "User {UserId} cannot remove identity {ExternalIdentityId}: it is their last way to sign in.")]
+    public static partial void LastSignInMethodKept(this ILogger logger, Guid userId, Guid externalIdentityId);
+
+    [LoggerMessage(EventId = 20016, Level = LogLevel.Information, Message = "An administrator removed identity {ExternalIdentityId} of User {UserId} at identity provider {ProviderId}.")]
+    public static partial void ExternalIdentityRemovedByAdministrator(this ILogger logger, Guid userId, Guid externalIdentityId, Guid providerId);
 }

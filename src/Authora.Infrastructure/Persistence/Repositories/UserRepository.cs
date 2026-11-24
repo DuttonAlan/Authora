@@ -34,6 +34,12 @@ public sealed class UserRepository(AuthoraContext context) : IUserRepository
     }
 
     /// <inheritdoc/>
+    public void AddUser(User user)
+    {
+        context.Users.Add(user);
+    }
+
+    /// <inheritdoc/>
     public async Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Users

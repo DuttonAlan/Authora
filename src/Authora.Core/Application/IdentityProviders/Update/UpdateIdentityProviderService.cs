@@ -14,11 +14,13 @@ namespace Authora.Core.Application.IdentityProviders.Update;
 ///     The Service to update an external identity provider.
 /// </summary>
 /// <param name="providerRepository">An Instance of a IIdentityProviderRepository to load and save the provider.</param>
+/// <param name="groupRepository">An Instance of a IGroupRepository to load the default Groups.</param>
 /// <param name="issuerValidator">Checks the discovery document of a new Issuer.</param>
 /// <param name="auditLog">The audit log to record the change.</param>
 /// <param name="logger">The Logger to record the update.</param>
 public sealed class UpdateIdentityProviderService(
     IIdentityProviderRepository providerRepository,
+    IGroupRepository groupRepository,
     IssuerValidator issuerValidator,
     IAuditLog auditLog,
     ILogger<UpdateIdentityProviderService> logger)
@@ -60,6 +62,14 @@ public sealed class UpdateIdentityProviderService(
             provider.SetSortOrder(sortOrder);
         }
 
+        await SignUpSettings.ApplyAsync(
+            provider,
+            request.AllowSignUp,
+            request.AllowedEmailDomains,
+            request.DefaultGroupIds,
+            groupRepository,
+            cancellationToken);
+
         if (request.Issuer is not null)
         {
             var previous = provider.Issuer;
@@ -75,7 +85,7 @@ public sealed class UpdateIdentityProviderService(
         auditLog.Record(AuditEntry.ForIdentityProvider(
             AuditEventTypes.IdentityProviders.Updated,
             provider.Id,
-            $"Slug '{provider.Slug}', Issuer '{provider.Issuer}'"));
+            $"Slug '{provider.Slug}', Issuer '{provider.Issuer}', {SignUpSettings.Describe(provider)}"));
 
         await providerRepository.SaveChangesAsync(cancellationToken);
 

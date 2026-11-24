@@ -63,6 +63,31 @@ public sealed class IdentityProviderConfiguration : IEntityTypeConfiguration<Ide
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        builder.Property(x => x.AllowSignUp)
+            .IsRequired();
+
+        // A PostgreSQL text[]; replaced as a whole by ConfigureSignUp.
+        builder.PrimitiveCollection(x => x.AllowedEmailDomains)
+            .HasField("_allowedEmailDomains")
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .IsRequired();
+
+        // Deleting a Group removes it from the default Groups of every provider.
+        builder.HasMany(x => x.DefaultGroups)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "IdentityProviderDefaultGroup",
+                right => right.HasOne<Group>().WithMany().HasForeignKey("GroupId").OnDelete(DeleteBehavior.Cascade),
+                left => left.HasOne<IdentityProvider>().WithMany().HasForeignKey("IdentityProviderId").OnDelete(DeleteBehavior.Cascade),
+                join =>
+                {
+                    join.ToTable("identity_provider_default_groups", Schemas.Identity);
+                    join.HasKey("IdentityProviderId", "GroupId");
+                });
+
+        builder.Navigation(x => x.DefaultGroups)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Ignore(x => x.HasClientSecret);
         builder.Ignore(x => x.ScopeList);
     }

@@ -62,4 +62,13 @@ public sealed record ExternalCodeRedemption(
 /// <param name="Subject">The <c>sub</c> claim.</param>
 /// <param name="Email">The <c>email</c> claim, or null.</param>
 /// <param name="EmailVerified">The <c>email_verified</c> claim, false if missing.</param>
-public sealed record ExternalIdentityClaims(string Subject, string? Email, bool EmailVerified);
+/// <param name="GivenName">The <c>given_name</c> claim, or null.</param>
+/// <param name="FamilyName">The <c>family_name</c> claim, or null.</param>
+/// <param name="HostedDomain">The <c>hd</c> claim of Google: the Google Workspace domain of the account, or null for a personal account.</param>
+public sealed record ExternalIdentityClaims(
+    string Subject,
+    string? Email,
+    bool EmailVerified,
+    string? GivenName = null,
+    string? FamilyName = null,
+    string? HostedDomain = null);

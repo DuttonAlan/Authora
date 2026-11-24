@@ -13,8 +13,10 @@ namespace Authora.Core.Domain.Entities;
 ///     Represents a User, the identity that signs in to Authora.
 /// </summary>
 /// <remarks>
-///     A User can only be created via <see cref="Create(string, string, string, string)"/>,
-///     so a User without a valid Email or without a password can never exist.
+///     A User can only be created via <see cref="Create(string, string, string, string)"/> or, for a User who signs
+///     up through an external identity provider, <see cref="CreateWithoutPassword(string, string, string)"/>, so a
+///     User without a valid Email can never exist. A User without a password signs in through a linked account
+///     until they set one.
 /// </remarks>
 public sealed class User
 {
@@ -33,11 +35,6 @@ public sealed class User
     ///     <see cref="SetEmail(string)"/> rejects this domain, so no other User can take a placeholder.
     /// </summary>
     public const string DeletedEmailDomain = "deleted.invalid";
-
-    /// <summary>
-    ///     Replaces the password hash of a deleted User. It is no valid hash, so it can never be verified.
-    /// </summary>
-    public const string DeletedPasswordHash = "deleted";
 
     private readonly List<Role> _roles = [];
 
@@ -90,10 +87,16 @@ public sealed class User
     public string LastName { get; private set; } = null!;
 
     /// <summary>
-    ///     Hash of the password of the User. The plain-text password is never stored.
+    ///     Hash of the password of the User, or <see langword="null"/> if the User has none (signed up through an
+    ///     external identity provider, or deleted). The plain-text password is never stored.
     ///     Set via <see cref="SetPasswordHash(string)"/>.
     /// </summary>
-    public string PasswordHash { get; private set; } = null!;
+    public string? PasswordHash { get; private set; }
+
+    /// <summary>
+    ///     Whether the User has a password and can sign in with it.
+    /// </summary>
+    public bool HasPassword => PasswordHash is not null;
 
     /// <summary>
     ///     Number of failed login attempts in a row. Reset after a successful login or via <see cref="Unlock"/>.
@@ -168,6 +171,26 @@ public sealed class User
         user.SetLastName(lastName);
         user.SetEmail(email);
         user.PasswordHash = passwordHash;
+
+        return user;
+    }
+
+    /// <summary>
+    ///     Creates a new <see cref="UserState.Active"/> User without a password, e.g. on the first sign-in through an
+    ///     external identity provider. The User signs in through the linked account until they set a password.
+    /// </summary>
+    /// <param name="email">The Email of the User.</param>
+    /// <param name="firstName">The First Name of the User.</param>
+    /// <param name="lastName">The Last Name of the User.</param>
+    /// <returns>The created User.</returns>
+    /// <exception cref="DomainValidationException">Thrown when a value is empty or too long, or the Email is not valid.</exception>
+    public static User CreateWithoutPassword(string email, string firstName, string lastName)
+    {
+        var user = new User();
+
+        user.SetFirstName(firstName);
+        user.SetLastName(lastName);
+        user.SetEmail(email);
 
         return user;
     }
@@ -377,7 +400,7 @@ public sealed class User
         EmailVerifiedAt = null;
         FirstName = "Deleted";
         LastName = "User";
-        PasswordHash = DeletedPasswordHash;
+        PasswordHash = null;
 
         RotateSecurityStamp();
     }

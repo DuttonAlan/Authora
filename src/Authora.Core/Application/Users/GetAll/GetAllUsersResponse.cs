@@ -14,4 +14,5 @@ namespace Authora.Core.Application.Users.GetAll;
 /// <param name="FirstName" example="Jane">First Name of the User.</param>
 /// <param name="LastName" example="Doe">Last Name of the User.</param>
 /// <param name="State" example="Active">State of the User.</param>
-public sealed record GetAllUsersResponse(Guid Id, string Email, string FirstName, string LastName, UserState State);
+/// <param name="HasPassword" example="true">Whether the User has a password; false for a User who signed up through an external identity provider and has not set one.</param>
+public sealed record GetAllUsersResponse(Guid Id, string Email, string FirstName, string LastName, UserState State, bool HasPassword);

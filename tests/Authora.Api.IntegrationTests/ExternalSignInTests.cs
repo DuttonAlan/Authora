@@ -143,7 +143,7 @@ public sealed class ExternalSignInTests(AuthoraApiFactory factory) : IClassFixtu
     }
 
     [Fact]
-    public async Task SignIn_NotLinkedAccount_ShowsHowToLinkIt()
+    public async Task SignIn_NotLinkedAccount_WithoutSignUp_IsRefused()
     {
         var provider = factory.ExternalProviders.Create();
         var (providerId, slug) = await factory.CreateIdentityProviderAsync(provider);
@@ -153,7 +153,7 @@ public sealed class ExternalSignInTests(AuthoraApiFactory factory) : IClassFixtu
 
         Assert.Equal(HttpStatusCode.OK, callback.StatusCode);
         Assert.Null(ReadCookie(callback, SessionCookie.Name));
-        Assert.Contains(ExternalCallbackModel.NotLinkedMessage, await callback.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.Contains(ExternalCallbackModel.GetNotPossibleMessage("Test IdP"), await callback.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
 
         var failure = Assert.Single(await GetEventsAsync(AuditEventTypes.Account.ExternalSignInFailed, providerId.ToString()));
         Assert.Equal(AuditOutcome.Failed, failure.Outcome);

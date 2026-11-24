@@ -26,6 +26,13 @@ public interface IUserRepository
     public Task<Guid> CreateUser(User user, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Adds a new User without saving it; it is saved with the next save of the request, e.g. together with its
+    ///     first external identity.
+    /// </summary>
+    /// <param name="user">The User to create.</param>
+    public void AddUser(User user);
+
+    /// <summary>
     ///     Get a User by Id, including its Roles and Groups (without the Roles of the Groups).
     /// </summary>
     /// <param name="id">Id of the User.</param>

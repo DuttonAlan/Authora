@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 import { api } from '../api.js';
-import { badge, button, copyable, details, entityHeader, form, formatDate, h, initials, pageHeader, panel, table } from '../dom.js';
+import { badge, button, copyable, details, entityHeader, form, formatDate, h, hint, initials, pageHeader, panel, table } from '../dom.js';
 import { auditLink, confirmed, emptyToNull, run } from './common.js';
 
 const presets = [
@@ -29,6 +29,7 @@ export async function list(context) {
             { label: 'Slug', render: provider => h('code', { class: 'token', text: provider.slug }) },
             { label: 'Issuer', class: 'secondary', render: provider => provider.issuer },
             { label: 'Linked accounts', render: provider => String(provider.linkedIdentities) },
+            { label: 'Sign-up', render: provider => signUpBadge(provider) },
             { label: 'Status', render: provider => statusBadge(provider) }
         ], providers, { href: provider => `#/identity-providers/${provider.id}`, empty: 'No identity providers exist yet.' })));
 }
@@ -37,8 +38,16 @@ function statusBadge(provider) {
     return provider.isEnabled ? badge('Enabled', 'ok') : badge('Disabled', 'bad');
 }
 
+function signUpBadge(provider) {
+    return provider.allowSignUp ? badge('On', 'ok') : badge('Off', 'neutral');
+}
+
 function scopesOf(value) {
     return value.split(/\s+/).filter(scope => scope.length > 0);
+}
+
+function domainsOf(value) {
+    return value.split(/[\s,;]+/).filter(domain => domain.length > 0);
 }
 
 function createPanel(context) {
@@ -76,8 +85,11 @@ function createPanel(context) {
  * @returns {Promise<HTMLElement>} The page.
  */
 export async function detail(context, id) {
-    const provider = await api('GET', `/identity-providers/${id}`);
     const canManage = context.can('identity-providers.manage');
+    const [provider, groups] = await Promise.all([
+        api('GET', `/identity-providers/${id}`),
+        canManage && context.can('groups.read') ? api('GET', '/groups') : Promise.resolve(null)
+    ]);
 
     return h('div', { class: 'stack' },
         entityHeader({
@@ -99,6 +111,13 @@ export async function detail(context, id) {
                 ['Scopes', h('span', { class: 'badge-row' }, provider.scopes.map(scope => h('code', { class: 'token', text: scope })))],
                 ['Order', String(provider.sortOrder)],
                 ['Linked accounts', String(provider.linkedIdentities)],
+                ['Sign-up', signUpBadge(provider)],
+                ['Allowed domains', provider.allowedEmailDomains.length > 0
+                    ? h('span', { class: 'badge-row' }, provider.allowedEmailDomains.map(domain => h('code', { class: 'token', text: domain })))
+                    : provider.preset === 'Google' ? 'None' : 'Any'],
+                ['Default Groups', provider.defaultGroups.length > 0
+                    ? h('span', { class: 'badge-row' }, provider.defaultGroups.map(group => badge(group.displayName)))
+                    : 'None'],
                 ['Created', formatDate(provider.createdAt)],
                 ['Modified', formatDate(provider.modifiedAt)]
             ]),
@@ -124,7 +143,49 @@ export async function detail(context, id) {
                 scopes: scopesOf(values.scopes),
                 sortOrder: values.sortOrder
             }), 'The identity provider was saved.', context))) : null,
+            canManage ? signUpPanel(context, provider, groups) : null,
             canManage ? secretPanel(context, provider) : null));
+}
+
+function signUpPanel(context, provider, groups) {
+    const google = provider.preset === 'Google';
+    const fields = [
+        {
+            name: 'allowSignUp',
+            label: 'Create a User on the first sign-in',
+            type: 'checkbox',
+            value: provider.allowSignUp,
+            help: 'Only for an email address the provider verified. An account with the email address of an existing User is never linked automatically: that person must sign in with their existing methods to link it.'
+        },
+        {
+            name: 'allowedEmailDomains',
+            label: google ? 'Google Workspace domains' : 'Allowed email domains',
+            value: provider.allowedEmailDomains.join(' '),
+            help: google
+                ? 'Required for sign-up, e.g. example.com. Checked against the Workspace domain of the account, so personal Gmail accounts cannot sign up.'
+                : 'Separated by spaces, e.g. example.com. Empty allows every domain: then anyone with an account at the provider can sign up.'
+        }
+    ];
+
+    // Without the Permission to read Groups, the default Groups are shown above, but cannot be changed here.
+    if (groups) {
+        fields.push({
+            name: 'defaultGroupIds',
+            label: 'Default Groups',
+            type: 'checks',
+            value: provider.defaultGroups.map(group => group.id),
+            options: groups.map(group => ({ value: group.id, label: `${group.displayName} (${group.name})` })),
+            help: 'New Users join these Groups and get their Roles.'
+        });
+    }
+
+    return panel('Sign-up',
+        hint('Who gets a User on their first sign-in through this provider, and which Groups they join.'),
+        form(fields, 'Save sign-up', values => run(() => api('PUT', `/identity-providers/${provider.id}`, {
+            allowSignUp: values.allowSignUp,
+            allowedEmailDomains: domainsOf(values.allowedEmailDomains),
+            defaultGroupIds: groups ? values.defaultGroupIds : null
+        }), 'The sign-up settings were saved.', context)));
 }
 
 function toggleAction(context, provider) {

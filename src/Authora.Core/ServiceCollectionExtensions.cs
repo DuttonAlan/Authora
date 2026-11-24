@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for license information.
 
 using Authora.Core.Application.Account;
+using Authora.Core.Application.Account.AddPassword;
 using Authora.Core.Application.Account.ChangePassword;
 using Authora.Core.Application.Account.CompleteSignIn;
 using Authora.Core.Application.Account.PendingSignIn;
@@ -14,6 +15,7 @@ using Authora.Core.Application.Account.SecondFactors;
 using Authora.Core.Application.Account.Security;
 using Authora.Core.Application.Account.Sessions;
 using Authora.Core.Application.Account.SignIn;
+using Authora.Core.Application.Account.SignInMethods;
 using Authora.Core.Application.Account.SignOut;
 using Authora.Core.Application.Account.StepUp;
 using Authora.Core.Application.Account.VerifyEmail;
@@ -58,6 +60,7 @@ using Authora.Core.Application.OAuth.Revoke;
 using Authora.Core.Application.OAuth.Token;
 using Authora.Core.Application.ExternalSignIn;
 using Authora.Core.Application.ExternalSignIn.Complete;
+using Authora.Core.Application.ExternalSignIn.CompleteLink;
 using Authora.Core.Application.ExternalSignIn.GetIdentities;
 using Authora.Core.Application.ExternalSignIn.GetProviders;
 using Authora.Core.Application.ExternalSignIn.Start;
@@ -116,11 +119,13 @@ using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetExternalIdentities;
 using Authora.Core.Application.Users.GetCurrent;
 using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.MarkEmailVerified;
+using Authora.Core.Application.Users.RemoveExternalIdentity;
 using Authora.Core.Application.Users.RemovePasskey;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.ResetMfa;
@@ -152,9 +157,11 @@ public static class ServiceCollectionExtensions
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<SignInOptions>, SignInOptionsValidator>());
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PasswordResetOptions>, PasswordResetOptionsValidator>());
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<EmailVerificationOptions>, EmailVerificationOptionsValidator>());
+        serviceCollection.AddTransient<AddPasswordService>();
         serviceCollection.AddTransient<ChangePasswordService>();
         serviceCollection.AddTransient<CompleteSignInService>();
         serviceCollection.AddTransient<GetAccountSecurityService>();
+        serviceCollection.AddTransient<GetSignInMethodsService>();
         serviceCollection.AddTransient<GetPendingSignInService>();
         serviceCollection.AddTransient<PendingSignInReader>();
         serviceCollection.AddTransient<RequestEmailVerificationService>();
@@ -197,6 +204,7 @@ public static class ServiceCollectionExtensions
         // Sign-in through external OpenID Connect identity providers, and their administration.
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ExternalSignInOptions>, ExternalSignInOptionsValidator>());
         serviceCollection.AddTransient<CompleteExternalSignInService>();
+        serviceCollection.AddTransient<CompletePendingLinkService>();
         serviceCollection.AddTransient<GetExternalIdentitiesService>();
         serviceCollection.AddTransient<GetSignInProvidersService>();
         serviceCollection.AddTransient<StartExternalSignInService>();
@@ -314,6 +322,8 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddTransient<RemoveRoleService>();
         serviceCollection.AddTransient<ResetMfaService>();
         serviceCollection.AddTransient<RemoveUserPasskeyService>();
+        serviceCollection.AddTransient<RemoveUserExternalIdentityService>();
+        serviceCollection.AddTransient<GetUserExternalIdentitiesService>();
         serviceCollection.AddTransient<RevokeUserSessionsService>();
         serviceCollection.AddTransient<SendEmailVerificationService>();
         serviceCollection.AddTransient<SendPasswordResetService>();

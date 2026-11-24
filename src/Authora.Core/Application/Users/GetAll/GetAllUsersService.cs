@@ -36,7 +36,8 @@ public sealed class GetAllUsersService(IUserRepository userRepository)
                 user.Email,
                 user.FirstName,
                 user.LastName,
-                user.State))
+                user.State,
+                user.HasPassword))
             .ToList();
 
         return new PagedResponse<GetAllUsersResponse>(items, users.Total);

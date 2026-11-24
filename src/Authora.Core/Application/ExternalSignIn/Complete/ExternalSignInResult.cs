@@ -20,9 +20,16 @@ public enum ExternalSignInStatus
     Pending,
 
     /// <summary>
-    ///     The account at the provider is not linked to a User.
+    ///     The account at the provider is not linked to a User, and no User was created for it: sign-up is turned off,
+    ///     or the Email is not verified or not in an allowed domain. The reason is in the logs and the audit log only.
     /// </summary>
     NotLinked,
+
+    /// <summary>
+    ///     The account at the provider is not linked, but a User has its verified Email. The browser must sign in to
+    ///     that User with the User's existing methods to link it, see <see cref="ExternalSignInResult.PendingLink"/>.
+    /// </summary>
+    LinkRequired,
 
     /// <summary>
     ///     The account at the provider was linked to the signed-in User.
@@ -56,13 +63,15 @@ public enum ExternalSignInStatus
 /// <param name="SessionToken">The plain-text token of the new Session for the Session cookie, or null.</param>
 /// <param name="ChallengeToken">The plain-text token of the pending sign-in for its cookie, or null.</param>
 /// <param name="MustEnrollSecondFactor">Whether the signed-in User must set up a second factor right away.</param>
+/// <param name="PendingLink">For <see cref="ExternalSignInStatus.LinkRequired"/>: the account to link after the sign-in, for its cookie.</param>
 public sealed record ExternalSignInResult(
     ExternalSignInStatus Status,
     string? ProviderName = null,
     string? ReturnUrl = null,
     string? SessionToken = null,
     string? ChallengeToken = null,
-    bool MustEnrollSecondFactor = false)
+    bool MustEnrollSecondFactor = false,
+    PendingExternalLink? PendingLink = null)
 {
     /// <summary>
     ///     Returns a description without the tokens, so they are not written to logs by accident.

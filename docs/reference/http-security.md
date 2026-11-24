@@ -27,6 +27,7 @@ All cookies use the `__Host-` prefix: they are `Secure`, have the path `/` and n
 | `__Host-authora_session` | `HttpOnly`, `SameSite=Lax`, no expiry | The Session token. The server enforces the idle timeout and the lifetime. |
 | `__Host-authora_pending_sign_in` | `HttpOnly`, `SameSite=Strict`, 5 minutes (`Authora:SignIn:PendingSignInLifetime`) | The token of a pending sign-in between the password and the second factor, or of a step-up. Not a Session: the browser is not signed in with it. |
 | `__Host-authora_external_sign_in` | `HttpOnly`, `SameSite=Lax`, 10 minutes | `state`, `nonce`, PKCE verifier, provider and return URL of a running sign-in or link through an external identity provider, encrypted. Deleted when the response of the provider arrives. |
+| `__Host-authora_external_link` | `HttpOnly`, `SameSite=Lax`, 15 minutes | An account at an external identity provider with the verified Email of a User, waiting until the browser signs in to that User to link it: provider, `sub`, Email, User and return URL, encrypted. Deleted once the link is completed or refused. |
 | `__Host-authora_antiforgery` | `HttpOnly`, `SameSite=Strict` | Antiforgery token of the sign-in, sign-out and consent forms. |
 | `__Host-authora_admin` | `HttpOnly`, `SameSite=Strict`, no expiry | The admin interface's Access and Refresh Token, encrypted with Data Protection. |
 | `__Host-authora_admin_signin` | `HttpOnly`, `SameSite=Lax`, 10 minutes | `state` and PKCE verifier of a running admin sign-in, encrypted. |

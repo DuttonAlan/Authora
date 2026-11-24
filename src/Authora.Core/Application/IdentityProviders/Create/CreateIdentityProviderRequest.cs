@@ -21,6 +21,9 @@ namespace Authora.Core.Application.IdentityProviders.Create;
 /// <param name="Scopes">The Scopes to request; <c>openid</c> is always added. Defaults to <c>openid email profile</c>.</param>
 /// <param name="SortOrder" example="0">Position of the button on the sign-in page; lower values first. Defaults to 0.</param>
 /// <param name="IsEnabled" example="true">Whether Users can sign in through it right away. Defaults to true.</param>
+/// <param name="AllowSignUp" example="false">Whether people whose account at the provider is not linked, and whose verified Email belongs to no User, get a new User on their first sign-in. Defaults to false. For Google it needs at least one allowed domain.</param>
+/// <param name="AllowedEmailDomains">The domains whose people may sign up, e.g. <c>example.com</c>; empty or null allows every domain (not for Google). For Google, the Google Workspace domain (<c>hd</c>) is checked.</param>
+/// <param name="DefaultGroupIds">The Ids of the Groups a User who signs up joins. Defaults to none.</param>
 public sealed record CreateIdentityProviderRequest(
     [Required, StringLength(IdentityProvider.NameMaxLength, MinimumLength = 1)] string Name,
     [Required, StringLength(IdentityProvider.SlugMaxLength, MinimumLength = 1), RegularExpression(IdentityProvider.SlugPattern)] string Slug,
@@ -30,7 +33,10 @@ public sealed record CreateIdentityProviderRequest(
     [StringLength(IdentityProvider.ClientSecretMaxLength, MinimumLength = 1)] string? ClientSecret,
     IReadOnlyList<string>? Scopes,
     int? SortOrder,
-    bool? IsEnabled)
+    bool? IsEnabled,
+    bool? AllowSignUp = null,
+    IReadOnlyList<string>? AllowedEmailDomains = null,
+    IReadOnlyList<Guid>? DefaultGroupIds = null)
 {
     /// <summary>
     ///     Returns a description without the Client Secret, so it is not written to logs by accident.

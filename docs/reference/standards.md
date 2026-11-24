@@ -53,10 +53,10 @@ Authora deliberately keeps a small feature set. Not supported today:
 
 **Users**
 
-- Self-registration. Administrators create Users; Users change their own password at `/account/password`, reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)) and confirm their address with a link (see [Email verification](oauth-endpoints.md#email-verification)).
+- Self-registration with a password. Administrators create Users, or Users sign up through an external identity provider that allows it; Users change their own password at `/account/password`, reset a forgotten one by email (see [Password reset](oauth-endpoints.md#password-reset)) and confirm their address with a link (see [Email verification](oauth-endpoints.md#email-verification)).
 - Passwordless sign-in with a passkey: passkeys are a second factor after the password. Second factors other than an authenticator app (TOTP) with recovery codes and passkeys, e.g. SMS or email codes.
 - Recovery codes for Users who have only passkeys: they register several passkeys, or an administrator resets their second factors.
-- Signing in through an external identity provider with an account that is not linked yet: no just-in-time provisioning, and no linking at the sign-in prompt. Users sign in with their password and link the account at `/account/security/external-accounts`.
+- Linking an account at an external identity provider by its Email alone (a *trust email* setting): an account with the verified Email of a User is only linked after a sign-in to that User with its existing methods. Just-in-time provisioning takes only the Email, the name and the default Groups; no other claims are mapped to Users, and Users are not updated from the provider on later sign-ins.
 - Logging out at the identity provider: signing out of Authora does not end the Session at the provider (no upstream RP-initiated or back-channel logout), and a logout at the provider does not end the Authora Session.
 - At identity providers: the UserInfo endpoint, `form_post` and other response modes, encrypted ID Tokens, `private_key_jwt` and mTLS Client authentication, and SAML or OAuth-only providers.
 

@@ -18,8 +18,16 @@
         <span class="description">Signed in on @Model.AuthenticatedAt.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) UTC with @string.Join(" and ", Model.AuthenticationMethods).</span>
     </li>
     <li>
-        <a href="/account/password">Change password</a>
-        <span class="description">Signs you out everywhere else.</span>
+        @if (Model.SignInMethods.HasPassword)
+        {
+            <a href="/account/password">Change password</a>
+            <span class="description">Signs you out everywhere else.</span>
+        }
+        else
+        {
+            <a href="/account/password">Set a password</a>
+            <span class="description">You have no password and sign in with a linked account. A password lets you sign in without it.</span>
+        }
     </li>
     <li>
         <strong>Two-step verification</strong>

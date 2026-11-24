@@ -27,5 +27,10 @@ public enum ChangePasswordResult
     /// <summary>
     ///     The Session is no longer valid, e.g. because it was revoked or the User can no longer sign in.
     /// </summary>
-    SessionEnded = 3
+    SessionEnded = 3,
+
+    /// <summary>
+    ///     The User has no password to change; they set one instead.
+    /// </summary>
+    NoPassword = 4
 }

@@ -27,6 +27,7 @@ public sealed class IdentityProviderRepository(AuthoraContext context) : IIdenti
     public async Task<IdentityProvider?> GetProviderById(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.IdentityProviders
+            .Include(provider => provider.DefaultGroups)
             .FirstOrDefaultAsync(provider => provider.Id == id, cancellationToken);
     }
 
@@ -43,6 +44,7 @@ public sealed class IdentityProviderRepository(AuthoraContext context) : IIdenti
     {
         return await context.IdentityProviders
             .AsNoTracking()
+            .Include(provider => provider.DefaultGroups)
             .Where(provider => !enabledOnly || provider.IsEnabled)
             .OrderBy(provider => provider.SortOrder)
             .ThenBy(provider => provider.Name)

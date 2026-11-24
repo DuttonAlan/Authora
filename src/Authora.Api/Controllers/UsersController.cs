@@ -19,10 +19,12 @@ using Authora.Core.Application.Users.Deactivate;
 using Authora.Core.Application.Users.Delete;
 using Authora.Core.Application.Users.Get;
 using Authora.Core.Application.Users.GetAll;
+using Authora.Core.Application.Users.GetExternalIdentities;
 using Authora.Core.Application.Users.GetGroups;
 using Authora.Core.Application.Users.GetPermissions;
 using Authora.Core.Application.Users.GetRoles;
 using Authora.Core.Application.Users.MarkEmailVerified;
+using Authora.Core.Application.Users.RemoveExternalIdentity;
 using Authora.Core.Application.Users.RemovePasskey;
 using Authora.Core.Application.Users.RemoveRole;
 using Authora.Core.Application.Users.ResetMfa;
@@ -49,6 +51,7 @@ namespace Authora.Api.Controllers;
 /// <param name="deleteUserService">The Service to delete the User.</param>
 /// <param name="getAllUsersService">The Service to get all Users.</param>
 /// <param name="getEffectivePermissionsService">The Service to get the effective Permissions of the User.</param>
+/// <param name="getUserExternalIdentitiesService">The Service to get the linked accounts of the User.</param>
 /// <param name="getMfaStatusService">The Service to get the multi-factor authentication of the User.</param>
 /// <param name="getUserConsentsService">The Service to get the Consents of the User.</param>
 /// <param name="getUserGroupsService">The Service to get the Groups of the User.</param>
@@ -56,6 +59,7 @@ namespace Authora.Api.Controllers;
 /// <param name="getUserService">The Service to get the User.</param>
 /// <param name="markEmailVerifiedService">The Service to mark the Email of the User as verified.</param>
 /// <param name="removeRoleService">The Service to remove a Role from the User.</param>
+/// <param name="removeUserExternalIdentityService">The Service to remove a linked account of the User.</param>
 /// <param name="removeUserPasskeyService">The Service to remove a passkey of the User.</param>
 /// <param name="revokeConsentService">The Service to revoke a Consent of the User.</param>
 /// <param name="resetMfaService">The Service to reset the multi-factor authentication of the User.</param>
@@ -77,6 +81,7 @@ public sealed class UsersController(
     DeleteUserService deleteUserService,
     GetAllUsersService getAllUsersService,
     GetEffectivePermissionsService getEffectivePermissionsService,
+    GetUserExternalIdentitiesService getUserExternalIdentitiesService,
     GetMfaStatusService getMfaStatusService,
     GetUserConsentsService getUserConsentsService,
     GetUserGroupsService getUserGroupsService,
@@ -84,6 +89,7 @@ public sealed class UsersController(
     GetUserService getUserService,
     MarkEmailVerifiedService markEmailVerifiedService,
     RemoveRoleService removeRoleService,
+    RemoveUserExternalIdentityService removeUserExternalIdentityService,
     RemoveUserPasskeyService removeUserPasskeyService,
     RevokeConsentService revokeConsentService,
     ResetMfaService resetMfaService,
@@ -819,6 +825,67 @@ public sealed class UsersController(
         CancellationToken cancellationToken)
     {
         await revokeConsentService.ExecuteAsync(id, clientId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    ///     Gets the accounts at external identity providers linked to the User.
+    /// </summary>
+    /// <remarks>
+    ///     The User signs in through these accounts. The Subjects at the providers are never returned; the Email is the
+    ///     one the provider reported when the account was linked and is only for display.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>200 OK with the linked accounts of the User.</returns>
+    /// <response code="200">Responds with the linked accounts in the order they were linked, or an empty list if none are linked.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpGet("{id:guid}/external-identities")]
+    [ProducesResponseType<IReadOnlyList<UserExternalIdentityResponse>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.Read)]
+    public async Task<IActionResult> GetExternalIdentities(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var identities = await getUserExternalIdentitiesService.ExecuteAsync(id, cancellationToken);
+
+        return Ok(identities);
+    }
+
+    /// <summary>
+    ///     Removes a linked account of the User.
+    /// </summary>
+    /// <remarks>
+    ///     The User can no longer sign in through the account. Existing Sessions stay; revoke them with
+    ///     <c>POST /api/users/{id}/revoke-sessions</c> if needed. A User without a password keeps their last linked
+    ///     account, which is then their only way to sign in: set a password or send a reset link first.
+    /// </remarks>
+    /// <param name="id" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">Id of the User.</param>
+    /// <param name="identityId" example="0199d1a2-7c3e-7b4a-9f10-2c963f66afa6">Id of the linked account.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>204 No Content once the link is removed.</returns>
+    /// <response code="204">Responds with no content once the link was removed.</response>
+    /// <response code="403">Responds with problem details if the User has the administrator Role or Permissions that the caller does not hold. Administrators are exempt.</response>
+    /// <response code="404">Responds with problem details if no User with the given Id exists, or the User has no linked account with the given Id.</response>
+    /// <response code="409">Responds with problem details if the User is deleted, or has no password and no other linked account.</response>
+    /// <response code="500">Responds with problem details if an unexpected error occurred.</response>
+    [HttpDelete("{id:guid}/external-identities/{identityId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    [Authorize(PermissionNames.Users.ManageAccess)]
+    public async Task<IActionResult> RemoveExternalIdentity(
+        Guid id,
+        Guid identityId,
+        CancellationToken cancellationToken)
+    {
+        await removeUserExternalIdentityService.ExecuteAsync(id, identityId, cancellationToken);
 
         return NoContent();
     }

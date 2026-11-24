@@ -663,7 +663,7 @@ public sealed partial class PasswordResetTests(AuthoraApiFactory factory) : ICla
         await using var scope = factory.Services.CreateAsyncScope();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
-        return passwordHasher.Verify((await GetUserAsync(userId)).PasswordHash, password) != PasswordVerification.Failed;
+        return passwordHasher.Verify((await GetUserAsync(userId)).PasswordHash!, password) != PasswordVerification.Failed;
     }
 
     private async Task<User> GetUserAsync(Guid userId)

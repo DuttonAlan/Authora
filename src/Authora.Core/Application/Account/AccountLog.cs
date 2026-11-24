@@ -89,4 +89,7 @@ internal static partial class AccountLog
 
     [LoggerMessage(EventId = 5026, Level = LogLevel.Warning, Message = "No email verification link was sent to User {UserId} at their request: {Reason}.")]
     public static partial void EmailVerificationRequestNotSent(this ILogger logger, Guid userId, string reason);
+
+    [LoggerMessage(EventId = 5027, Level = LogLevel.Information, Message = "User {UserId}, who had no password, set one in Session {SessionId}.")]
+    public static partial void PasswordAdded(this ILogger logger, Guid userId, Guid sessionId);
 }

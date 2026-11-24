@@ -49,7 +49,7 @@ public sealed class DeleteUserTests(AuthoraApiFactory factory) : IClassFixture<A
             Assert.Equal(user.Email, user.NormalizedEmail);
             Assert.Equal("Deleted", user.FirstName);
             Assert.Equal("User", user.LastName);
-            Assert.Equal(User.DeletedPasswordHash, user.PasswordHash);
+            Assert.Null(user.PasswordHash);
         }
 
         var newUserId = await CreateAsync(email, token);

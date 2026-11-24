@@ -28,7 +28,7 @@ public interface IIdentityProviderRepository
     /// </summary>
     /// <param name="id">Id of the provider.</param>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
-    /// <returns>The tracked provider, or null if it does not exist.</returns>
+    /// <returns>The tracked provider with its default Groups, or null if it does not exist.</returns>
     public Task<IdentityProvider?> GetProviderById(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>

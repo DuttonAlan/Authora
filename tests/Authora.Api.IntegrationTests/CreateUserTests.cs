@@ -50,7 +50,7 @@ public sealed class CreateUserTests(AuthoraApiFactory factory) : IClassFixture<A
         var user = await context.Users.SingleAsync(user => user.Id == created!.Id, TestContext.Current.CancellationToken);
 
         Assert.True(user.CanSignIn);
-        Assert.Equal(PasswordVerification.Success, passwordHasher.Verify(user.PasswordHash, Password));
+        Assert.Equal(PasswordVerification.Success, passwordHasher.Verify(user.PasswordHash!, Password));
     }
 
     [Fact]

@@ -89,7 +89,13 @@ public sealed class ChangePasswordService(
             return ChangePasswordResult.LockedOut;
         }
 
-        if (passwordHasher.Verify(user.PasswordHash, request.CurrentPassword) == PasswordVerification.Failed)
+        // A User without a password sets one instead, see AddPasswordService.
+        if (user.PasswordHash is not { } passwordHash)
+        {
+            return ChangePasswordResult.NoPassword;
+        }
+
+        if (passwordHasher.Verify(passwordHash, request.CurrentPassword) == PasswordVerification.Failed)
         {
             return await RecordWrongPasswordAsync(user.Id, session.Id, now, cancellationToken);
         }

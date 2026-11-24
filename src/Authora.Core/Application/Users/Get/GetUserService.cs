@@ -39,6 +39,7 @@ public sealed class GetUserService(IUserRepository userRepository)
             user.Email,
             user.IsEmailVerified,
             user.EmailVerifiedAt,
+            user.HasPassword,
             user.FirstName,
             user.LastName,
             user.State,
