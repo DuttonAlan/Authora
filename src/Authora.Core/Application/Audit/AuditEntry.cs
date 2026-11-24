@@ -86,4 +86,14 @@ public sealed record AuditEntry(
     /// <returns>The entry.</returns>
     public static AuditEntry ForClient(string type, Guid clientId, string? details = null)
         => new(type, AuditTargetTypes.Client, clientId.ToString(), details);
+
+    /// <summary>
+    ///     Creates an entry about an external identity provider.
+    /// </summary>
+    /// <param name="type">What happened.</param>
+    /// <param name="providerId">The Id of the provider.</param>
+    /// <param name="details">A short description, or null.</param>
+    /// <returns>The entry.</returns>
+    public static AuditEntry ForIdentityProvider(string type, Guid providerId, string? details = null)
+        => new(type, AuditTargetTypes.IdentityProvider, providerId.ToString(), details);
 }

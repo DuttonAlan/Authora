@@ -17,6 +17,10 @@ Authora is an OAuth 2.1 authorization server. This page lists its endpoints and 
 | `GET/POST /account/security/authenticator/remove` | Browser | A signed-in User removes their authenticator app with a current code or a recovery code. Needs a recent authentication. |
 | `GET/POST /account/security/recovery-codes` | Browser | A signed-in User sees how many recovery codes are left and generates a new set. Needs a recent authentication. |
 | `GET/POST /account/security/passkeys` | Browser | A signed-in User registers, renames and removes passkeys. Needs a recent authentication and JavaScript. See [Passkeys](#passkeys). |
+| `GET/POST /account/security/external-accounts` | Browser | *Linked accounts*: a signed-in User sees and unlinks their accounts at external identity providers. Needs a recent authentication. See [External identity providers](#external-identity-providers). |
+| `GET /account/security/external-accounts/link/{slug}` | Browser | Starts linking an account at a provider to the signed-in User. Needs a recent authentication. |
+| `GET /account/external/{slug}` | Browser | Starts a sign-in through an enabled external identity provider; the buttons of the sign-in page link here with the `returnUrl`. |
+| `GET /account/external/{slug}/callback` | Provider (browser) | Redirect URI of Authora at the provider: completes the sign-in or the link. |
 | `GET/POST /account/logout` | Browser | Sign-out page. Ends the Session at Authora. |
 | `GET/POST /account/password` | Browser | A signed-in User changes their own password. See [Password change](#password-change). |
 | `GET/POST /account/forgot-password` | Browser | A User who forgot their password asks for a reset link by email. See [Password reset](#password-reset). |
@@ -211,6 +215,16 @@ Passkeys ([WebAuthn Level 2](https://www.w3.org/TR/webauthn-2/)) are a second fa
 - Administrators see the passkeys and remove one or all through the [admin API](admin-api.md#users) (`users.reset-mfa`). There are no recovery codes for passkeys: Users register more than one.
 
 `/account/logout` revokes the Session on the server and deletes the cookie. Applications sign Users out through the end-session endpoint `/oauth/logout` instead, see [Logout](openid-connect.md#logout).
+
+### External identity providers
+
+Enabled providers (see [Add an external identity provider](../how-to/add-an-external-identity-provider.md)) appear on `/account/login` as links to `/account/external/{slug}?returnUrl=…`, links rather than forms, so no form has to lead to another site.
+
+- Starting creates `state`, `nonce` and a PKCE `S256` code verifier and keeps them, with the provider and the `returnUrl`, in the encrypted cookie `__Host-authora_external_sign_in` (`HttpOnly`, `Secure`, `SameSite=Lax`, 10 minutes). The response at `/account/external/{slug}/callback` deletes it, so a flow is completed at most once, and a new flow in the same browser replaces a running one.
+- The response must carry the `state` of the cookie, and an `iss` parameter, if the provider sends one, must name its Issuer. Authora redeems the code (`client_secret_basic`, `client_secret_post` if the provider lists only that, or the Client Id alone without a Client Secret) and verifies the ID Token, see [Standards](standards.md#supported).
+- The account is found by the provider and its `sub`. Then the rules of a password sign-in apply: the User must be able to sign in and not be locked out. Without a second factor, the Session starts with the method `fed`; with one, a pending sign-in with `fed` starts, and the callback page continues to `/account/second-factor` with a navigation of its own (the cookie of the pending sign-in is `SameSite=Strict`, which browsers do not send on a redirect that started at the provider). The Session then has e.g. `fed otp`.
+- An account that is not linked, a failed check or an error of the provider shows a message; the reason is only in the audit and the server log. The start, link and callback pages are rate-limited per IP address for every request, also `GET` (`Authora:RateLimiting:SignInPermitsPerMinute`, with a counter of their own).
+- Linking (`/account/security/external-accounts/link/{slug}`) needs a recent authentication and is bound to the Session: the response must arrive in the same Session. An account at a provider is linked to at most one User, and a User has at most one account per provider. The link stores the `sub` and the Email the provider reported, for display only.
 
 ## Password change
 

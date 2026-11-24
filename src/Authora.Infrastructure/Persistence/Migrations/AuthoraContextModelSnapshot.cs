@@ -410,6 +410,43 @@ namespace Authora.Infrastructure.Persistence.Migrations
                     b.ToTable("email_tokens", "auth");
                 });
 
+            modelBuilder.Entity("Authora.Core.Domain.Entities.ExternalIdentity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId", "Subject")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ProviderId")
+                        .IsUnique();
+
+                    b.ToTable("external_identities", "identity");
+                });
+
             modelBuilder.Entity("Authora.Core.Domain.Entities.Grant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -492,6 +529,63 @@ namespace Authora.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("groups", "identity");
+                });
+
+            modelBuilder.Entity("Authora.Core.Domain.Entities.IdentityProvider", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Preset")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProtectedClientSecret")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("identity_providers", "identity");
                 });
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.Passkey", b =>
@@ -1156,6 +1250,21 @@ namespace Authora.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Authora.Core.Domain.Entities.EmailToken", b =>
                 {
+                    b.HasOne("Authora.Core.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Authora.Core.Domain.Entities.ExternalIdentity", b =>
+                {
+                    b.HasOne("Authora.Core.Domain.Entities.IdentityProvider", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Authora.Core.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

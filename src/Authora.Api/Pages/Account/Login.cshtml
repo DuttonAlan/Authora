@@ -43,6 +43,18 @@ else
         </div>
     </form>
 
+    @if (Model.Providers.Count > 0)
+    {
+        @* Links, not forms: the browser leaves for the provider with a plain navigation. *@
+        <div class="providers">
+            <p class="muted separator">or</p>
+            @foreach (var provider in Model.Providers)
+            {
+                <a class="provider" href="@Model.GetProviderUrl(provider)">Sign in with @provider.Name</a>
+            }
+        </div>
+    }
+
     @if (Model.CanResetPassword)
     {
         <p class="muted"><a href="/account/forgot-password">Forgot password?</a></p>

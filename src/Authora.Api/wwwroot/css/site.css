@@ -261,3 +261,42 @@ a {
 .notice p {
     margin: 0 0 8px;
 }
+
+.providers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 16px;
+}
+
+.providers .separator {
+    margin: 8px 0 0;
+    text-align: center;
+}
+
+a.provider {
+    display: block;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+}
+
+a.provider:hover,
+a.provider:focus-visible {
+    border-color: var(--primary);
+}
+
+.external-accounts form {
+    display: inline;
+}
+
+.external-accounts button {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+}

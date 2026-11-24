@@ -50,6 +50,17 @@
             <span class="description">@factor.DisplayName: @(factor.IsEnrolled ? "on" : "off")</span>
         }
     </li>
+    @if (Model.ExternalAccounts.Linked.Count > 0 || Model.ExternalAccounts.Available.Count > 0)
+    {
+        <li>
+            <a href="@Authora.Api.Pages.Account.ExternalAccountsModel.PagePath">Linked accounts</a>
+            <span class="description">
+                @(Model.ExternalAccounts.Linked.Count > 0
+                    ? $"Sign in with {string.Join(", ", Model.ExternalAccounts.Linked.Select(account => account.ProviderName))}."
+                    : "Sign in with an account at another provider.")
+            </span>
+        </li>
+    }
     <li>
         <a href="/account/consents">Connected applications</a>
         <span class="description">Applications you allowed to access your account.</span>

@@ -8,9 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Upgrading
 
-- Stop all instances before applying the new migration `BackchannelLogout` (see [Upgrade Authora](docs/how-to/upgrade-authora.md)). Sessions started before the upgrade end; Users sign in again.
+- Stop all instances before applying the new migrations `BackchannelLogout` and `ExternalIdentityProviders` (see [Upgrade Authora](docs/how-to/upgrade-authora.md)). Sessions started before the upgrade end; Users sign in again.
 - **Signing out now revokes tokens.** Ending a Session on purpose revokes the Grants approved in it, with their Access and Refresh Tokens, for every Client: signing out at `/account/logout` or `/oauth/logout`, and the paths that already ended all Sessions (password change and reset, removing a second factor, and the admin API's revoke sessions, deactivate, delete, set password, reset MFA and remove passkey). Applications that kept using their Refresh Token after the User signed out of Authora have to send the User through Authora again. Grants from before the upgrade are not tied to a Session and are not revoked by a sign-out.
 - Instances now send HTTPS requests to the Back-Channel Logout URIs of Clients: allow that outgoing traffic, and make sure the certificates of those URIs are trusted on the host.
+- **The Data Protection keys now also protect the Client Secrets of external identity providers.** Keep persisting and backing them up (`Authora:DataProtection:KeysPath`, see [Persist Data Protection keys](docs/how-to/persist-data-protection-keys.md)): without them, every identity provider fails until its Client Secret is set again.
+- If you add identity providers, instances send HTTPS requests to them (discovery, keys, token endpoint): allow that outgoing traffic.
 
 New settings, audit and log events are listed in the [OpenID Connect](docs/reference/openid-connect.md#back-channel-logout), [configuration](docs/reference/configuration.md#back-channel-logout), [audit events](docs/reference/audit-events.md) and [log events](docs/reference/log-events.md#back-channel-logout) references.
 
@@ -20,6 +22,8 @@ New settings, audit and log events are listed in the [OpenID Connect](docs/refer
 - `sid` in ID Tokens: a random Session ID that Logout Tokens repeat.
 - Audit event `client.backchannel-logout-failed`, log events 18001 and 18011 – 18015.
 - The conformance workflow also runs the OpenID Foundation's Back-Channel Logout OP test plan.
+- Sign-in through external OpenID Connect identity providers ([#52](https://github.com/DuttonAlan/Authora/issues/52)), generic or with a preset for Google: administrators manage them in the admin API (`/api/identity-providers`, Permissions `identity-providers.read` and `identity-providers.manage`) and the admin interface; the sign-in page shows a button per enabled provider. Authora is the Relying Party (Authorization Code flow with `state`, `nonce` and PKCE; ID Tokens verified against the provider's keys) and signs the User in to an ordinary Session, so Clients see no difference except `fed` in `amr`. The provider is a first factor: Users with a second factor still complete it. Signed-in Users link and unlink accounts at `/account/security/external-accounts`. Client Secrets are encrypted with Data Protection and never returned. New settings `Authora:ExternalSignIn:AllowHttp` and `Timeout`. See [Sign in with Google](docs/how-to/sign-in-with-google.md) and [Add an external identity provider](docs/how-to/add-an-external-identity-provider.md).
+- Audit events `account.external-sign-in-failed`, `external-identity.linked`, `external-identity.unlinked` and `identity-provider.created`, `.updated`, `.deleted`, `.enabled`, `.disabled`; log events 19001 – 19007, 20001 – 20010 and 20021 – 20022.
 
 ### Changed
 

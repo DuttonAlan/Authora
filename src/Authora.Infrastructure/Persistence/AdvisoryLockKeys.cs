@@ -40,7 +40,7 @@ internal static class AdvisoryLockKeys
 
     /// <summary>
     ///     First key of the two-key locks that serialize changes to the multi-factor authentication of one User: setup,
-    ///     confirmation, new recovery codes, removal, reset and deletion. The second key is derived from the User's Id.
+    ///     confirmation, new recovery codes, removal, reset and deletion, and linking an account at an identity provider, which deletion removes. The second key is derived from the User's Id.
     /// </summary>
     public const int Mfa = 0x4D46_4155; // "MFAU"
 }

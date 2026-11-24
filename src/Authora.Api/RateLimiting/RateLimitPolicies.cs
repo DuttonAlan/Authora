@@ -21,6 +21,13 @@ internal static class RateLimitPolicies
     public const string SignIn = "sign-in";
 
     /// <summary>
+    ///     Limits every request, also GET, to the pages that start or complete a sign-in or link through an external
+    ///     identity provider, per client IP address: each of them sends requests to the provider or writes to the audit
+    ///     log. Shares <see cref="RateLimitOptions.SignInPermitsPerMinute"/> with a counter of its own.
+    /// </summary>
+    public const string ExternalSignIn = "external-sign-in";
+
+    /// <summary>
     ///     Limits requests to the token, revocation and introspection endpoints per client IP address.
     /// </summary>
     public const string Token = "token";
@@ -55,6 +62,9 @@ internal static class RateLimitPolicies
         options.AddPolicy(SignIn, context => HttpMethods.IsPost(context.Request.Method)
             ? PerIpAddress(context, SignIn, GetOptions(context).SignInPermitsPerMinute)
             : RateLimitPartition.GetNoLimiter(string.Empty));
+
+        // Unlike the sign-in page, these pages act on GET: they call the provider and record failures.
+        options.AddPolicy(ExternalSignIn, context => PerIpAddress(context, ExternalSignIn, GetOptions(context).SignInPermitsPerMinute));
 
         options.AddPolicy(Token, context => PerIpAddress(context, Token, GetOptions(context).TokenPermitsPerMinute));
 

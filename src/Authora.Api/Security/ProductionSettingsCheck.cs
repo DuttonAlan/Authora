@@ -4,6 +4,7 @@
 
 using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Email;
+using Authora.Core.Application.ExternalSignIn;
 using Authora.Core.Application.OAuth;
 
 namespace Authora.Api.Security;
@@ -82,6 +83,14 @@ internal static class ProductionSettingsCheck
         if (bool.TryParse(allowHttp, out var parsedAllowHttp) && parsedAllowHttp)
         {
             failures.Add($"'{BackchannelLogoutOptions.SectionName}:{nameof(BackchannelLogoutOptions.AllowHttp)}' must be false outside Development.");
+        }
+
+        // The token request carries the Client Secret, and the responses of providers the identity of the User.
+        var externalAllowHttp = configuration[$"{ExternalSignInOptions.SectionName}:{nameof(ExternalSignInOptions.AllowHttp)}"];
+
+        if (bool.TryParse(externalAllowHttp, out var parsedExternalAllowHttp) && parsedExternalAllowHttp)
+        {
+            failures.Add($"'{ExternalSignInOptions.SectionName}:{nameof(ExternalSignInOptions.AllowHttp)}' must be false outside Development.");
         }
 
         return failures;

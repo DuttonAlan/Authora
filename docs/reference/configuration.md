@@ -47,6 +47,15 @@ How Logout Tokens are sent to the Back-Channel Logout URIs of Clients, see [Back
 | `Authora:BackchannelLogout:PollInterval` | `00:00:05` | 1 second to 5 minutes | How often each instance looks for due notifications. Changing it needs a restart. |
 | `Authora:BackchannelLogout:BatchSize` | `20` | 1 to 100 | Notifications an instance sends at the same time. An instance claims them for `Timeout` plus one minute; if it stops while sending, another instance sends them after that. |
 
+## External identity providers
+
+How Authora talks to external OpenID Connect providers. The providers themselves are managed through the [admin API](admin-api.md#identity-providers). A sign-in through a provider must arrive back within 10 minutes (fixed).
+
+| Setting | Default | Limits | Description |
+|---|---|---|---|
+| `Authora:ExternalSignIn:AllowHttp` | `false` | `false` outside `Development` | Whether providers may be reached over plain HTTP (Issuer, endpoints, key set). Authora does not start with `true` in any other environment, because the token request carries the Client Secret and the responses identify the User. |
+| `Authora:ExternalSignIn:Timeout` | `00:00:10` | 1 to 30 seconds | How long a request to a provider (discovery, key set, token) may take, including reading the whole response. Requests use the default proxy settings of the host and never follow redirects. |
+
 ## Sign-in and Sessions
 
 | Setting | Default | Limits | Description |
@@ -73,7 +82,7 @@ Per client IP address. Behind a reverse proxy, configure `Authora:ForwardedHeade
 
 | Setting | Default | Limits | Description |
 |---|---|---|---|
-| `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts, second factors at `/account/second-factor`, password changes at `/account/password` and the submissions of `/account/security/authenticator`, `/account/security/authenticator/remove` and `/account/security/recovery-codes` per minute, together. |
+| `Authora:RateLimiting:SignInPermitsPerMinute` | `10` | 1 to 100000 | Sign-in attempts, second factors at `/account/second-factor`, password changes at `/account/password` and the submissions of `/account/security/authenticator`, `/account/security/authenticator/remove` and `/account/security/recovery-codes` per minute, together. The same number, counted separately, limits every request (also `GET`) to `/account/external/…` and `/account/security/external-accounts/link/…`, which call the identity provider or record failures. |
 | `Authora:RateLimiting:TokenPermitsPerMinute` | `300` | 1 to 100000 | Requests to `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`, `/admin/callback` and `/admin/session/refresh` per minute, together. A resource server that introspects tokens for every request should cache the results or get a higher limit. |
 | `Authora:RateLimiting:PasswordResetPermitsPerMinute` | `5` | 1 to 100000 | Submissions of `/account/forgot-password`, `/account/reset-password` and `/account/verify-email` per minute, together. Opening the pages is not limited. Each address also gets at most `Authora:PasswordReset:MaxEmailsPerHour` links. |
 | `Authora:RateLimiting:EmailVerificationPermitsPerMinute` | `5` | 1 to 100000 | Requests for a new email verification link at `/account/email-verification` per minute. Opening the page is not limited. Each User also gets at most `Authora:EmailVerification:MaxEmailsPerHour` links. |
@@ -94,7 +103,7 @@ The forwarded headers are only read when one of the lists is set. See [Configure
 
 | Setting | Default | Description |
 |---|---|---|
-| `Authora:DataProtection:KeysPath` | not set | Directory for the keys that encrypt antiforgery tokens, admin interface cookies and the secrets of authenticator apps, shared by all instances. **Back it up**: without the keys, no authenticator app works any more. Without it, keys are kept in the home directory of the user that runs Authora, or only in memory. The container image sets `/var/lib/authora/keys`. |
+| `Authora:DataProtection:KeysPath` | not set | Directory for the keys that encrypt antiforgery tokens, admin interface cookies, the cookie of a sign-in through an external identity provider, the secrets of authenticator apps and the Client Secrets of identity providers, shared by all instances. **Back it up**: without the keys, no authenticator app works any more and every identity provider needs its Client Secret set again. Without it, keys are kept in the home directory of the user that runs Authora, or only in memory. The container image sets `/var/lib/authora/keys`. |
 | `Authora:DataProtection:CertificatePath` | not set | PKCS#12 file (`.pfx`) with a certificate and its private key that encrypts the keys at rest. Requires `KeysPath`. |
 | `Authora:DataProtection:CertificatePassword` | not set | Password of the certificate file. |
 

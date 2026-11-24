@@ -11,6 +11,8 @@ using Authora.Core.Application.Account.RequestEmailVerification;
 using Authora.Core.Application.Account.RequestPasswordReset;
 using Authora.Core.Application.Account.SignIn;
 using Authora.Core.Application.Account.SignOut;
+using Authora.Core.Application.ExternalSignIn;
+using Authora.Core.Application.ExternalSignIn.GetProviders;
 using Authora.Core.Application.Users.SetPassword;
 using UserEntity = Authora.Core.Domain.Entities.User;
 
@@ -29,6 +31,7 @@ namespace Authora.Api.Pages.Account;
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
 /// <param name="requestPasswordResetService">Tells whether the page offers "Forgot password?".</param>
 /// <param name="requestEmailVerificationService">Tells whether the page offers a signed-in User a new email verification link.</param>
+/// <param name="getSignInProvidersService">The Service to list the external identity providers, one button each.</param>
 /// <param name="signInOptions">The sign-in settings with the lifetime of a pending sign-in.</param>
 /// <remarks>
 ///     A User who enrolled a second factor is sent on to <see cref="SecondFactorModel"/> after the password, with a
@@ -40,6 +43,7 @@ public sealed class LoginModel(
     SignOutService signOutService,
     RequestPasswordResetService requestPasswordResetService,
     RequestEmailVerificationService requestEmailVerificationService,
+    GetSignInProvidersService getSignInProvidersService,
     IOptions<SignInOptions> signInOptions) : PageModel
 {
     /// <summary>
@@ -98,12 +102,31 @@ public sealed class LoginModel(
     public bool CanRequestEmailVerification { get; private set; }
 
     /// <summary>
+    ///     The enabled external identity providers, one button each, in their order.
+    /// </summary>
+    public IReadOnlyList<SignInProviderResponse> Providers { get; private set; } = [];
+
+    /// <summary>
+    ///     The URL of the button of a provider, with the way back to the <see cref="ReturnUrl"/>.
+    /// </summary>
+    /// <param name="provider">The provider.</param>
+    /// <returns>The URL that starts the sign-in through the provider.</returns>
+    public string GetProviderUrl(SignInProviderResponse provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+
+        return $"{ExternalSignInOptions.GetStartPath(provider.Slug)}?returnUrl={Uri.EscapeDataString(GetSafeReturnUrl())}";
+    }
+
+    /// <summary>
     ///     Shows the sign-in form, or that the User is signed in.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
     /// <returns>A Task that completes once the page is ready.</returns>
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        Providers = await getSignInProvidersService.ExecuteAsync(cancellationToken);
+
         // Only the page for a signed-in User without a ReturnUrl shows the notice, see Login.cshtml.
         if (IsSignedIn && ReturnUrl is null)
         {
@@ -122,7 +145,7 @@ public sealed class LoginModel(
     {
         if (!ModelState.IsValid)
         {
-            return Failed();
+            return await FailedAsync(cancellationToken);
         }
 
         var result = await signInService.ExecuteAsync(Email, Password, cancellationToken);
@@ -137,7 +160,7 @@ public sealed class LoginModel(
 
         if (!result.Succeeded)
         {
-            return Failed();
+            return await FailedAsync(cancellationToken);
         }
 
         // A new Session token on every sign-in: the Session of the previous User of this browser ends,
@@ -155,10 +178,11 @@ public sealed class LoginModel(
         return LocalRedirect(GetSafeReturnUrl());
     }
 
-    private PageResult Failed()
+    private async Task<PageResult> FailedAsync(CancellationToken cancellationToken)
     {
         Password = string.Empty;
         ErrorMessage = InvalidCredentialsMessage;
+        Providers = await getSignInProvidersService.ExecuteAsync(cancellationToken);
 
         return Page();
     }

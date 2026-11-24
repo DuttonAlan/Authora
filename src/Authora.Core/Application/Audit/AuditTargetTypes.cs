@@ -24,6 +24,9 @@ public static class AuditTargetTypes
     /// <summary>A Client, by its Id.</summary>
     public const string Client = "client";
 
+    /// <summary>An external identity provider, by its Id.</summary>
+    public const string IdentityProvider = "identity-provider";
+
     /// <summary>A Grant, by its Id.</summary>
     public const string Grant = "grant";
 

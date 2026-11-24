@@ -67,6 +67,8 @@ The admin interface is a *first-party* Client, so administrators are never asked
 
 `GET /api/me` returns the User's Permissions, and the interface hides buttons for actions the User may not perform. This is only for convenience. The API checks every Permission on every request, whatever the interface shows.
 
+Some values the interface can only write, never read: the Client Secrets of identity providers go to the API in a password field and come back only as "Set" or "None", and new Client Secrets of Authora's own Clients are shown once.
+
 ## No build step
 
 The interface is plain HTML, CSS and JavaScript modules in `src/Authora.Api/wwwroot/admin`, with no framework and no build step. All content is inserted as text, never as HTML, so names from the API cannot inject markup. The small code base and the absence of third-party scripts keep the attack surface small.

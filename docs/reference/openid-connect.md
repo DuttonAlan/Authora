@@ -78,11 +78,11 @@ The `acr` claim names the level the sign-in reached; a stronger level satisfies 
 
 | `acr` | Reached when the Session has | Strength |
 |---|---|---|
-| `urn:authora:acr:pwd` | the password only | weakest |
+| `urn:authora:acr:pwd` | the password, or an external identity provider (`fed`), only | weakest |
 | `urn:authora:acr:mfa` | at least two factors, e.g. `pwd` and `otp` | |
 | `phr` (OpenID EAP ACR Values 1.0) | a passkey (`hwk` or `swk`) | strongest |
 
-The `amr` claim ([RFC 8176](https://www.rfc-editor.org/rfc/rfc8176)) lists the methods in the order they were completed: `pwd` (password), `otp` (code of an authenticator app or a recovery code), `hwk`/`swk` (passkeys), plus `mfa` when at least two were used.
+The `amr` claim ([RFC 8176](https://www.rfc-editor.org/rfc/rfc8176)) lists the methods in the order they were completed: `pwd` (password), `fed` (an external identity provider, see [External identity providers](oauth-endpoints.md#external-identity-providers)), `otp` (code of an authenticator app or a recovery code), `hwk`/`swk` (passkeys), plus `mfa` when at least two were used.
 
 ## Step-up and required MFA
 
