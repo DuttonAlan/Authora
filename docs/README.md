@@ -36,6 +36,8 @@ Using Authora:
 - [Protect an API with introspection](how-to/protect-an-api.md)
 - [Manage users and access](how-to/manage-users-and-access.md)
 - [Require multi-factor authentication](how-to/require-multi-factor-authentication.md)
+- [Sign in with Google](how-to/sign-in-with-google.md)
+- [Add an external identity provider](how-to/add-an-external-identity-provider.md)
 - [Call the admin API](how-to/call-the-admin-api.md)
 - [Check the integrity of the audit log](how-to/verify-the-audit-log.md)
 

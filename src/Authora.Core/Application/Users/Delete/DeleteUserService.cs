@@ -20,6 +20,7 @@ namespace Authora.Core.Application.Users.Delete;
 /// <param name="consentRepository">An Instance of a IConsentRepository to delete the Consents of the User.</param>
 /// <param name="mfaRepository">An Instance of a IMfaRepository to delete the authenticator app and recovery codes of the User.</param>
 /// <param name="passkeyRepository">An Instance of a IPasskeyRepository to delete the passkeys of the User.</param>
+/// <param name="externalIdentityRepository">An Instance of a IExternalIdentityRepository to delete the linked accounts of the User.</param>
 /// <param name="sessionRevoker">Revokes the Sessions of the User and their Grants and notifies their Clients.</param>
 /// <param name="privilegeGuard">The guard that checks that the caller holds all Permissions of the User.</param>
 /// <param name="timeProvider">The TimeProvider for the revocation time.</param>
@@ -30,6 +31,7 @@ public sealed class DeleteUserService(
     IConsentRepository consentRepository,
     IMfaRepository mfaRepository,
     IPasskeyRepository passkeyRepository,
+    IExternalIdentityRepository externalIdentityRepository,
     SessionRevoker sessionRevoker,
     PrivilegeGuard privilegeGuard,
     TimeProvider timeProvider,
@@ -44,7 +46,8 @@ public sealed class DeleteUserService(
     ///     Email and Name anonymized, so the Email can be used by a new User.
     ///     The Security Stamp is rotated, so all Sessions and Refresh Tokens of the User become invalid. The Sessions
     ///     and their Grants are revoked, and their Clients notified (back-channel logout).
-    ///     The Consents, the authenticator app, the recovery codes and the passkeys of the User are deleted.
+    ///     The Consents, the authenticator app, the recovery codes, the passkeys and the linked accounts at identity
+    ///     providers of the User are deleted.
     ///     Does nothing if the User does not exist or is already deleted.
     /// </remarks>
     /// <param name="id">Id of the User.</param>
@@ -84,6 +87,9 @@ public sealed class DeleteUserService(
 
         mfaRepository.RemoveRecoveryCodes(await mfaRepository.GetRecoveryCodes(user.Id, cancellationToken));
         passkeyRepository.RemovePasskeys(await passkeyRepository.GetPasskeys(user.Id, cancellationToken));
+
+        // The linked accounts at identity providers are of no use any more, and can then be linked to another User.
+        externalIdentityRepository.RemoveIdentities(await externalIdentityRepository.GetIdentitiesOfUser(user.Id, cancellationToken));
 
         user.MarkDeleted();
 

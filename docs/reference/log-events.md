@@ -24,6 +24,8 @@ Authora writes structured logs through the standard .NET logging. Every message 
 | 16001 – 16010 | Multi-factor authentication: authenticator app and recovery codes, see below |
 | 17001 – 17009 | Passkeys, see below |
 | 18001, 18011 – 18015 | Back-channel logout: Sessions ended explicitly, and the delivery of Logout Tokens, see below |
+| 19001 – 19007 | External identity providers: changes through the admin API, see below |
+| 20001 – 20010, 20021 – 20022 | Sign-in and linking through external identity providers, and the requests to them, see below |
 
 ## Email
 
@@ -135,6 +137,32 @@ See [Back-channel logout](openid-connect.md#back-channel-logout).
 | 18014 | Information | Dropped notification …, because Client … no longer has a Back-Channel Logout URI | The URI was removed after the Session ended. |
 | 18015 | Error | Sending back-channel logout notifications failed | E.g. the database was unavailable; retried with the next run. |
 
+## External identity providers
+
+See [Add an external identity provider](../how-to/add-an-external-identity-provider.md). Codes, tokens, Client Secrets, `state`, `nonce` and the Subject at the provider are never logged.
+
+| Event Id | Level | Message (shortened) | Meaning |
+|---|---|---|---|
+| 19001 | Information | Identity provider … (…) was created for Issuer … | `POST /api/identity-providers`. |
+| 19002 | Information | Identity provider … (…) was updated | |
+| 19003 | Warning | Identity provider … (…) was deleted | |
+| 19004 | Information | Identity provider … (…) was enabled | |
+| 19005 | Warning | Identity provider … (…) was disabled | |
+| 19006 | Information | The Client Secret of identity provider … was set / removed | |
+| 19007 | Warning | The Issuer … was rejected: … | The discovery document could not be fetched or used when a provider was saved; the API answered `400`. |
+| 20001 | Information | A sign-in through identity provider … started | The User was sent to the provider. |
+| 20002 | Information | User … started linking an account at identity provider … | |
+| 20003 | Warning | A sign-in through identity provider … could not start: … | The discovery document could not be fetched; the User saw that the provider cannot be reached. |
+| 20004 | Information | User … signed in through identity provider … with Session … | |
+| 20005 | Information | User … signed in through identity provider … and must complete a second factor … | |
+| 20006 | Warning | A sign-in through identity provider … failed: … | The reason, as in `account.external-sign-in-failed`: e.g. wrong `state`, an error of the provider, an invalid ID Token, a disabled provider, a User who cannot sign in. |
+| 20007 | Information | An account at identity provider … that is not linked to a User tried to sign in | |
+| 20008 | Information | User … linked identity … at identity provider … | |
+| 20009 | Information | User … removed identity … at identity provider … | |
+| 20010 | Information | User … must set up a second factor after signing in through an identity provider | `Authora:Mfa:RequireForAdministrators`. |
+| 20021 | Warning | The discovery document or the key set of Issuer … could not be fetched or read | With the exception. Network, TLS, timeout or an invalid document. |
+| 20022 | Warning | The token endpoint of Issuer … could not be reached | With the exception. |
+
 ## Events worth alerting on
 
 | Event Id | Level | Message (shortened) | Meaning |
@@ -155,6 +183,8 @@ See [Back-channel logout](openid-connect.md#back-channel-logout).
 | 8002 | Error | The cleanup of expired data failed | Retried with the next run. |
 | 18013 | Warning | Gave up sending the Logout Token … | A Client was not told that a User signed out. Check that its Back-Channel Logout URI is reachable from Authora. |
 | 18015 | Error | Sending back-channel logout notifications failed | Retried with the next run. |
+| 20006 | Warning | A sign-in through identity provider … failed: … | Many in a row with an invalid ID Token or wrong `state` suggest an attack; with "cannot be decrypted", the Data Protection key ring is missing. |
+| 20021 | Warning | The discovery document or the key set of Issuer … could not be fetched | Users cannot sign in through the provider. |
 | 9003 | Error | The changed key files could not be loaded | The previous keys stay in use; health check `signing-keys` is `Degraded`. |
 | 9004 | Warning | The signing key file … can be read or written by other users | Restrict the file to the user that runs Authora. |
 | 14004 | Error | Email … could not be sent through … | The email did not reach the User. Check the SMTP settings and the server. |

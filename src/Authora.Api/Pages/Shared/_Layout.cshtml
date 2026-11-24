@@ -6,6 +6,7 @@
     <meta name="referrer" content="no-referrer" />
     <title>@ViewData["Title"] – Authora</title>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Head", required: false)
     @await RenderSectionAsync("Scripts", required: false)
 </head>
 <body>

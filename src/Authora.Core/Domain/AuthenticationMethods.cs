@@ -35,6 +35,12 @@ public static class AuthenticationMethods
     public const string SoftwareKey = "swk";
 
     /// <summary>
+    ///     Federated authentication (<c>fed</c>): the User signed in through an external identity provider. A first
+    ///     factor like the password; a second factor is still required if the User enrolled one.
+    /// </summary>
+    public const string Federated = "fed";
+
+    /// <summary>
     ///     Multiple-factor authentication (<c>mfa</c>): added to <c>amr</c> in ID Tokens when the User completed at
     ///     least two methods. Never stored as a method of its own.
     /// </summary>

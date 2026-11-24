@@ -207,6 +207,23 @@ public static class PermissionNames
     }
 
     /// <summary>
+    ///     Permissions to manage external identity providers.
+    /// </summary>
+    public static class IdentityProviders
+    {
+        /// <summary>
+        ///     Read identity providers, without their Client Secrets, which are never returned.
+        /// </summary>
+        public const string Read = "identity-providers.read";
+
+        /// <summary>
+        ///     Create, change, enable, disable and delete identity providers and set their Client Secrets. Whoever has
+        ///     this Permission decides which external accounts can sign in as linked Users.
+        /// </summary>
+        public const string Manage = "identity-providers.manage";
+    }
+
+    /// <summary>
     ///     Permissions to monitor Authora.
     /// </summary>
     public static class Health
@@ -268,6 +285,8 @@ public static class PermissionNames
         Clients.Delete,
         Clients.ManageSecrets,
         Clients.ManageFirstParty,
+        IdentityProviders.Read,
+        IdentityProviders.Manage,
         Health.Read,
         Audit.Read,
         Audit.Verify

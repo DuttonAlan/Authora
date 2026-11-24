@@ -5,11 +5,13 @@
 using Authora.Core.Abstractions;
 using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Email;
+using Authora.Core.Application.ExternalSignIn;
 using Authora.Core.Application.Oidc;
 using Authora.Infrastructure.Auditing;
 using Authora.Infrastructure.BackchannelLogout;
 using Authora.Infrastructure.Cleanup;
 using Authora.Infrastructure.Email;
+using Authora.Infrastructure.ExternalSignIn;
 using Authora.Infrastructure.HealthChecks;
 using Authora.Infrastructure.Persistence;
 using Authora.Infrastructure.Persistence.Interceptors;
@@ -115,6 +117,18 @@ public static class ServiceCollectionExtensions
                 http.Timeout = serviceProvider.GetRequiredService<IOptions<BackchannelLogoutOptions>>().Value.Timeout)
 
             // A redirect is a failed delivery: the Logout Token must only reach the registered URI.
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false });
+
+        // Sign-in through external OpenID Connect identity providers: Authora is their Relying Party. A singleton, so
+        // the discovery documents and keys of the providers are cached across requests.
+        serviceCollection.AddTransient<IIdentityProviderRepository, IdentityProviderRepository>();
+        serviceCollection.AddTransient<IExternalIdentityRepository, ExternalIdentityRepository>();
+        serviceCollection.AddSingleton<IOidcRelyingParty, OidcRelyingParty>();
+        serviceCollection.AddHttpClient(OidcRelyingParty.HttpClientName)
+            .ConfigureHttpClient((serviceProvider, http) =>
+                http.Timeout = serviceProvider.GetRequiredService<IOptions<ExternalSignInOptions>>().Value.Timeout)
+
+            // No redirects: every URL is checked for HTTPS before it is requested. The default proxy settings apply.
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false });
 
         serviceCollection.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<CleanupOptions>, CleanupOptionsValidator>());

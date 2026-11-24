@@ -15,7 +15,8 @@ const areas = [
     { path: '/groups', label: 'Groups', icon: 'groups', permission: 'groups.read', count: async () => (await api('GET', '/groups')).length },
     { path: '/roles', label: 'Roles', icon: 'roles', permission: 'roles.read', count: async () => (await api('GET', '/roles')).length },
     { path: '/clients', label: 'Clients', icon: 'clients', permission: 'clients.read', count: async () => (await api('GET', '/clients')).length },
-    { path: '/scopes', label: 'Scopes', icon: 'scopes', permission: 'scopes.read', count: async () => (await api('GET', '/scopes')).length }
+    { path: '/scopes', label: 'Scopes', icon: 'scopes', permission: 'scopes.read', count: async () => (await api('GET', '/scopes')).length },
+    { path: '/identity-providers', label: 'Identity providers', icon: 'signIn', permission: 'identity-providers.read', count: async () => (await api('GET', '/identity-providers')).length }
 ];
 
 // Failed events are what an administrator should look at: failed sign-ins, refused requests, reused tokens.

@@ -39,7 +39,7 @@ Outside development, Authora refuses to start with an HTTP Issuer, with `Allowed
 
 ### Nothing in the database is directly usable
 
-Passwords are hashed with PBKDF2-HMAC-SHA512 (210,000 iterations). Codes, tokens, Session tokens, the one-time tokens of email links and Client Secrets are random 256-bit values stored only as SHA-256 hashes. Signing keys are files, never in the database. A stolen backup therefore gives an attacker neither working tokens nor the ability to forge ID Tokens.
+Passwords are hashed with PBKDF2-HMAC-SHA512 (210,000 iterations). Codes, tokens, Session tokens, the one-time tokens of email links and Client Secrets are random 256-bit values stored only as SHA-256 hashes. The secrets of authenticator apps and the Client Secrets of external identity providers cannot be hashed, so they are encrypted with the Data Protection keys, which are not in the database. Signing keys are files, never in the database. A stolen backup therefore gives an attacker neither working tokens nor the ability to forge ID Tokens.
 
 ### Opaque Access Tokens
 
@@ -70,6 +70,16 @@ Every failed sign-in shows the same message, and unknown Emails still go through
 ### A second factor comes before the Session, not after
 
 Sign-in is built for a second factor: once a User has enrolled one, the correct password only starts a *pending sign-in*, a single-use, five-minute record bound to the User's security stamp, held in its own cookie. The browser gets a Session cookie only after the second factor, so there is never a half-authenticated Session that some page could forget to check. Wrong second factors count towards the same lockout as wrong passwords, and a correct password alone does not reset that count. A step-up of an existing Session and every completed sign-in issue a new Session token. Sensitive changes to the account, such as setting up or removing the authenticator app, require a recent authentication, and removing it also a current code. Codes of the authenticator app work once, so a phished code is useless after its first use. See [How a User signs in](tokens-and-sessions.md#how-a-user-signs-in).
+
+### An external identity provider is a first factor, nothing more
+
+Users can sign in through an external OpenID Connect provider, e.g. Google, once they have linked their account there. Authora is a Relying Party of the provider and implements that side itself rather than with ASP.NET Core's OpenID Connect handler, because providers are added and changed at runtime and must not become a third authentication scheme next to the Session cookie and the Access Token: a sign-in through a provider ends in an ordinary Authora Session, and Clients see no difference except `fed` in `amr`.
+
+The provider counts as the first factor, in place of the password. A User who enrolled a second factor still completes it, `acr` stays at the password level, and *Require MFA* on Clients and `Authora:Mfa:RequireForAdministrators` work unchanged, so linking a provider never weakens an account. The rules of a password sign-in apply too: a User who cannot sign in or is locked out is rejected.
+
+The flow is bound to the browser with `state`, a `nonce` and PKCE, kept in an encrypted, ten-minute, single-use cookie; the ID Token must be signed by a key of the provider and name the expected Issuer, Client and `nonce`. An account is identified by the provider's `sub`, never by its Email, so a provider that lets someone register any address cannot take over a User with that address. Accounts are only linked by a signed-in User with a recent authentication, and the response must arrive in the same Session, so a forged link response cannot attach an attacker's account to a victim. The Client Secret Authora got from the provider cannot be hashed, because it must be sent to the provider; it is encrypted with the Data Protection keys and never returned.
+
+Whoever holds `identity-providers.manage` can change the Issuer of a provider and so sign in as any User who linked an account there; treat it like the administrator Role. Signing out of Authora does not sign the User out of the provider.
 
 ### Password reset proves control of the mailbox, nothing more
 
@@ -128,5 +138,6 @@ Every change is recorded in the same transaction as the change itself, and event
 - `prompt=login` and `max_age` travel through the browser and can be stripped. Clients that need a recent sign-in must check `auth_time` themselves.
 - A script running on the admin interface could act as the signed-in administrator while the page is open, like on any web application. The Content Security Policy is what keeps such scripts out.
 - Someone with write access to the database can change audit events in the few seconds before they are sealed, or rebuild the whole chain. Only the checkpoints in a separate log system reveal a rebuilt chain.
+- A sign-in through an external identity provider is only as strong as the account there. Signing out of Authora leaves the User signed in at the provider, so on a shared computer the next person can sign in through it again with one click, unless the User also signs out there.
 
 The full list of unsupported features is in [Standards and limitations](../reference/standards.md#not-supported).

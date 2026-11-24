@@ -1,0 +1,58 @@
+@page "/account/security/external-accounts"
+@model Authora.Api.Pages.Account.ExternalAccountsModel
+@{
+    ViewData["Title"] = "Linked accounts";
+}
+
+<h1>Linked accounts</h1>
+
+@if (Model.StatusMessage is not null)
+{
+    <p class="success" role="status">@Model.StatusMessage</p>
+}
+
+<p>Sign in with an account you already have at another provider instead of your password. Your two-step verification still applies.</p>
+
+@if (Model.Accounts.Linked.Count > 0)
+{
+    <ul class="scopes external-accounts" aria-label="Your linked accounts">
+        @foreach (var account in Model.Accounts.Linked)
+        {
+            <li>
+                <strong>@account.ProviderName</strong>
+                @if (account.Email is not null)
+                {
+                    <span class="description">@account.Email</span>
+                }
+                <span class="description">
+                    Linked @account.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                    @(account.LastUsedAt is { } lastUsedAt ? $"last used {lastUsedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}" : "not used yet").
+                    @if (!account.IsProviderEnabled)
+                    {
+                        <text>Sign-in with it is turned off.</text>
+                    }
+                </span>
+                <form method="post" asp-page-handler="Unlink">
+                    <input type="hidden" name="ExternalIdentityId" value="@account.Id" />
+                    <button type="submit">Unlink</button>
+                </form>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p class="muted">No accounts are linked.</p>
+}
+
+@if (Model.Accounts.Available.Count > 0)
+{
+    <div class="providers">
+        @foreach (var provider in Model.Accounts.Available)
+        {
+            <a class="provider" href="@Authora.Api.Pages.Account.ExternalLinkModel.GetPath(provider.Slug)">Link @provider.Name</a>
+        }
+    </div>
+}
+
+<p class="muted"><a href="/account/security">Back</a></p>

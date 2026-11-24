@@ -113,6 +113,22 @@ Every endpoint above that ends Sessions revokes them explicitly, with the Grants
 
 Grant Types: `refresh_token` requires `authorization_code`. `client_credentials` lets the Client obtain Access Tokens for itself, without a User (see [`grant_type=client_credentials`](oauth-endpoints.md#grant-type-client-credentials)); it is never allowed by default, and only for Confidential Clients (`400` otherwise).
 
+## Identity providers
+
+External OpenID Connect providers through which Users with a linked account sign in, see [Add an external identity provider](../how-to/add-an-external-identity-provider.md). Client Secrets are stored encrypted and never returned; responses only say whether one is set (`hasClientSecret`).
+
+| Endpoint | Permission | Description |
+|---|---|---|
+| `GET /api/identity-providers` | `identity-providers.read` | List, in the order of the sign-in page (`sortOrder`, then `name`). |
+| `GET /api/identity-providers/{id}` | `identity-providers.read` | Details: `name`, `slug`, `preset`, `issuer`, `clientId`, `hasClientSecret`, `scopes`, `isEnabled`, `sortOrder`, `redirectUri` (to register at the provider), `linkedIdentities`. |
+| `POST /api/identity-providers` | `identity-providers.manage` | Create, with `name`, `slug` (lowercase letters, digits and hyphens, at most 50; cannot be changed, because it is part of the Redirect URI `{Issuer}/account/external/{slug}/callback`), `preset` (`Generic` or `Google`), `issuer` (required for `Generic`; `Google` always uses `https://accounts.google.com`), `clientId`, and optionally `clientSecret`, `scopes` (default `openid email profile`; `openid` is always added), `sortOrder` (default 0), `isEnabled` (default `true`). The discovery document of the Issuer is fetched once: `400` if it cannot be fetched, names another `issuer`, lacks an endpoint or key set, or the Issuer is not HTTPS. `409` for a used Slug. The response contains the `id` and the `redirectUri`. |
+| `PUT /api/identity-providers/{id}` | `identity-providers.manage` | Change `name`, `issuer` (not for `Google`), `clientId`, `scopes`, `sortOrder`; omitted or `null` members stay unchanged. A new Issuer is checked like on creation. |
+| `DELETE /api/identity-providers/{id}` | `identity-providers.manage` | Delete. `409` while accounts are linked through it: disable it instead, or have the Users unlink first. |
+| `POST /api/identity-providers/{id}/enable` | `identity-providers.manage` | Enable: shown on the sign-in page. |
+| `POST /api/identity-providers/{id}/disable` | `identity-providers.manage` | Disable: hidden, and sign-ins through it are rejected, also those already running. Linked accounts are kept. |
+| `PUT /api/identity-providers/{id}/secret` | `identity-providers.manage` | Set the Client Secret, body `{"clientSecret": "…"}` (at most 500 characters). |
+| `DELETE /api/identity-providers/{id}/secret` | `identity-providers.manage` | Remove the Client Secret: Authora then authenticates at the provider with its Client Id and PKCE only. |
+
 ## Audit log and health
 
 | Endpoint | Permission | Description |
@@ -133,10 +149,13 @@ All Permissions, as returned by `GET /api/permissions`. The System Role `admin` 
 | Permissions | `permissions.read` |
 | Scopes | `scopes.read`, `scopes.create`, `scopes.update`, `scopes.delete` |
 | Clients | `clients.read`, `clients.create`, `clients.update`, `clients.delete`, `clients.manage-secrets`, `clients.manage-first-party` |
+| Identity providers | `identity-providers.read`, `identity-providers.manage` |
 | Health | `health.read` |
 | Audit | `audit.read`, `audit.verify` |
 
 **`clients.manage-first-party` is equivalent to the administrator Role.** Whoever holds it can make a Client of their own first-party, so it skips the consent screen, and collect the Authorization Codes of any signed-in User, including an administrator, without the User noticing. Give it only to administrators.
+
+**`identity-providers.manage` decides who can sign in as a linked User.** Whoever holds it can point an existing provider at another Issuer they control and sign in as every User who linked an account there. Give it only to administrators.
 
 ## Nobody grants more than they hold
 

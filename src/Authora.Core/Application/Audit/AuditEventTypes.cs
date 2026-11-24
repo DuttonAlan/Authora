@@ -85,6 +85,32 @@ public static class AuditEventTypes
         ///     hour or the email could not be sent. The confirmation itself is <see cref="EmailVerified"/>.
         /// </summary>
         public const string EmailVerificationRequested = "account.email-verification-requested";
+
+        /// <summary>
+        ///     A sign-in or a link through an external identity provider failed before a User was signed in, e.g. a
+        ///     wrong <c>state</c>, an error of the provider, an invalid ID Token, an account that is not linked, or a
+        ///     User who cannot sign in. Recorded with <see cref="Domain.Enums.AuditOutcome.Failed"/>; the Target is the
+        ///     User if known, otherwise the provider; the Details name the provider and the reason, never tokens. A
+        ///     successful sign-in is a <see cref="SignIn"/> with method <c>fed</c>.
+        /// </summary>
+        public const string ExternalSignInFailed = "account.external-sign-in-failed";
+    }
+
+    /// <summary>
+    ///     Accounts at external identity providers linked to Users. The Target is the User; the Details name the
+    ///     provider and the identity by its Id, never the tokens of the provider.
+    /// </summary>
+    public static class ExternalIdentities
+    {
+        /// <summary>
+        ///     A signed-in User linked their account at a provider. From now on they can sign in through it.
+        /// </summary>
+        public const string Linked = "external-identity.linked";
+
+        /// <summary>
+        ///     A User removed the link to their account at a provider.
+        /// </summary>
+        public const string Unlinked = "external-identity.unlinked";
     }
 
     /// <summary>
@@ -405,6 +431,27 @@ public static class AuditEventTypes
         ///     still consider the User signed in.
         /// </summary>
         public const string BackchannelLogoutFailed = "client.backchannel-logout-failed";
+    }
+
+    /// <summary>
+    ///     Changes to external identity providers. The Details never contain the Client Secret.
+    /// </summary>
+    public static class IdentityProviders
+    {
+        /// <summary>An identity provider was created.</summary>
+        public const string Created = "identity-provider.created";
+
+        /// <summary>An identity provider was changed, including setting or removing its Client Secret.</summary>
+        public const string Updated = "identity-provider.updated";
+
+        /// <summary>An identity provider was deleted.</summary>
+        public const string Deleted = "identity-provider.deleted";
+
+        /// <summary>An identity provider was enabled; Users can sign in through it.</summary>
+        public const string Enabled = "identity-provider.enabled";
+
+        /// <summary>An identity provider was disabled; its linked identities are kept but cannot be used.</summary>
+        public const string Disabled = "identity-provider.disabled";
     }
 
     /// <summary>

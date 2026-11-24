@@ -79,4 +79,23 @@ public static class Pkce
 
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
+
+    /// <summary>
+    ///     Computes the S256 code challenge of a code verifier, for requests Authora itself sends, e.g. to an external
+    ///     identity provider.
+    /// </summary>
+    /// <param name="codeVerifier">A valid code verifier.</param>
+    /// <returns><c>BASE64URL(SHA256(code_verifier))</c>.</returns>
+    /// <exception cref="ArgumentException">Thrown when the code verifier is invalid.</exception>
+    public static string ComputeChallenge(string codeVerifier)
+    {
+        ArgumentNullException.ThrowIfNull(codeVerifier);
+
+        if (!IsValidCodeVerifier(codeVerifier))
+        {
+            throw new ArgumentException("The code verifier is invalid.", nameof(codeVerifier));
+        }
+
+        return Base64Url.EncodeToString(SHA256.HashData(Encoding.ASCII.GetBytes(codeVerifier)));
+    }
 }

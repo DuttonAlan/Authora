@@ -1,0 +1,9 @@
+@page "/account/external/{slug}"
+@model Authora.Api.Pages.Account.ExternalSignInModel
+@{
+    ViewData["Title"] = "Sign in";
+}
+
+<h1>Sign in</h1>
+<p class="error" role="alert">@Model.ErrorMessage</p>
+<p><a href="@Model.SignInUrl">Back to sign in</a></p>

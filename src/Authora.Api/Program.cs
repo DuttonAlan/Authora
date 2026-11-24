@@ -23,6 +23,7 @@ using Authora.Core.Application.Audit.Chain;
 using Authora.Core.Application.Authorization;
 using Authora.Core.Application.BackchannelLogout;
 using Authora.Core.Application.Email;
+using Authora.Core.Application.ExternalSignIn;
 using Authora.Core.Application.Mfa;
 using Authora.Core.Application.OAuth;
 using Authora.Core.Application.Oidc;
@@ -92,6 +93,10 @@ builder.Services.AddSingleton<AdminUiCookies>();
 // The secrets of authenticator apps are encrypted with the same keys, so the key ring must be kept and backed up.
 builder.Services.AddSingleton<ITotpSecretProtector, DataProtectionTotpSecretProtector>();
 
+// So are the Client Secrets of external identity providers, and the cookie of a sign-in through one.
+builder.Services.AddSingleton<IProviderSecretProtector, DataProtectionProviderSecretProtector>();
+builder.Services.AddSingleton<ExternalSignInCookie>();
+
 builder.Services.AddHsts(options =>
 {
     options.MaxAge = TimeSpan.FromDays(365);
@@ -126,6 +131,9 @@ builder.Services.AddOptions<BackchannelLogoutOptions>()
     .ValidateOnStart();
 builder.Services.AddOptions<SignInOptions>()
     .Bind(builder.Configuration.GetSection(SignInOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddOptions<ExternalSignInOptions>()
+    .Bind(builder.Configuration.GetSection(ExternalSignInOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddOptions<MfaOptions>()
     .Bind(builder.Configuration.GetSection(MfaOptions.SectionName))

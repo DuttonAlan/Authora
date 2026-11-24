@@ -13,6 +13,7 @@ import * as audit from './views/audit.js';
 import * as clients from './views/clients.js';
 import * as groups from './views/groups.js';
 import * as home from './views/home.js';
+import * as identityProviders from './views/identity-providers.js';
 import * as roles from './views/roles.js';
 import * as scopes from './views/scopes.js';
 import * as users from './views/users.js';
@@ -31,6 +32,8 @@ const routes = [
     { pattern: new RegExp(`^/scopes/${id}$`), view: scopes.detail, permission: 'scopes.read' },
     { pattern: /^\/clients$/, view: clients.list, permission: 'clients.read' },
     { pattern: new RegExp(`^/clients/${id}$`), view: clients.detail, permission: 'clients.read' },
+    { pattern: /^\/identity-providers$/, view: identityProviders.list, permission: 'identity-providers.read' },
+    { pattern: new RegExp(`^/identity-providers/${id}$`), view: identityProviders.detail, permission: 'identity-providers.read' },
     // Users who may only verify the chain see the page without the events.
     { pattern: /^\/audit$/, view: audit.list, permission: ['audit.read', 'audit.verify'] }
 ];
@@ -53,6 +56,7 @@ const navigation = [
     },
     {
         label: 'Security', items: [
+            { path: '/identity-providers', label: 'Identity providers', icon: 'signIn', permission: 'identity-providers.read' },
             { path: '/audit', label: 'Audit log', icon: 'audit', permission: ['audit.read', 'audit.verify'] }
         ]
     }

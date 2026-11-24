@@ -1,0 +1,9 @@
+@page "/account/security/external-accounts/link/{slug}"
+@model Authora.Api.Pages.Account.ExternalLinkModel
+@{
+    ViewData["Title"] = "Link an account";
+}
+
+<h1>Link an account</h1>
+<p class="error" role="alert">@Model.ErrorMessage</p>
+<p><a href="@Authora.Api.Pages.Account.ExternalAccountsModel.PagePath">Back</a></p>

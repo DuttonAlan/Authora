@@ -11,6 +11,7 @@ using Authora.Core.Domain.Entities;
 using Authora.Core.Domain.Enums;
 using Authora.Core.Domain.Mfa;
 using Authora.Infrastructure.BackchannelLogout;
+using Authora.Infrastructure.ExternalSignIn;
 using Authora.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Hosting;
@@ -78,6 +79,59 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
     ///     the tests; they send due notifications with <see cref="DeliverBackchannelLogoutsAsync"/>.
     /// </summary>
     public FakeBackchannelLogoutHandler BackchannelLogoutHandler { get; } = new();
+
+    /// <summary>
+    ///     Answers the requests of the Api to external identity providers. Tests create a provider each with
+    ///     <see cref="FakeOidcProviderHandler.Create"/>.
+    /// </summary>
+    public FakeOidcProviderHandler ExternalProviders { get; } = new();
+
+    /// <summary>
+    ///     Creates an enabled identity provider for a fake provider, like the admin API does.
+    /// </summary>
+    /// <param name="provider">The fake provider.</param>
+    /// <param name="name">The Name of the provider.</param>
+    /// <returns>The Id and the Slug of the provider.</returns>
+    public async Task<(Guid Id, string Slug)> CreateIdentityProviderAsync(FakeOidcProvider provider, string name = "Test IdP")
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+        var protector = scope.ServiceProvider.GetRequiredService<IProviderSecretProtector>();
+
+        var identityProvider = IdentityProvider.Create(name, $"idp-{Guid.NewGuid():N}"[..20], IdentityProviderPreset.Generic, provider.Issuer, provider.ClientId);
+        identityProvider.Enable();
+
+        if (provider.ClientSecret is not null)
+        {
+            identityProvider.SetProtectedClientSecret(protector.Protect(provider.ClientSecret));
+        }
+
+        context.IdentityProviders.Add(identityProvider);
+        await context.SaveChangesAsync();
+
+        return (identityProvider.Id, identityProvider.Slug);
+    }
+
+    /// <summary>
+    ///     Links an account at an identity provider to a User, like linking at <c>/account/security</c> does.
+    /// </summary>
+    /// <param name="userId">The Id of the User.</param>
+    /// <param name="providerId">The Id of the identity provider.</param>
+    /// <param name="subject">The Subject of the account at the provider.</param>
+    /// <returns>The Id of the link.</returns>
+    public async Task<Guid> LinkExternalIdentityAsync(Guid userId, Guid providerId, string subject)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthoraContext>();
+
+        var identity = ExternalIdentity.Create(userId, providerId, subject, null, DateTime.UtcNow);
+        context.ExternalIdentities.Add(identity);
+        await context.SaveChangesAsync();
+
+        return identity.Id;
+    }
 
     /// <summary>
     ///     Sends one batch of due back-channel logout notifications, like the background delivery does.
@@ -369,6 +423,11 @@ public sealed class AuthoraApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 && descriptor.ImplementationType == typeof(BackchannelLogoutDeliveryService)));
             services.AddHttpClient(BackchannelLogoutDeliverer.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => BackchannelLogoutHandler)
+                .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+
+            // Discovery, keys and tokens of external identity providers come from the fake.
+            services.AddHttpClient(OidcRelyingParty.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => ExternalProviders)
                 .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
         });
     }

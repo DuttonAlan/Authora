@@ -64,6 +64,16 @@ public sealed class AuthoraContext(DbContextOptions<AuthoraContext> options) : D
     public DbSet<PasskeyChallenge> PasskeyChallenges => Set<PasskeyChallenge>();
 
     /// <summary>
+    ///     The external OpenID Connect identity providers, with their encrypted Client Secrets.
+    /// </summary>
+    public DbSet<IdentityProvider> IdentityProviders => Set<IdentityProvider>();
+
+    /// <summary>
+    ///     The accounts at external identity providers linked to Users.
+    /// </summary>
+    public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
+
+    /// <summary>
     ///     The Sessions Table in the <c>auth</c> schema.
     /// </summary>
     public DbSet<Session> Sessions => Set<Session>();
