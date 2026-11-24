@@ -40,6 +40,7 @@ namespace Authora.Core.Application.ExternalSignIn.Complete;
 /// <param name="providerRepository">An Instance of a IIdentityProviderRepository to load the provider.</param>
 /// <param name="externalIdentityRepository">An Instance of a IExternalIdentityRepository to find and create links.</param>
 /// <param name="userRepository">An Instance of a IUserRepository to load and save the User.</param>
+/// <param name="mfaRepository">An Instance of a IMfaRepository for the lock of the User that a link shares with deleting the User.</param>
 /// <param name="sessionRepository">An Instance of a ISessionRepository to create the Session or check the Session of a link.</param>
 /// <param name="challengeRepository">An Instance of a ISignInChallengeRepository to create a pending sign-in.</param>
 /// <param name="secondFactors">The second factors, to check whether the User must complete one.</param>
@@ -57,6 +58,7 @@ public sealed class CompleteExternalSignInService(
     IIdentityProviderRepository providerRepository,
     IExternalIdentityRepository externalIdentityRepository,
     IUserRepository userRepository,
+    IMfaRepository mfaRepository,
     ISessionRepository sessionRepository,
     ISignInChallengeRepository challengeRepository,
     SecondFactorRegistry secondFactors,
@@ -296,6 +298,15 @@ public sealed class CompleteExternalSignInService(
             return await FailAsync(provider, provider.Slug, flow, session?.UserId, "The Session that started the link ended or is not the Session of the browser", cancellationToken);
         }
 
+        // The lock that deleting the User holds while it removes the links: a link saved after the deletion read them
+        // would outlive the User. Inside it, the User is checked again in the database.
+        await using var transaction = await mfaRepository.BeginMfaChangeAsync(user.Id, cancellationToken);
+
+        if (await userRepository.IsUserDeleted(user.Id, cancellationToken))
+        {
+            return await FailAsync(provider, provider.Slug, flow, user.Id, "The User was deleted", cancellationToken);
+        }
+
         var existing = await externalIdentityRepository.FindIdentity(provider.Id, claims.Subject, cancellationToken);
 
         if (existing is not null)
@@ -326,6 +337,8 @@ public sealed class CompleteExternalSignInService(
 
             return Result(ExternalSignInStatus.LinkConflict, provider, flow);
         }
+
+        await transaction.CommitAsync(cancellationToken);
 
         logger.ExternalIdentityLinked(user.Id, identity.Id, provider.Slug);
 

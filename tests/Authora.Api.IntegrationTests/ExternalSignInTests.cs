@@ -678,6 +678,70 @@ public sealed class ExternalSignInTests(AuthoraApiFactory factory) : IClassFixtu
         Assert.Throws<Core.Domain.Exceptions.DomainValidationException>(() => provider.SetIssuer("https://login.example.com"));
     }
 
+    [Fact]
+    public async Task HttpAuthorizationEndpoint_IsRejected_WhenSavedAndBeforeTheRedirect()
+    {
+        var provider = factory.ExternalProviders.Create();
+        provider.HttpAuthorizationEndpoint = true;
+        var token = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
+
+        using var create = await SendAdminAsync(HttpMethod.Post, "/api/identity-providers", token, new
+        {
+            name = "HTTP sign-in page",
+            slug = $"idp-{Guid.NewGuid():N}"[..20],
+            preset = "Generic",
+            issuer = provider.Issuer,
+            clientId = provider.ClientId
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+
+        // A provider whose document changed after it was saved.
+        var (_, slug) = await factory.CreateIdentityProviderAsync(provider);
+
+        using var start = await GetAsync(ExternalPath(slug), sessionToken: null);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, start.StatusCode);
+        Assert.Null(start.Headers.Location);
+        Assert.Null(ReadCookie(start, ExternalSignInCookie.Name));
+    }
+
+    [Fact]
+    public async Task OversizedKeySet_IsRejected()
+    {
+        var provider = factory.ExternalProviders.Create();
+        provider.KeySetPadding = 600 * 1024;
+        var token = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
+
+        using var create = await SendAdminAsync(HttpMethod.Post, "/api/identity-providers", token, new
+        {
+            name = "Huge key set",
+            slug = $"idp-{Guid.NewGuid():N}"[..20],
+            preset = "Generic",
+            issuer = provider.Issuer,
+            clientId = provider.ClientId
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+    }
+
+    [Fact]
+    public async Task Callback_IsRateLimited_AlsoForGet()
+    {
+        await using var limited = factory.WithWebHostBuilder(builder => builder.UseSetting("Authora:RateLimiting:SignInPermitsPerMinute", "1"));
+        using var client = limited.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = AuthoraApiFactory.BaseAddress, AllowAutoRedirect = false, HandleCookies = false });
+
+        using var first = await client.GetAsync($"{ExternalPath("unknown")}/callback?state=x&code=y", TestContext.Current.CancellationToken);
+        using var second = await client.GetAsync($"{ExternalPath("unknown")}/callback?state=x&code=y", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+
+        // The sign-in page itself is still only limited for POST.
+        using var login = await client.GetAsync(SessionAuthenticationHandler.SignInPath, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
     private static string ExternalPath(string slug) => $"/account/external/{slug}";
 
     private async Task<(Uri AuthorizationUrl, string FlowCookie, HttpResponseMessage Response)> StartAsync(string slug, string returnUrl)

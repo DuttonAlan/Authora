@@ -32,23 +32,24 @@ internal sealed class HttpClientDocumentRetriever(IHttpClientFactory httpClientF
             throw new ExternalSignInException($"The URL '{address}' of the provider does not use HTTPS.");
         }
 
+        // One deadline for the headers and the body: HttpClient.Timeout ends with the headers of a streamed response.
+        using var deadline = BoundedResponse.CreateDeadline(options.Value.Timeout, cancel);
         using var http = httpClientFactory.CreateClient(OidcRelyingParty.HttpClientName);
-        using var response = await http.GetAsync(new Uri(address), HttpCompletionOption.ResponseHeadersRead, cancel);
 
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            throw new ExternalSignInException($"'{address}' returned {(int)response.StatusCode}.");
-        }
+            using var response = await http.GetAsync(new Uri(address), HttpCompletionOption.ResponseHeadersRead, deadline.Token);
 
-        if (response.Content.Headers.ContentLength > MaxDocumentLength)
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new ExternalSignInException($"'{address}' returned {(int)response.StatusCode}.");
+            }
+
+            return await BoundedResponse.ReadAsStringAsync(response.Content, MaxDocumentLength, deadline.Token);
+        }
+        catch (OperationCanceledException exception) when (!cancel.IsCancellationRequested)
         {
-            throw new ExternalSignInException($"'{address}' returned a document larger than {MaxDocumentLength} bytes.");
+            throw new ExternalSignInException($"'{address}' did not answer within {options.Value.Timeout}.", exception);
         }
-
-        var document = await response.Content.ReadAsStringAsync(cancel);
-
-        return document.Length > MaxDocumentLength
-            ? throw new ExternalSignInException($"'{address}' returned a document larger than {MaxDocumentLength} bytes.")
-            : document;
     }
 }

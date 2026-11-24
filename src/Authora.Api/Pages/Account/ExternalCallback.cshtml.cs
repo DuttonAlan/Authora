@@ -34,7 +34,7 @@ namespace Authora.Api.Pages.Account;
 /// <param name="signOutService">The Service to end the previous Session of the browser.</param>
 /// <param name="flowCookie">The cookie of the running flow.</param>
 /// <param name="signInOptions">The sign-in settings with the lifetime of a pending sign-in.</param>
-[EnableRateLimiting(RateLimitPolicies.SignIn)]
+[EnableRateLimiting(RateLimitPolicies.ExternalSignIn)]
 public sealed class ExternalCallbackModel(
     CompleteExternalSignInService completeService,
     SignOutService signOutService,

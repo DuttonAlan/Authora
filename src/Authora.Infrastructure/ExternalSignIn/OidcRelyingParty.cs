@@ -110,7 +110,7 @@ public sealed class OidcRelyingParty(
             throw Unreachable(issuer, exception);
         }
 
-        EnsureUsable(issuer, configuration);
+        EnsureUsable(issuer, configuration, options.Value);
 
         if (configuration.ResponseTypesSupported.Count > 0 && !configuration.ResponseTypesSupported.Contains("code"))
         {
@@ -188,7 +188,7 @@ public sealed class OidcRelyingParty(
         return $"{issuer.TrimEnd('/')}/.well-known/openid-configuration";
     }
 
-    private static void EnsureUsable(string issuer, OpenIdConnectConfiguration configuration)
+    private static void EnsureUsable(string issuer, OpenIdConnectConfiguration configuration, ExternalSignInOptions settings)
     {
         // OpenID Connect Discovery 1.0, Section 4.3: the document must name exactly the Issuer it was fetched for.
         if (!string.Equals(configuration.Issuer, issuer, StringComparison.Ordinal))
@@ -201,6 +201,15 @@ public sealed class OidcRelyingParty(
             || string.IsNullOrEmpty(configuration.JwksUri))
         {
             throw new ExternalSignInException("The discovery document lacks the authorization endpoint, the token endpoint or the key set.");
+        }
+
+        // Checked on every use, not only when the provider is saved: the document may change afterwards. An HTTP
+        // authorization endpoint would show the User the provider's sign-in page without TLS.
+        if (!IsAllowedUrl(configuration.AuthorizationEndpoint, settings)
+            || !IsAllowedUrl(configuration.TokenEndpoint, settings)
+            || !IsAllowedUrl(configuration.JwksUri, settings))
+        {
+            throw new ExternalSignInException("The authorization endpoint, the token endpoint or the key set of the provider does not use HTTPS.");
         }
     }
 
@@ -243,7 +252,7 @@ public sealed class OidcRelyingParty(
             throw Unreachable(issuer, exception);
         }
 
-        EnsureUsable(issuer, configuration);
+        EnsureUsable(issuer, configuration, options.Value);
 
         return configuration;
     }
@@ -291,14 +300,17 @@ public sealed class OidcRelyingParty(
         request.Content = new FormUrlEncodedContent(form);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
+        // One deadline for the headers and the body: HttpClient.Timeout ends with the headers of a streamed response.
+        using var deadline = BoundedResponse.CreateDeadline(options.Value.Timeout, cancellationToken);
         using var http = httpClientFactory.CreateClient(HttpClientName);
         HttpResponseMessage response;
+        string body;
 
         try
         {
-            response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException && !cancellationToken.IsCancellationRequested)
         {
             logger.TokenRequestFailed(redemption.Issuer, exception);
 
@@ -307,16 +319,15 @@ public sealed class OidcRelyingParty(
 
         using (response)
         {
-            if (response.Content.Headers.ContentLength > MaxTokenResponseLength)
+            try
             {
-                throw new ExternalSignInException("The token response is too large.");
+                body = await BoundedResponse.ReadAsStringAsync(response.Content, MaxTokenResponseLength, deadline.Token);
             }
-
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (body.Length > MaxTokenResponseLength)
+            catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException && !cancellationToken.IsCancellationRequested)
             {
-                throw new ExternalSignInException("The token response is too large.");
+                logger.TokenRequestFailed(redemption.Issuer, exception);
+
+                throw new ExternalSignInException($"The token response could not be read within {options.Value.Timeout}.", exception);
             }
 
             JsonElement json;

@@ -119,7 +119,17 @@ public sealed class FakeOidcProvider
     /// <summary>
     ///     The authorization endpoint.
     /// </summary>
-    public string AuthorizationEndpoint => $"{Issuer}/authorize";
+    public string AuthorizationEndpoint => HttpAuthorizationEndpoint ? $"http://{new Uri(Issuer).Host}/authorize" : $"{Issuer}/authorize";
+
+    /// <summary>
+    ///     Whether the discovery document names an authorization endpoint with plain HTTP.
+    /// </summary>
+    public bool HttpAuthorizationEndpoint { get; set; }
+
+    /// <summary>
+    ///     Bytes of padding added to the key set, e.g. to make it larger than Authora accepts.
+    /// </summary>
+    public int KeySetPadding { get; set; }
 
     /// <summary>
     ///     Signs in an account at the provider for an authorization request, like the provider's own pages do.
@@ -213,8 +223,7 @@ public sealed class FakeOidcProvider
     private Dictionary<string, object> KeySet()
     {
         var parameters = SigningKey.Parameters;
-
-        return new Dictionary<string, object>
+        var keySet = new Dictionary<string, object>
         {
             ["keys"] = new[]
             {
@@ -229,6 +238,13 @@ public sealed class FakeOidcProvider
                 }
             }
         };
+
+        if (KeySetPadding > 0)
+        {
+            keySet["padding"] = new string('x', KeySetPadding);
+        }
+
+        return keySet;
     }
 
     private async Task<HttpResponseMessage> TokenAsync(HttpRequestMessage request, CancellationToken cancellationToken)

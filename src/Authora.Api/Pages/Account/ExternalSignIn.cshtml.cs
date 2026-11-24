@@ -24,7 +24,7 @@ namespace Authora.Api.Pages.Account;
 /// </remarks>
 /// <param name="startService">The Service to create the authorization request.</param>
 /// <param name="flowCookie">The cookie that keeps the flow until the response arrives.</param>
-[EnableRateLimiting(RateLimitPolicies.SignIn)]
+[EnableRateLimiting(RateLimitPolicies.ExternalSignIn)]
 public sealed class ExternalSignInModel(StartExternalSignInService startService, ExternalSignInCookie flowCookie) : PageModel
 {
     /// <summary>
