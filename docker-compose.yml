@@ -38,7 +38,7 @@ services:
   # Catches every email Authora sends; read them at http://localhost:8025. Requires STARTTLS with the certificate
   # from ./secrets, like a real mail server outside Development.
   mailpit:
-    image: axllent/mailpit:v1.33.0
+    image: axllent/mailpit:v1.34.0
     environment:
       MP_SMTP_TLS_CERT: /run/mailpit/tls.crt
       MP_SMTP_TLS_KEY: /run/mailpit/tls.key
