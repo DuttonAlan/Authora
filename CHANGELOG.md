@@ -6,32 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-24
+
 ### Upgrading
 
-- Stop all instances before applying the new migrations `BackchannelLogout`, `ExternalIdentityProviders` and `AccountLinking` (see [Upgrade Authora](docs/how-to/upgrade-authora.md)). Sessions started before the upgrade end; Users sign in again.
-- **Signing out now revokes tokens.** Ending a Session on purpose revokes the Grants approved in it, with their Access and Refresh Tokens, for every Client: signing out at `/account/logout` or `/oauth/logout`, and the paths that already ended all Sessions (password change and reset, removing a second factor, and the admin API's revoke sessions, deactivate, delete, set password, reset MFA and remove passkey). Applications that kept using their Refresh Token after the User signed out of Authora have to send the User through Authora again. Grants from before the upgrade are not tied to a Session and are not revoked by a sign-out.
-- Instances now send HTTPS requests to the Back-Channel Logout URIs of Clients: allow that outgoing traffic, and make sure the certificates of those URIs are trusted on the host.
-- **The Data Protection keys now also protect the Client Secrets of external identity providers.** Keep persisting and backing them up (`Authora:DataProtection:KeysPath`, see [Persist Data Protection keys](docs/how-to/persist-data-protection-keys.md)): without them, every identity provider fails until its Client Secret is set again.
-- If you add identity providers, instances send HTTPS requests to them (discovery, keys, token endpoint): allow that outgoing traffic.
+- Stop all instances before applying the three new migrations `BackchannelLogout`, `ExternalIdentityProviders` and `AccountLinking` (see [Upgrade Authora](docs/how-to/upgrade-authora.md)). Sessions started before the upgrade end; Users sign in again.
+- **Signing out now revokes tokens** (see *Changed*): applications that kept using their Refresh Token after the User signed out of Authora have to send the User through Authora again. Grants from before the upgrade are not tied to a Session and are not revoked by a sign-out.
+- The Data Protection keys now also encrypt the Client Secrets of external identity providers: keep persisting them (`Authora:DataProtection:KeysPath`) and include them in your backups, or every identity provider fails until its Client Secret is set again. See [Persist Data Protection keys](docs/how-to/persist-data-protection-keys.md).
+- Instances now send HTTPS requests to the Back-Channel Logout URIs of Clients and to the identity providers you add (discovery, keys, token endpoint): allow that outgoing traffic, and make sure the certificates of the Back-Channel Logout URIs are trusted on the host.
 
-New settings, audit and log events are listed in the [OpenID Connect](docs/reference/openid-connect.md#back-channel-logout), [configuration](docs/reference/configuration.md#back-channel-logout), [audit events](docs/reference/audit-events.md) and [log events](docs/reference/log-events.md#back-channel-logout) references.
+New pages, endpoints, settings, audit events and log events are listed in the [OpenID Connect](docs/reference/openid-connect.md), [admin API](docs/reference/admin-api.md), [configuration](docs/reference/configuration.md), [audit events](docs/reference/audit-events.md) and [log events](docs/reference/log-events.md) references.
 
 ### Added
 
-- Back-channel logout ([OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html), [#54](https://github.com/DuttonAlan/Authora/issues/54)): Clients register a Back-Channel Logout URI in the admin API or interface and receive a signed Logout Token when a Session ends in which they got tokens. Notifications are kept in a database outbox, survive restarts, are sent by any instance and retried with a growing delay (`Authora:BackchannelLogout`). Discovery advertises `backchannel_logout_supported` and `backchannel_logout_session_supported`. See [Receive back-channel logout](docs/how-to/receive-back-channel-logout.md).
-- `sid` in ID Tokens: a random Session ID that Logout Tokens repeat.
-- Audit event `client.backchannel-logout-failed`, log events 18001 and 18011 – 18015.
+- Back-channel logout ([OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html), [#54](https://github.com/DuttonAlan/Authora/issues/54)): Clients with a Back-Channel Logout URI receive a signed Logout Token when a Session in which they got tokens is ended, sent from a database outbox with retries. ID Tokens contain `sid`. See [Receive back-channel logout](docs/how-to/receive-back-channel-logout.md).
+- Sign-in through external OpenID Connect identity providers, generic or with a preset for Google ([#52](https://github.com/DuttonAlan/Authora/issues/52)), managed in the admin API and interface (new Permissions `identity-providers.read` and `identity-providers.manage`). The provider is a first factor: Users with a second factor still complete it, and Clients see `fed` in `amr`. Signed-in Users link and unlink accounts at `/account/security/external-accounts`. See [Sign in with Google](docs/how-to/sign-in-with-google.md) and [Add an external identity provider](docs/how-to/add-an-external-identity-provider.md).
+- Account linking and just-in-time provisioning ([#53](https://github.com/DuttonAlan/Authora/issues/53)): an account at a provider with the verified Email of a User is linked only after the person signs in to that User with its existing methods; a matching Email alone never links. Providers can let people sign up (off by default), optionally only from allowed Email domains, and add new Users to default Groups. See [Let people sign up](docs/how-to/add-an-external-identity-provider.md#let-people-sign-up).
+- Users without a password, who sign in through a provider and can set a password at `/account/password`; `hasPassword` in the admin API's Users.
+- Admin API and interface: see and remove a User's linked accounts.
 - The conformance workflow also runs the OpenID Foundation's Back-Channel Logout OP test plan.
-- Sign-in through external OpenID Connect identity providers ([#52](https://github.com/DuttonAlan/Authora/issues/52)), generic or with a preset for Google: administrators manage them in the admin API (`/api/identity-providers`, Permissions `identity-providers.read` and `identity-providers.manage`) and the admin interface; the sign-in page shows a button per enabled provider. Authora is the Relying Party (Authorization Code flow with `state`, `nonce` and PKCE; ID Tokens verified against the provider's keys) and signs the User in to an ordinary Session, so Clients see no difference except `fed` in `amr`. The provider is a first factor: Users with a second factor still complete it. Signed-in Users link and unlink accounts at `/account/security/external-accounts`. Client Secrets are encrypted with Data Protection and never returned. New settings `Authora:ExternalSignIn:AllowHttp` and `Timeout`. See [Sign in with Google](docs/how-to/sign-in-with-google.md) and [Add an external identity provider](docs/how-to/add-an-external-identity-provider.md).
-- Audit events `account.external-sign-in-failed`, `external-identity.linked`, `external-identity.unlinked` and `identity-provider.created`, `.updated`, `.deleted`, `.enabled`, `.disabled`; log events 19001 – 19007, 20001 – 20010 and 20021 – 20022.
-
-- Account linking and just-in-time provisioning for external identity providers ([#53](https://github.com/DuttonAlan/Authora/issues/53)). An account at a provider with the verified Email of a User is linked only after the person signs in to that User with its existing methods (password and second factor), at the prompt "An account with this email already exists. Sign in to link it."; a matching Email alone never links. Providers can allow sign-up (`allowSignUp`, off by default) for verified Emails, optionally only from `allowedEmailDomains` (required for Google and checked against the Workspace domain `hd`), and add new Users to `defaultGroupIds`. See [Let people sign up](docs/how-to/add-an-external-identity-provider.md#let-people-sign-up).
-- Users without a password: Users who signed up through a provider sign in through it, set a password at `/account/password` after a recent sign-in (or with *Forgot password?*), and cannot unlink their last account at an enabled provider. `GET /api/users` and `GET /api/users/{id}` return `hasPassword`.
-- Admin API and interface: see a User's linked accounts (`GET /api/users/{id}/external-identities`, `users.read`) and remove one (`DELETE /api/users/{id}/external-identities/{identityId}`, `users.manage-access`); existing Sessions stay.
-- Audit event `user.provisioned`; `external-identity.linked` names how (`via account page`, `via sign-in prompt`), `external-identity.unlinked` by whom. Log events 5027 and 20011 – 20016. Cookie `__Host-authora_external_link` and page `/account/security/external-accounts/complete`.
 
 ### Changed
 
+- Ending a Session on purpose (signing out at `/account/logout` or `/oauth/logout`, password change and reset, removing a second factor, and the admin API's revoke sessions, deactivate, delete, set password, reset MFA and remove passkey) revokes the Grants approved in it, with their Access and Refresh Tokens, for every Client.
 - The token endpoint holds a lock on the Session while it creates a Grant from a code, so a sign-out at the same time cannot miss the new Grant.
 - The password hash of a deleted User is now removed (`null`) instead of replaced by a placeholder.
 
@@ -124,7 +121,8 @@ First public version.
 - Container images for the server and the database migrations, and a Docker Compose setup for local evaluation.
 - Documentation following Diátaxis: tutorials, how-to guides, reference and explanation.
 
-[Unreleased]: https://github.com/DuttonAlan/Authora/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/DuttonAlan/Authora/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/DuttonAlan/Authora/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/DuttonAlan/Authora/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DuttonAlan/Authora/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/DuttonAlan/Authora/releases/tag/v0.1.0

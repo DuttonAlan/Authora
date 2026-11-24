@@ -4,9 +4,9 @@
 import { withBase } from 'vitepress'
 
 const notSupported = [
-  'Multi-factor authentication and passkeys',
-  'Self-registration and password reset by users',
-  'Sign-in through Google or other identity providers',
+  'Self-registration with a password',
+  'Passwordless sign-in with a passkey',
+  'JWT and audience-restricted Access Tokens',
   'Front-channel logout and session management',
   'Dynamic Client registration',
 ]
