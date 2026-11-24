@@ -366,7 +366,7 @@ public sealed class ResourceIndicatorTests(AuthoraApiFactory factory) : IClassFi
         Assert.True(client.GetProperty("requiresResourceIndicator").GetBoolean());
 
         var details = await GetAuditDetailsAsync(clientId, AuditEventTypes.Clients.Updated);
-        Assert.Contains($"Resource Identifier '{identifier}', resource parameter required", details, StringComparison.Ordinal);
+        Assert.Contains($"resource parameter required, Resource Identifier '{identifier}'", details, StringComparison.Ordinal);
 
         // Unique among all Clients.
         var otherId = await CreateServiceAsync();
@@ -385,6 +385,58 @@ public sealed class ResourceIndicatorTests(AuthoraApiFactory factory) : IClassFi
         client = await GetClientAsync(clientId, adminToken);
         Assert.Equal(JsonValueKind.Null, client.GetProperty("resourceIdentifier").ValueKind);
         Assert.False(client.GetProperty("requiresResourceIndicator").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AdminApi_LongUris_AuditDetailsKeepTheApiSettings()
+    {
+        var adminToken = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
+        var clientId = await CreateServiceAsync();
+        var host = $"https://{Guid.NewGuid():N}.example.com/";
+        var identifier = host + new string('r', 1900);
+        var logoutUri = host + new string('b', 1900);
+
+        using (var response = await SendAdminAsync(HttpMethod.Put, $"/api/clients/{clientId}", adminToken, new
+        {
+            backchannelLogoutUri = logoutUri,
+            resourceIdentifier = identifier,
+            requiresResourceIndicator = true
+        }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        }
+
+        var details = await GetAuditDetailsAsync(clientId, AuditEventTypes.Clients.Updated);
+
+        Assert.Contains($"resource parameter required, Resource Identifier '{identifier[..300]}…' (shortened)", details, StringComparison.Ordinal);
+        Assert.Contains($"Back-Channel Logout URI '{logoutUri[..300]}…' (shortened)", details, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AdminApi_ConcurrentClearAndRequire_NeverRequireWithoutIdentifier()
+    {
+        var adminToken = await factory.IssueAccessTokenAsync(await factory.CreateAdministratorAsync(), [AdminApiScope.Name]);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var (_, clientId) = await CreateApiAsync([], requiresResourceIndicator: false);
+
+            var clear = SendAdminAsync(HttpMethod.Put, $"/api/clients/{clientId}", adminToken, new { resourceIdentifier = string.Empty });
+            var require = SendAdminAsync(HttpMethod.Put, $"/api/clients/{clientId}", adminToken, new { requiresResourceIndicator = true });
+
+            using var cleared = await clear;
+            using var required = await require;
+
+            // Either order is fine; requiring after the clear fails with 400 instead of saving an inconsistent Client.
+            Assert.Equal(HttpStatusCode.NoContent, cleared.StatusCode);
+            Assert.Contains(required.StatusCode, new[] { HttpStatusCode.NoContent, HttpStatusCode.BadRequest });
+
+            var client = await GetClientAsync(clientId, adminToken);
+            Assert.False(
+                client.GetProperty("requiresResourceIndicator").GetBoolean()
+                    && client.GetProperty("resourceIdentifier").ValueKind == JsonValueKind.Null,
+                "The resource parameter is required, but the Client has no Resource Identifier.");
+        }
     }
 
     [Theory]

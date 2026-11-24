@@ -71,6 +71,34 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
     }
 
     /// <inheritdoc/>
+    public async Task<ITransaction> BeginApiSettingsChangeAsync(Guid clientId, CancellationToken cancellationToken = default)
+    {
+        // Without the lock, clearing the Resource Identifier and requiring the resource parameter at the same time
+        // could both pass their checks and save a Client that requires a parameter nobody can name it with.
+        var transaction = context.Database.CurrentTransaction is null
+            ? await context.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        try
+        {
+            await context.Database.ExecuteSqlAsync(
+                $"SELECT pg_advisory_xact_lock({AdvisoryLockKeys.ApiSettings}, {LockKey(clientId)})",
+                cancellationToken);
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+
+            throw;
+        }
+
+        return transaction is null ? JoinedTransaction.Instance : new EfTransaction(transaction);
+    }
+
+    /// <inheritdoc/>
     public async Task<Client?> GetEnabledApiByResourceIdentifier(string resourceIdentifier, CancellationToken cancellationToken = default)
     {
         return await context.Clients
@@ -141,5 +169,23 @@ public sealed class ClientRepository(AuthoraContext context) : IClientRepository
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    ///     The second key of the API settings lock, derived from the Client's Id.
+    /// </summary>
+    private static int LockKey(Guid clientId)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        clientId.TryWriteBytes(bytes);
+
+        var key = 17;
+
+        for (var offset = 0; offset < bytes.Length; offset += sizeof(int))
+        {
+            key = (key * 31) ^ BitConverter.ToInt32(bytes[offset..]);
+        }
+
+        return key;
     }
 }

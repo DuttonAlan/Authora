@@ -52,6 +52,14 @@ public sealed class UpdateClientService(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        // The Resource Identifier and RequiresResourceIndicator are checked against each other, and each request
+        // writes only what it changed. Locked before loading, so concurrent changes see each other's saved values.
+        var changesApiSettings = request.ResourceIdentifier is not null || request.RequiresResourceIndicator is not null;
+
+        await using var transaction = changesApiSettings
+            ? await clientRepository.BeginApiSettingsChangeAsync(id, cancellationToken)
+            : null;
+
         var client = await clientRepository.GetClientById(id, cancellationToken)
             ?? throw new NotFoundException($"Client '{id}' was not found.");
 
@@ -105,24 +113,48 @@ public sealed class UpdateClientService(
             client.SetRequiresResourceIndicator(requiresResourceIndicator);
         }
 
-        var backchannelLogout = client.BackchannelLogoutUri is null
-            ? "no Back-Channel Logout URI"
-            : $"Back-Channel Logout URI '{client.BackchannelLogoutUri}'";
-
-        var resource = client.ResourceIdentifier is null
-            ? "no Resource Identifier"
-            : $"Resource Identifier '{client.ResourceIdentifier}', resource parameter {(client.RequiresResourceIndicator ? "required" : "optional")}";
-
-        auditLog.Record(AuditEntry.ForClient(
-            AuditEventTypes.Clients.Updated,
-            client.Id,
-            $"Name '{client.Name}', {backchannelLogout}, {resource}"));
+        auditLog.Record(AuditEntry.ForClient(AuditEventTypes.Clients.Updated, client.Id, GetUpdatedDetails(client)));
 
         // Only changed values are written; ModifiedAt is set when saving.
         await clientRepository.SaveChangesAsync(cancellationToken);
 
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         logger.ClientUpdated(client.Id, client.Name);
     }
+
+    /// <summary>
+    ///     The Details of <see cref="AuditEventTypes.Clients.Updated"/>. Both URIs may be 2048 characters long, more than
+    ///     <see cref="AuditEvent.DetailsMaxLength"/>, so each is shortened visibly to <see cref="MaxAuditedUriLength"/>,
+    ///     and the short settings come first. Name (at most 100) and the fixed text fit with both shortened URIs.
+    /// </summary>
+    private static string GetUpdatedDetails(Client client)
+    {
+        var resource = client.ResourceIdentifier is null
+            ? "no Resource Identifier"
+            : $"resource parameter {(client.RequiresResourceIndicator ? "required" : "optional")}, Resource Identifier {Quote(client.ResourceIdentifier)}";
+
+        var backchannelLogout = client.BackchannelLogoutUri is null
+            ? "no Back-Channel Logout URI"
+            : $"Back-Channel Logout URI {Quote(client.BackchannelLogoutUri)}";
+
+        return $"Name '{client.Name}', {resource}, {backchannelLogout}";
+    }
+
+    private static string Quote(string uri)
+    {
+        return uri.Length <= MaxAuditedUriLength
+            ? $"'{uri}'"
+            : $"'{uri[..MaxAuditedUriLength]}…' (shortened)";
+    }
+
+    /// <summary>
+    ///     The longest URI recorded in full in the audit Details.
+    /// </summary>
+    private const int MaxAuditedUriLength = 300;
 
     private async Task SetResourceIdentifierAsync(Client client, string identifier, CancellationToken cancellationToken)
     {

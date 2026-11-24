@@ -54,6 +54,17 @@ public interface IClientRepository
     public Task<Guid?> GetEnabledPublicClientIdByRedirectUri(string redirectUri, CancellationToken cancellationToken = default);
 
     /// <summary>
+    ///     Starts the transaction for changing the API settings of a Client (<see cref="Client.ResourceIdentifier"/> and
+    ///     <see cref="Client.RequiresResourceIndicator"/>) and locks them until the transaction ends, so that concurrent
+    ///     changes run one after the other and each checks the other setting as saved. Load the Client after this call.
+    ///     Joins the transaction of the request if there is one.
+    /// </summary>
+    /// <param name="clientId">Id of the Client.</param>
+    /// <param name="cancellationToken">CancellationToken to cancel the request.</param>
+    /// <returns>The transaction. Committing a joined transaction is left to its owner.</returns>
+    public Task<ITransaction> BeginApiSettingsChangeAsync(Guid clientId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     ///     Gets the enabled Confidential Client with exactly the given Resource Identifier, including its served Scopes.
     /// </summary>
     /// <param name="resourceIdentifier">The Resource Identifier, compared character by character.</param>
